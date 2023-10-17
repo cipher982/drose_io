@@ -1,0 +1,77 @@
+body {
+    font-family: "Roboto", sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background-color: #663399;
+    padding: 20px 0;
+    text-align: center;
+    color: #fff;
+}
+
+header img {
+    width: 150px; /* Adjust as needed */
+    border-radius: 50%;
+}
+
+.links {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    padding: 20px;
+}
+
+.link {
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+    padding: 10px;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    margin: 10px;
+    background-color: #663399;  /* Added this line for the purple background */
+    color: #fff;  /* Adjust text color to white for better readability */
+    cursor: pointer;
+}
+
+.link h2 {
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.link a {
+    text-decoration: none;
+    color: #fff;
+    display: block;  /* Makes the entire block clickable */
+    padding: 10px;  /* Adds some padding to the clickable area for */
+}
+
+.link:hover {
+    background-color: #7D4B99;  /* A shade lighter than #663399 for a hover effect */
+}
+
+.link img {
+    width: 100px;  /* Adjust as needed */
+    height: 100px; /* This ensures all images have the same height */
+    object-fit: contain;  /* Retains aspect ratio without stretching */
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+footer {
+    background-color: #663399;
+    color: #fff;
+    text-align: center;
+    padding: 10px 0;
+}
+
+footer a {
+    color: #fff;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 10px;
+}
