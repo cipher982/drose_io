@@ -68,15 +68,26 @@ header img {
 
 .code-container {
     font-family: "Courier New", monospace;
+    font-size: var(0.875em);
     background-color: #663399;
     color: #fff;
     padding: 10px;
     border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.3s;
-    height: calc(1em * 10); /* Assuming each line is 1em in height */
-    overflow-y: auto; /* Enable vertical scrolling */
-    margin-bottom: 20px; /* Adjust as needed */
+    height: calc(10em); /* Adjust this value as needed */
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.code-container > :first-child {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.code-container > :last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 .code-container::-webkit-scrollbar {

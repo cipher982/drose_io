@@ -5,34 +5,46 @@ document.addEventListener("DOMContentLoaded", function() {
 const codeContent = document.documentElement.outerHTML;
 let index = 0;
 const codeElement = document.getElementById("codeSnippet");
-const lineLimit = 9;
+const lineLimit = 10;
 let currentLines = 0;
+let buffer = '';
+let delay = 5; // delay in milliseconds
+let lastCallTime;
 
-function typeCode() {
-    if (index < codeContent.length) {
+
+function typeCode(currentTime) {
+    if (index >= codeContent.length) return;
+    
+    if (!lastCallTime || currentTime - lastCallTime >= delay) {
         const char = codeContent.charAt(index);
-
         if (char === '\n') {
             currentLines++;
         }
 
+        buffer += char;
+
         if (currentLines > lineLimit) {
-            // Remove the first line from the text content
-            const firstNewLineIndex = codeElement.textContent.indexOf('\n') + 1;
-            codeElement.textContent = codeElement.textContent.substring(firstNewLineIndex);
-            currentLines--;  // Adjust the line count after removing a line
+            const firstNewLineIndex = buffer.indexOf('\n') + 1;
+            buffer = buffer.substring(firstNewLineIndex);
+            currentLines--;
         }
 
-        codeElement.textContent += char;
-        index++;
-        setTimeout(typeCode, 50);
+        // Directly update DOM in one go
+        codeElement.textContent = buffer;
 
         // Scroll to the bottom
         codeElement.parentElement.scrollTop = codeElement.parentElement.scrollHeight;
+
+        index++;
+        lastCallTime = currentTime;
     }
+
+    // Use requestAnimationFrame for smoother experience
+    requestAnimationFrame(typeCode);
 }
 
-typeCode();
+// Kickstart the animation
+requestAnimationFrame(typeCode);
 
 codeElement.addEventListener("click", function() {
     window.location.href = "https://github.com/cipher982/drose_io";
