@@ -68,7 +68,7 @@ header img {
 
 .code-container {
     font-family: "Courier New", monospace;
-    font-size: var(0.875em);
+    font-size: 0.875em;
     background-color: #663399;
     color: #fff;
     padding: 10px;
