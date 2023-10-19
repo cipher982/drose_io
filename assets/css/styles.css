@@ -1,3 +1,7 @@
+body, header, .links, .link, footer {
+    border-radius: 5px;
+}
+
 body {
     font-family: "Roboto", sans-serif;
     background-color: #f4f4f4;
@@ -60,6 +64,32 @@ header img {
     display: block;
     margin-left: auto;
     margin-right: auto;
+}
+
+.code-container {
+    font-family: "Courier New", monospace;
+    background-color: #663399;
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    height: calc(1em * 10); /* Assuming each line is 1em in height */
+    overflow-y: auto; /* Enable vertical scrolling */
+    margin-bottom: 20px; /* Adjust as needed */
+}
+
+.code-container::-webkit-scrollbar {
+    display: none;
+}
+
+.code-container {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.code-container:hover {
+    background-color: #7D4B99;
 }
 
 footer {
