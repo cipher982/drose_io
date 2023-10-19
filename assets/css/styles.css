@@ -66,6 +66,7 @@ header img {
     margin-right: auto;
 }
 
+
 .code-container {
     font-family: "Courier New", monospace;
     font-size: 0.875em;
@@ -73,12 +74,16 @@ header img {
     color: #fff;
     padding: 10px;
     border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
     height: calc(10em);
     overflow-y: auto;
     margin-bottom: 20px;
 }
+
+
+body.safari .code-container {
+    padding-bottom: 15px;
+}
+
 
 .code-container > :first-child {
     margin-top: 0;

@@ -11,6 +11,9 @@ let buffer = '';
 let delay = 5; // delay in milliseconds
 let lastCallTime;
 
+if (navigator.userAgent.search("Safari") >= 0 && navigator.userAgent.search("Chrome") < 0) {
+    document.body.classList.add("safari");
+}
 
 function typeCode(currentTime) {
     if (index >= codeContent.length) return;
