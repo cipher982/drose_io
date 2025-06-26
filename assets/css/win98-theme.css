@@ -42,7 +42,7 @@ body {
 
 /* Main Content Container */
 .main-container {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 8px auto;
     background-color: var(--win98-face);
     min-height: calc(100vh - 16px);
