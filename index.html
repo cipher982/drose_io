@@ -7,11 +7,10 @@
     <title>David's Portfolio</title>
     <style>
         .links {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            padding: 8px;
-            gap: 8px;
+            display: table;
+            width: 100%;
+            border-spacing: 8px;
+            table-layout: fixed;
         }
 
         header {
@@ -79,7 +78,9 @@
                 </a>
             </div>
         </div>
+    </section>
 
+    <section class="links">
         <div class="link">
             <div class="window-panel">
                 <div class="section-header">Browser Fingerprinting</div>
