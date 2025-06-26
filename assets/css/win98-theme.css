@@ -18,6 +18,7 @@
     --taskman-bg: #000000;
     --taskman-green: #00FF00;
     --taskman-text: #00FF00;
+    --win98-desktop: #008080;
 }
 
 /* Pixel-Perfect Rendering */
@@ -32,10 +33,21 @@ html {
 body {
     font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
     font-size: 11px;
-    background-color: var(--win98-face);
+    background-color: var(--win98-desktop);
     color: var(--win98-black);
-    margin: 8px;
+    margin: 0;
     padding: 0;
+    min-height: 100vh;
+}
+
+/* Main Content Container */
+.main-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: var(--win98-face);
+    min-height: 100vh;
+    padding: 8px;
+    box-sizing: border-box;
 }
 
 /* Core Window Chrome - 3D Beveled Effects */
