@@ -1,0 +1,269 @@
+/* Windows 98/2000 Retro Theme */
+
+/* Core Windows 98 Color Palette */
+:root {
+    --win98-face: #C3C3C3;
+    --win98-shadow: #818181;
+    --win98-darkshadow: #000000;
+    --win98-highlight: #FDFFFF;
+    --win98-light: #DFDFDF;
+    --win98-accent: #000080;
+    --win98-white: #FFFFFF;
+    --win98-black: #000000;
+    --win98-scrollbar: #C3C3C3;
+    --win98-button-face: #C3C3C3;
+    --win98-menu-highlight: #0000FF;
+    --win98-inactive-title: #7F7F7F;
+    --win98-inactive-border: #C3C3C3;
+    --taskman-bg: #000000;
+    --taskman-green: #00FF00;
+    --taskman-text: #00FF00;
+}
+
+/* Pixel-Perfect Rendering */
+html {
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    -moz-osx-font-smoothing: unset;
+}
+
+/* Typography System */
+body {
+    font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+    font-size: 11px;
+    background-color: var(--win98-face);
+    color: var(--win98-black);
+    margin: 8px;
+    padding: 0;
+}
+
+/* Core Window Chrome - 3D Beveled Effects */
+.window,
+.window-panel,
+.metric-card {
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    background-color: var(--win98-face);
+}
+
+/* Sunken Effect for Inputs/Content Areas */
+.sunken,
+.content-area {
+    border: 2px solid;
+    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    background-color: var(--win98-face);
+}
+
+/* Task Manager Style for Code Viewer */
+.taskman-style {
+    background-color: var(--taskman-bg) !important;
+    color: var(--taskman-green) !important;
+    border: 2px solid;
+    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+}
+
+.taskman-style pre,
+.taskman-style code {
+    background-color: var(--taskman-bg) !important;
+    color: var(--taskman-green) !important;
+    font-family: "Courier New", "MS Sans Serif", monospace;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+/* Title Bar Styles */
+.title-bar {
+    background: linear-gradient(90deg, var(--win98-accent) 0%, #1084d0 100%);
+    color: var(--win98-white);
+    padding: 2px 4px;
+    font-weight: bold;
+    font-size: 11px;
+    border-bottom: 1px solid var(--win98-shadow);
+}
+
+.title-bar.inactive {
+    background: linear-gradient(90deg, var(--win98-inactive-title) 0%, #9e9e9e 100%);
+}
+
+/* Section Headers */
+.section-header {
+    background-color: var(--win98-face);
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    padding: 4px 8px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+/* Button Styles */
+.win98-button,
+button {
+    background-color: var(--win98-button-face);
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    color: var(--win98-black);
+    padding: 4px 16px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    margin: 2px;
+}
+
+.win98-button:hover,
+button:hover {
+    background-color: var(--win98-light);
+}
+
+.win98-button:active,
+button:active {
+    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    background-color: #A9A9A9;
+    padding: 5px 15px 3px 17px; /* Simulate button press */
+}
+
+/* Typography Hierarchy */
+h1 {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 8px 0;
+    color: var(--win98-white);
+}
+
+h2 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 6px 0;
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    padding: 4px;
+    background-color: var(--win98-face);
+}
+
+h3 {
+    font-size: 12px;
+    font-weight: bold;
+    margin: 4px 0;
+}
+
+/* Status Indicators */
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border: 1px solid;
+    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.status-good {
+    background-color: #00FF00;
+}
+
+.status-warning {
+    background-color: #FFFF00;
+}
+
+.status-error {
+    background-color: #FF0000;
+}
+
+/* Layout Utilities */
+.two-col {
+    display: table;
+    width: 100%;
+    border-spacing: 8px 0;
+}
+
+.two-col > * {
+    display: table-cell;
+    width: 50%;
+    vertical-align: top;
+}
+
+.three-col {
+    display: table;
+    width: 100%;
+    border-spacing: 8px 0;
+}
+
+.three-col > * {
+    display: table-cell;
+    width: 33.333%;
+    vertical-align: top;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--win98-face);
+    border: 1px solid var(--win98-shadow);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--win98-scrollbar);
+    border: 1px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+}
+
+::-webkit-scrollbar-button {
+    background-color: var(--win98-scrollbar);
+    border: 1px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+}
+
+/* Link Styling */
+a {
+    color: var(--win98-accent);
+    text-decoration: underline;
+}
+
+a:visited {
+    color: #800080;
+}
+
+a:hover {
+    color: #FF0000;
+}
+
+/* Focus States */
+*:focus {
+    outline: 1px dotted var(--win98-black);
+    outline-offset: -1px;
+}
+
+/* Menu/Dialog Styles */
+.menu {
+    background-color: var(--win98-face);
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    padding: 2px;
+}
+
+.menu-item {
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.menu-item:hover {
+    background-color: var(--win98-menu-highlight);
+    color: var(--win98-white);
+}
+
+/* Disabled States */
+.disabled,
+:disabled {
+    color: var(--win98-shadow);
+    cursor: default;
+}
+
+.disabled .win98-button,
+button:disabled {
+    color: var(--win98-shadow);
+    background-color: var(--win98-face);
+    cursor: default;
+}

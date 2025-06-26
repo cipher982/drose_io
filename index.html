@@ -6,101 +6,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>David's Portfolio</title>
     <style>
-        :root {
-            --primary-color: #663399;
-            --hover-color: #7D4B99;
-        }
-
-        body {
-            font-family: "Roboto", sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        header {
-            background-color: var(--primary-color);
-            color: #fff;
-            text-align: center;
-            padding: 20px 0;
-            border-radius: 5px;
-        }
-
-        header img {
-            width: 250px;
-            border-radius: 5%;
-        }
-
         .links {
             display: flex;
             justify-content: space-around;
             flex-wrap: wrap;
-            padding: 20px;
+            padding: 8px;
+            gap: 8px;
+        }
+
+        header {
+            text-align: center;
+            margin: 8px 0;
+        }
+
+        header img {
+            width: 200px;
+            border: 2px solid;
+            border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+            margin: 8px 0;
         }
     </style>
+    <link rel="stylesheet" href="assets/css/win98-theme.css">
     <link rel="stylesheet" href="assets/css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <header>
-        <h1>Hi, I'm David</h1>
-        <p>I love building cool stuff with Python. AI/ML engineer with a day job in generative AI where I fine-tune LLMs
-            and create agents.</p>
-        <img src="assets/images/david-computer-small.webp" alt="David Image">
+    <header class="window">
+        <div class="title-bar">
+            <span>David's Portfolio - Personal Information</span>
+        </div>
+        <div class="content-area" style="padding: 16px; text-align: center;">
+            <h1>Hi, I'm David</h1>
+            <p>I love building cool stuff with Python. AI/ML engineer with a day job in generative AI where I fine-tune LLMs
+                and create agents.</p>
+            <img src="assets/images/david-computer-small.webp" alt="David Image">
+        </div>
     </header>
 
     <section class="links">
         <div class="link">
-            <a href="https://llm-benchmarks.com/">
-                <h2>LLM Benchmarks</h2>
-                <img src="assets/images/barchart-icon.png" alt="BarChart Icon" width="100" height="100">
-                <p>Benchmarking the speeds of different LLM models</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">LLM Benchmarks</div>
+                <a href="https://llm-benchmarks.com/">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/barchart-icon.png" alt="BarChart Icon" width="80" height="80">
+                        <p>Benchmarking the speeds of different LLM models</p>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <div class="link">
-            <a href="https://crestwoodstopsign.com/">
-                <h2>Stop Sign Nanny</h2>
-                <img src="assets/images/stopsign-icon.png" alt="Stopsign Icon" width="100" height="100">
-                <p>AI overseer for tracking and scoring vehicles at an intersection</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">Stop Sign Nanny</div>
+                <a href="https://crestwoodstopsign.com/">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/stopsign-icon.png" alt="Stopsign Icon" width="80" height="80">
+                        <p>AI overseer for tracking and scoring vehicles at an intersection</p>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <div class="link">
-            <a href="http://www.thiswinedoesnotexist.com">
-                <h2>This Wine Does Not Exist</h2>
-                <img src="assets/images/wine-icon.png" alt="Wine Icon" width="100" height="100">
-                <p>Using GPT-2 and StyleGAN to generate fake wines</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">This Wine Does Not Exist</div>
+                <a href="http://www.thiswinedoesnotexist.com">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/wine-icon.png" alt="Wine Icon" width="80" height="80">
+                        <p>Using GPT-2 and StyleGAN to generate fake wines</p>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <div class="link">
-            <a href="http://www.collector.drose.io">
-                <h2>Browser Fingerprinting</h2>
-                <img src="assets/images/magnifying-glass-icon.svg" alt="Glass Icon" width="100" height="100">
-                <p>Check what data leaks from your browser to websites</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">Browser Fingerprinting</div>
+                <a href="http://www.collector.drose.io">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/magnifying-glass-icon.svg" alt="Glass Icon" width="80" height="80">
+                        <p>Check what data leaks from your browser to websites</p>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <div class="link">
-            <a href="https://www.github.com/cipher982">
-                <h2>My GitHub Page</h2>
-                <img src="assets/images/github-icon.png" alt="GitHub Icon" width="100" height="100">
-                <p>Check out samples of my code</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">My GitHub Page</div>
+                <a href="https://www.github.com/cipher982">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/github-icon.png" alt="GitHub Icon" width="80" height="80">
+                        <p>Check out samples of my code</p>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <div class="link">
-            <a href="https://www.medium.com/@david010">
-                <h2>My Blog</h2>
-                <img src="assets/images/blog-icon.png" alt="Blog Icon" width="100" height="100">
-                <p>A few scribbles on Medium</p>
-            </a>
+            <div class="window-panel">
+                <div class="section-header">My Blog</div>
+                <a href="https://www.medium.com/@david010">
+                    <div style="padding: 8px; text-align: center;">
+                        <img src="assets/images/blog-icon.png" alt="Blog Icon" width="80" height="80">
+                        <p>A few scribbles on Medium</p>
+                    </div>
+                </a>
+            </div>
         </div>
     </section>
 
-    <div class="code-container">
-        <pre><code id="codeSnippet"></code></pre>
+    <div class="window code-container">
+        <div class="title-bar">
+            <span>Source Code Viewer</span>
+        </div>
+        <div class="sunken taskman-style">
+            <pre><code id="codeSnippet"></code></pre>
+        </div>
     </div>
 
     <span class="no-visual">
@@ -115,10 +138,15 @@
         \`\`\`\``}
     </span>
 
-    <footer>
-        <a href="mailto:david@drose.io">david@drose.io</a>
-        <a href="https://www.linkedin.com/in/david-w-rose/">LinkedIn</a>
-        <a href="https://twitter.com/drose101">Twitter/X</a>
+    <footer class="window">
+        <div class="title-bar">
+            <span>Contact Information</span>
+        </div>
+        <div class="content-area" style="padding: 8px; text-align: center;">
+            <a href="mailto:david@drose.io">david@drose.io</a>
+            <a href="https://www.linkedin.com/in/david-w-rose/">LinkedIn</a>
+            <a href="https://twitter.com/drose101">Twitter/X</a>
+        </div>
     </footer>
 
     <script src="assets/js/scripts.js"></script>

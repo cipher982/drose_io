@@ -1,31 +1,26 @@
-/* Non-critical styles for below-fold content */
+/* Project Link Windows */
 .link {
     flex: 1;
     min-width: 200px;
-    text-align: center;
-    padding: 10px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
-    margin: 10px;
-    background-color: var(--primary-color);
-    color: #fff;
+    margin: 8px;
     cursor: pointer;
-    border-radius: 5px;
 }
 
 .link h2 {
-    color: #fff;
-    margin-bottom: 10px;
+    margin: 8px 0 4px 0;
+    font-size: 12px;
+    color: var(--win98-black);
 }
 
 .link a {
     text-decoration: none;
-    color: #fff;
+    color: inherit;
     display: block;
-    padding: 10px;
+    padding: 8px;
 }
 
-.link:hover {
-    background-color: var(--hover-color);
+.link:hover .window-panel {
+    background-color: var(--win98-light);
 }
 
 .link img {
@@ -39,45 +34,28 @@
 .code-container pre,
 .code-container code {
     margin: 0;
-    padding: 0;
+    padding: 8px;
     display: block;
+    font-family: "Courier New", "MS Sans Serif", monospace;
+    font-size: 10px;
+    line-height: 1.2;
 }
 
 .code-container {
-    font-family: "Courier New", monospace;
-    font-size: 0.875em;
-    background-color: var(--primary-color);
-    color: #fff;
-    padding: 0 0px; /* Removed top padding completely */
-    border-radius: 5px;
-    height: calc(10em + 10px);
+    margin: 8px 0;
+    height: calc(10em + 20px);
     overflow-y: auto;
-    margin-bottom: 20px;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-.code-container:hover {
-    background-color: var(--hover-color);
-}
-
-.code-container::-webkit-scrollbar {
-    display: none;
 }
 
 footer {
-    background-color: var(--primary-color);
-    color: #fff;
     text-align: center;
-    padding: 10px 0;
-    border-radius: 5px;
+    padding: 8px;
+    margin: 8px 0;
 }
 
 footer a {
-    color: #fff;
-    text-decoration: none;
-    display: block;
-    margin-bottom: 10px;
+    margin: 0 8px;
+    display: inline-block;
 }
 
 .no-visual {
