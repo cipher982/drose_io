@@ -52,17 +52,26 @@
 .code-container pre,
 .code-container code {
     margin: 0;
-    padding: 8px;
+    padding: 4px 8px;
     display: block;
     font-family: "Courier New", "MS Sans Serif", monospace;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
+    background-color: transparent;
+    color: inherit;
+    box-sizing: border-box;
 }
 
 .code-container {
     margin: 8px 0;
     height: calc(10em + 20px);
     overflow-y: auto;
+}
+
+.code-container .taskman-style {
+    height: 100%;
+    min-height: calc(10em + 20px);
+    box-sizing: border-box;
 }
 
 footer {

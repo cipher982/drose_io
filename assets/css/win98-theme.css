@@ -32,7 +32,7 @@ html {
 /* Typography System */
 body {
     font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
-    font-size: 11px;
+    font-size: 13px;
     background-color: var(--win98-desktop);
     color: var(--win98-black);
     margin: 0;
@@ -43,11 +43,16 @@ body {
 /* Main Content Container */
 .main-container {
     max-width: 1200px;
-    margin: 0 auto;
+    margin: 8px auto;
     background-color: var(--win98-face);
-    min-height: 100vh;
+    min-height: calc(100vh - 16px);
     padding: 8px;
     box-sizing: border-box;
+    /* Classic Windows desktop window border */
+    border: 2px solid;
+    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    /* Simple drop shadow like Windows desktop windows */
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Core Window Chrome - 3D Beveled Effects */
@@ -80,7 +85,7 @@ body {
     background-color: var(--taskman-bg) !important;
     color: var(--taskman-green) !important;
     font-family: "Courier New", "MS Sans Serif", monospace;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
 }
 
@@ -90,7 +95,7 @@ body {
     color: var(--win98-white);
     padding: 2px 4px;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 12px;
     border-bottom: 1px solid var(--win98-shadow);
 }
 
@@ -117,7 +122,7 @@ button {
     color: var(--win98-black);
     padding: 4px 16px;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     cursor: pointer;
     margin: 2px;
 }
@@ -136,14 +141,14 @@ button:active {
 
 /* Typography Hierarchy */
 h1 {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: bold;
     margin: 8px 0;
     color: var(--win98-white);
 }
 
 h2 {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
     margin: 6px 0;
     border: 2px solid;
@@ -153,7 +158,7 @@ h2 {
 }
 
 h3 {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: bold;
     margin: 4px 0;
 }
