@@ -1,7 +1,7 @@
 /* Project Link Windows */
 .link {
     display: table-cell;
-    width: 33.333%;
+    width: 25%;
     vertical-align: top;
     padding: 2px;
     cursor: pointer;
