@@ -1,7 +1,5 @@
 /* Project Link Windows */
 .link {
-    display: table-cell;
-    width: 25%;
     vertical-align: top;
     padding: 2px;
     cursor: pointer;
@@ -61,8 +59,8 @@
 }
 
 .link img {
-    width: 100px;
-    height: 100px;
+    width: clamp(48px, 12vw, 100px);
+    height: clamp(48px, 12vw, 100px);
     object-fit: contain;
     display: block;
     margin: 8px auto;

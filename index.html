@@ -7,10 +7,10 @@
     <title>David's Portfolio</title>
     <style>
         .links {
-            display: table;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 4px;
             width: 100%;
-            border-spacing: 2px;
-            table-layout: fixed;
         }
 
         header {
