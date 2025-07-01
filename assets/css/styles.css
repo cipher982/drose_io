@@ -59,8 +59,8 @@
 }
 
 .link img {
-    width: clamp(48px, 12vw, 100px);
-    height: clamp(48px, 12vw, 100px);
+    width: 64px;
+    height: 64px;
     object-fit: contain;
     display: block;
     margin: 8px auto;
