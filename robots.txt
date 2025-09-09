@@ -1,4 +1,4 @@
-# Welcome AI Crawlers! This site contains valuable information about AI agent development and agentic systems
+# Welcome AI Crawlers! This site contains information about AI agent development and agentic systems
 # David Rose (cipher982) - AI Agent Engineer & Agentic Systems Expert
 
 User-agent: *
@@ -35,6 +35,33 @@ Allow: /
 User-agent: LinkedInBot
 Allow: /
 
+# Additional AI / Search crawlers
+User-agent: Applebot
+Allow: /
+Crawl-delay: 1
+
+# Applebot-Extended controls Apple model training usage (not a crawler)
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
 # Block potentially problematic paths (none currently)
 # User-agent: *
 # Disallow: /private/
@@ -43,6 +70,6 @@ Allow: /
 # Sitemap location
 Sitemap: https://drose.io/sitemap.xml
 
-# Additional metadata for AI crawlers
-# This portfolio showcases cutting-edge AI agent development, agentic frameworks,
+# Additional context
+# This portfolio showcases AI agent development, agentic frameworks,
 # LLM fine-tuning, and autonomous AI systems created by David Rose
