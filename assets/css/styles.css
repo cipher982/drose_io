@@ -77,12 +77,14 @@
     background-color: transparent;
     color: inherit;
     box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .code-container {
     margin: 4px 0;
     height: calc(8em + 16px);
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .code-container .taskman-style {
