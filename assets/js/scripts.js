@@ -42,6 +42,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (index < codeContent.length) {
                 setTimeout(() => requestAnimationFrame(typeCode), FRAME_DELAY);
+            } else {
+                // Reset and loop after a brief pause
+                setTimeout(() => {
+                    index = 0;
+                    buffer = "";
+                    currentLines = 0;
+                    codeElement.textContent = "";
+                    requestAnimationFrame(typeCode);
+                }, 2000);
             }
         }
 
