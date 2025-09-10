@@ -77,7 +77,7 @@
     background-color: transparent;
     color: inherit;
     box-sizing: border-box;
-    white-space: nowrap;
+    white-space: pre;
     overflow: hidden;
 }
 
