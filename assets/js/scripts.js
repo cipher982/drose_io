@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let index = 0;
         let buffer = "";
-        const lineLimit = 10;
+        const lineLimit = 8; // Reduced to fit container better
         let currentLines = 0;
 
         const CHARS_PER_FRAME = 2;
@@ -29,16 +29,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 const char = codeContent.charAt(index);
                 if (char === "\n") currentLines++;
                 buffer += char;
-
-                if (currentLines > lineLimit) {
-                    buffer = buffer.substring(buffer.indexOf("\n") + 1);
-                    currentLines--;
-                }
                 index++;
             }
 
+            // Keep only the last N lines to ensure typing stays visible
+            if (currentLines > lineLimit) {
+                const lines = buffer.split('\n');
+                buffer = lines.slice(-lineLimit).join('\n');
+                currentLines = lineLimit;
+            }
+
             codeElement.textContent = buffer;
-            container.scrollTop = container.scrollHeight;
 
             if (index < codeContent.length) {
                 setTimeout(() => requestAnimationFrame(typeCode), FRAME_DELAY);
