@@ -550,12 +550,46 @@
     pollingInterval = setInterval(async () => {
       try {
         const data = await checkForReplies();
-        if (data && data.unreadCount > 0) {
-          updateBadge(data.unreadCount);
 
+        if (data && data.hasNew) {
           // Update lastMessageId
           if (data.messages && data.messages.length > 0) {
             lastMessageId = data.messages[data.messages.length - 1].id;
+          }
+
+          // If panel is open, refresh conversation
+          const panel = document.getElementById('feedback-panel');
+          if (expanded && !panel.classList.contains('hidden')) {
+            // Silently refresh the conversation view
+            const messages = await loadConversation();
+            const contentDiv = panel.querySelector('.content');
+
+            if (contentDiv && messages.length > 0) {
+              contentDiv.innerHTML = `
+                <h3>💬 Conversation</h3>
+                <div class="conversation">
+                  ${renderConversation(messages)}
+                </div>
+                <textarea id="feedback-text" placeholder="Type your reply..." maxlength="280"></textarea>
+                <div class="char-count"><span id="char-count">0</span>/280</div>
+                <button id="send-btn" onclick="window.feedbackWidget.sendMessage()">Send reply →</button>
+              `;
+
+              // Re-attach character counter
+              const textarea = contentDiv.querySelector('#feedback-text');
+              if (textarea) {
+                textarea.addEventListener('input', updateCharCount);
+              }
+
+              // Scroll to bottom to show new message
+              setTimeout(() => {
+                const conv = contentDiv.querySelector('.conversation');
+                if (conv) conv.scrollTop = conv.scrollHeight;
+              }, 100);
+            }
+          } else {
+            // Panel closed - show badge
+            updateBadge(data.unreadCount);
           }
         }
       } catch (error) {
