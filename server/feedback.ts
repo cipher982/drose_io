@@ -46,14 +46,16 @@ export async function handleFeedback(c: Context) {
 
     console.log('📝 Feedback received:', JSON.stringify(logEntry));
 
-    // Send notifications for text messages (not just pings)
-    if (type === 'message' && text) {
-      try {
+    // Send notifications for both pings and messages
+    try {
+      if (type === 'ping') {
+        await notifications.sendAll(`👋 Someone pinged from ${page}`);
+      } else if (type === 'message' && text) {
         await notifications.sendAll(`💬 drose.io feedback from ${page}:\n\n${text}`);
-      } catch (error) {
-        console.error('❌ Notification failed:', error);
-        // Don't fail the request if notification fails
       }
+    } catch (error) {
+      console.error('❌ Notification failed:', error);
+      // Don't fail the request if notification fails
     }
 
     // Get today's ping count (simple demo - resets on restart)
