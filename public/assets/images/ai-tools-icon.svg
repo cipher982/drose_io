@@ -1,0 +1,26 @@
+<svg width="60" height="60" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Browser window frame - now fills entire viewBox -->
+  <rect x="10" y="10" width="492" height="492" rx="30" ry="30" fill="none" stroke="#FFFFFF" stroke-width="20"/>
+  
+  <!-- Browser title bar -->
+  <rect x="10" y="10" width="492" height="80" rx="30" ry="30" fill="none" stroke="#FFFFFF" stroke-width="20"/>
+  
+  <!-- macOS style buttons -->
+  <circle cx="70" cy="50" r="15" fill="#FFFFFF"/>
+  <circle cx="120" cy="50" r="15" fill="#FFFFFF"/>
+  <circle cx="170" cy="50" r="15" fill="#FFFFFF"/>
+  
+  <!-- Hammer inside browser -->
+  <g transform="translate(200, 300) rotate(-30)">
+    <rect x="-8" y="-80" width="16" height="120" fill="#FFFFFF"/>
+    <rect x="-35" y="-90" width="70" height="20" fill="#FFFFFF"/>
+  </g>
+  
+  <!-- Gear inside browser -->
+  <g transform="translate(350, 300)">
+    <!-- Gear with 6 teeth using path -->
+    <path d="M 0,-45 L 9,-38 L 32,-32 L 38,-9 L 45,0 L 38,9 L 32,32 L 9,38 L 0,45 L -9,38 L -32,32 L -38,9 L -45,0 L -38,-9 L -32,-32 L -9,-38 Z" fill="#FFFFFF"/>
+    <!-- Center hole -->
+    <circle cx="0" cy="0" r="15" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+  </g>
+</svg>

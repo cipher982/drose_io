@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_MESSAGING_SID=${TWILIO_MESSAGING_SID}
+      - TWILIO_TO_PHONE=${TWILIO_TO_PHONE}
+    restart: unless-stopped
+    volumes:
+      # Mount for development (optional, remove for production)
+      - ./server:/app/server
+      - ./public:/app/public
