@@ -2,7 +2,7 @@ services:
   web:
     build: .
     ports:
-      - "3000:3000"
+      - "8080:3000"
     environment:
       - PORT=3000
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
