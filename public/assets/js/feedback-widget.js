@@ -188,6 +188,10 @@
           cursor: not-allowed;
         }
 
+        #feedback-button {
+          position: relative;
+        }
+
         .badge {
           position: absolute;
           top: -8px;
@@ -197,12 +201,16 @@
           border-radius: 50%;
           width: 20px;
           height: 20px;
-          display: flex;
+          display: none;
           align-items: center;
           justify-content: center;
           font-size: 11px;
           font-weight: bold;
           border: 2px solid var(--win98-face);
+        }
+
+        .badge.show {
+          display: flex;
         }
 
         .conversation {
@@ -568,7 +576,12 @@
       button.appendChild(badge);
     }
     badge.textContent = count;
-    badge.style.display = count > 0 ? 'inline-block' : 'none';
+
+    if (count > 0) {
+      badge.classList.add('show');
+    } else {
+      badge.classList.remove('show');
+    }
   }
 
   // Initialize
