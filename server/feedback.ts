@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { sendSMS } from './twilio';
+import { notifications } from './notifications';
 
 // Simple in-memory rate limiting
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -46,14 +46,13 @@ export async function handleFeedback(c: Context) {
 
     console.log('📝 Feedback received:', JSON.stringify(logEntry));
 
-    // Send SMS for text messages (not just pings)
+    // Send notifications for text messages (not just pings)
     if (type === 'message' && text) {
       try {
-        await sendSMS(`💬 drose.io feedback from ${page}:\n\n${text}`);
-        console.log('📱 SMS sent successfully');
+        await notifications.sendAll(`💬 drose.io feedback from ${page}:\n\n${text}`);
       } catch (error) {
-        console.error('❌ SMS failed:', error);
-        // Don't fail the request if SMS fails
+        console.error('❌ Notification failed:', error);
+        // Don't fail the request if notification fails
       }
     }
 
