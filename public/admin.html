@@ -217,6 +217,7 @@
         const app = {
             password: null,
             currentVisitorId: null,
+            eventSource: null,
 
             login() {
                 const password = document.getElementById('password-input').value;
@@ -253,9 +254,59 @@
                     document.getElementById('login-screen').classList.add('hidden');
                     document.getElementById('thread-list-screen').classList.remove('hidden');
 
+                    // Start SSE for live updates
+                    this.startSSE();
+
                 } catch (error) {
                     this.showError(error.message);
                 }
+            },
+
+            startSSE() {
+                if (this.eventSource) return;
+
+                this.eventSource = new EventSource(`/api/admin/stream?auth=${encodeURIComponent(this.password)}`);
+
+                this.eventSource.addEventListener('new-message', (event) => {
+                    const data = JSON.parse(event.data);
+
+                    // If viewing this thread, append message
+                    if (this.currentVisitorId === data.visitorId) {
+                        this.appendMessage(data.message);
+                    }
+
+                    // Refresh thread list to update counts
+                    if (!this.currentVisitorId) {
+                        this.loadThreads();
+                    }
+                });
+
+                this.eventSource.onerror = () => {
+                    console.log('Admin SSE disconnected, will reconnect...');
+                };
+            },
+
+            appendMessage(message) {
+                const container = document.getElementById('messages-container');
+                if (!container) return;
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${message.from}`;
+                msgDiv.style.opacity = '0';
+                msgDiv.style.transition = 'opacity 0.3s ease-in';
+                msgDiv.innerHTML = `
+                    <div class="author">${message.from === 'david' ? 'You' : 'Visitor'}</div>
+                    <div class="text">${this.escapeHtml(message.text)}</div>
+                    <div class="time">${this.formatTime(message.ts)}</div>
+                `;
+
+                container.appendChild(msgDiv);
+
+                // Fade in
+                setTimeout(() => msgDiv.style.opacity = '1', 10);
+
+                // Scroll to bottom
+                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
             },
 
             renderThreads(threads) {

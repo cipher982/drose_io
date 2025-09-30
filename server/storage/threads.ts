@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, appendFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import { connectionManager } from '../sse/connection-manager';
 
 const THREADS_DIR = process.env.THREADS_DIR || './data/threads';
 const MAX_THREAD_SIZE = 1024 * 1024; // 1MB
@@ -45,6 +46,21 @@ export function appendMessage(visitorId: string, message: Message): void {
   // Append message as JSONL
   const line = JSON.stringify(message) + '\n';
   appendFileSync(threadPath, line, 'utf-8');
+
+  // Broadcast to SSE connections
+  if (message.from === 'david') {
+    // Notify visitor's active connections
+    connectionManager.notifyVisitor(visitorId, {
+      type: 'new-message',
+      message,
+    });
+  } else {
+    // Notify admin connections
+    connectionManager.notifyAdmins('new-message', {
+      visitorId,
+      message,
+    });
+  }
 }
 
 /**
