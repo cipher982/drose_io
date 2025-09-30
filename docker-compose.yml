@@ -11,8 +11,11 @@ services:
       - TWILIO_TO_PHONE=${TWILIO_TO_PHONE}
       - NTFY_SERVER=${NTFY_SERVER}
       - NTFY_TOPIC=${NTFY_TOPIC}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     restart: unless-stopped
     volumes:
       # Mount for development (optional, remove for production)
       - ./server:/app/server
       - ./public:/app/public
+      # Persist thread data
+      - ./data:/app/data
