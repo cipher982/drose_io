@@ -7,3 +7,6 @@ bun.lockb
 
 # Environment
 .env
+
+# Data storage
+data/

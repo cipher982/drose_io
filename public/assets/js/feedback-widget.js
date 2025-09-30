@@ -5,6 +5,50 @@
   // Widget state
   let expanded = false;
   let showingConfirmation = false;
+  let visitorId = null;
+  let lastMessageId = null;
+  let pollingInterval = null;
+
+  // Device ID generation (extensible for future fingerprinting)
+  async function getVisitorId() {
+    // Try localStorage first (primary)
+    let id = localStorage.getItem('__vid');
+    if (id) return id;
+
+    // Try cookie (fallback)
+    const cookieId = getCookie('__vid');
+    if (cookieId) {
+      localStorage.setItem('__vid', cookieId);
+      return cookieId;
+    }
+
+    // Generate new ID (simple UUID for now)
+    id = generateUUID();
+
+    // Store in both places
+    localStorage.setItem('__vid', id);
+    setCookie('__vid', id, 365 * 10); // 10 years
+
+    return id;
+  }
+
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
+  function setCookie(name, value, days) {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
+  }
 
   // Create widget HTML
   function createWidget() {
@@ -144,6 +188,68 @@
           cursor: not-allowed;
         }
 
+        .badge {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: #ff0000;
+          color: white;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: bold;
+          border: 2px solid var(--win98-face);
+        }
+
+        .conversation {
+          max-height: 250px;
+          overflow-y: auto;
+          margin-bottom: 12px;
+          border: 2px solid;
+          border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+          background: white;
+          padding: 8px;
+        }
+
+        .message {
+          margin-bottom: 12px;
+          padding: 8px;
+          border-radius: 4px;
+        }
+
+        .message.visitor {
+          background: #e8f4f8;
+          margin-left: 20px;
+        }
+
+        .message.david {
+          background: #f0f0f0;
+          margin-right: 20px;
+        }
+
+        .message .author {
+          font-weight: bold;
+          font-size: 11px;
+          margin-bottom: 4px;
+          color: #000080;
+        }
+
+        .message .text {
+          font-size: 12px;
+          line-height: 1.4;
+          word-wrap: break-word;
+        }
+
+        .message .time {
+          font-size: 10px;
+          color: #666;
+          margin-top: 4px;
+        }
+
         @keyframes slideIn {
           from {
             opacity: 0;
@@ -183,10 +289,13 @@
 
   // API calls
   async function sendFeedback(type, text = null) {
+    const vid = await getVisitorId();
+
     const response = await fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        visitorId: vid,
         type,
         text,
         page: window.location.pathname,
@@ -200,27 +309,146 @@
     return response.json();
   }
 
+  async function checkForReplies() {
+    const vid = await getVisitorId();
+    const since = lastMessageId || '';
+
+    const response = await fetch(`/api/threads/${vid}/check?since=${since}`);
+    if (!response.ok) return null;
+
+    return response.json();
+  }
+
+  // Helper functions
+  function formatTime(ts) {
+    const date = new Date(ts);
+    const now = new Date();
+    const diff = now - date;
+
+    // Less than 1 minute
+    if (diff < 60000) return 'just now';
+
+    // Less than 1 hour
+    if (diff < 3600000) {
+      const mins = Math.floor(diff / 60000);
+      return `${mins}m ago`;
+    }
+
+    // Less than 24 hours
+    if (diff < 86400000) {
+      const hours = Math.floor(diff / 3600000);
+      return `${hours}h ago`;
+    }
+
+    // Less than 7 days
+    if (diff < 604800000) {
+      const days = Math.floor(diff / 86400000);
+      return `${days}d ago`;
+    }
+
+    // Format as date
+    return date.toLocaleDateString();
+  }
+
+  function renderConversation(messages) {
+    if (!messages || messages.length === 0) {
+      return '<p style="text-align: center; color: #666; font-size: 12px;">No messages yet</p>';
+    }
+
+    return messages.map(m => `
+      <div class="message ${m.from}">
+        <div class="author">${m.from === 'david' ? 'David' : 'You'}</div>
+        <div class="text">${escapeHtml(m.text)}</div>
+        <div class="time">${formatTime(m.ts)}</div>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async function loadConversation() {
+    try {
+      const vid = await getVisitorId();
+      const response = await fetch(`/api/threads/${vid}/messages`);
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      return data.messages || [];
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      return [];
+    }
+  }
+
   // Widget actions
   const widget = {
     handleClick: async function() {
       if (expanded) return;
 
       try {
-        // Send ping
-        const result = await sendFeedback('ping');
+        // Load existing conversation
+        const messages = await loadConversation();
 
-        // Show confirmation toast
-        const toast = document.getElementById('feedback-toast');
-        toast.textContent = `✓ David's phone just buzzed (you're human #${result.count || '?'} today)`;
-        toast.classList.remove('hidden');
-        showingConfirmation = true;
+        // If no messages, send ping
+        if (messages.length === 0) {
+          const result = await sendFeedback('ping');
 
-        // Expand panel after short delay
-        setTimeout(() => {
-          document.getElementById('feedback-panel').classList.remove('hidden');
-          expanded = true;
-          document.getElementById('feedback-text').focus();
-        }, 1000);
+          // Show confirmation toast
+          const toast = document.getElementById('feedback-toast');
+          toast.textContent = `✓ David's phone just buzzed (you're human #${result.count || '?'} today)`;
+          toast.classList.remove('hidden');
+          showingConfirmation = true;
+
+          // Update lastMessageId
+          if (result.messageId) {
+            lastMessageId = result.messageId;
+          }
+        } else {
+          // Update lastMessageId to latest
+          lastMessageId = messages[messages.length - 1].id;
+
+          // Clear badge
+          updateBadge(0);
+        }
+
+        // Update panel with conversation
+        const panel = document.getElementById('feedback-panel');
+        const contentDiv = panel.querySelector('.content');
+
+        if (messages.length > 0) {
+          contentDiv.innerHTML = `
+            <h3>💬 Conversation</h3>
+            <div class="conversation">
+              ${renderConversation(messages)}
+            </div>
+            <textarea id="feedback-text" placeholder="Type your reply..." maxlength="280"></textarea>
+            <div class="char-count"><span id="char-count">0</span>/280</div>
+            <button id="send-btn" onclick="window.feedbackWidget.sendMessage()">Send reply →</button>
+          `;
+
+          // Re-attach character counter
+          const textarea = contentDiv.querySelector('#feedback-text');
+          if (textarea) {
+            textarea.addEventListener('input', updateCharCount);
+          }
+
+          // Scroll to bottom of conversation
+          setTimeout(() => {
+            const conv = contentDiv.querySelector('.conversation');
+            if (conv) conv.scrollTop = conv.scrollHeight;
+          }, 100);
+        }
+
+        // Show panel
+        panel.classList.remove('hidden');
+        expanded = true;
+
+        const textarea = document.getElementById('feedback-text');
+        if (textarea) textarea.focus();
 
       } catch (error) {
         console.error('Feedback error:', error);
@@ -241,25 +469,51 @@
       btn.textContent = 'Sending...';
 
       try {
-        await sendFeedback('message', text);
+        const result = await sendFeedback('message', text);
+
+        // Update lastMessageId
+        if (result.messageId) {
+          lastMessageId = result.messageId;
+        }
 
         // Success!
         const toast = document.getElementById('feedback-toast');
-        toast.textContent = '✓ Message sent! David will probably reply soon.';
+        toast.textContent = '✓ Message sent! David will reply soon.';
         toast.classList.remove('hidden');
 
-        // Hide panel
-        document.getElementById('feedback-panel').classList.add('hidden');
-        expanded = false;
-        textarea.value = '';
+        // Reload conversation to show new message
+        const messages = await loadConversation();
+        const panel = document.getElementById('feedback-panel');
+        const contentDiv = panel.querySelector('.content');
+
+        contentDiv.innerHTML = `
+          <h3>💬 Conversation</h3>
+          <div class="conversation">
+            ${renderConversation(messages)}
+          </div>
+          <textarea id="feedback-text" placeholder="Type your reply..." maxlength="280"></textarea>
+          <div class="char-count"><span id="char-count">0</span>/280</div>
+          <button id="send-btn" onclick="window.feedbackWidget.sendMessage()">Send reply →</button>
+        `;
+
+        // Re-attach character counter
+        const newTextarea = contentDiv.querySelector('#feedback-text');
+        if (newTextarea) {
+          newTextarea.addEventListener('input', updateCharCount);
+        }
+
+        // Scroll to bottom
+        setTimeout(() => {
+          const conv = contentDiv.querySelector('.conversation');
+          if (conv) conv.scrollTop = conv.scrollHeight;
+        }, 100);
 
       } catch (error) {
         console.error('Send error:', error);
         btn.textContent = '❌ Failed. Try again?';
-      } finally {
         btn.disabled = false;
         setTimeout(() => {
-          btn.textContent = 'Send to David\'s phone →';
+          btn.textContent = 'Send reply →';
         }, 2000);
       }
     },
@@ -281,14 +535,60 @@
     }
   }
 
+  // Polling for replies
+  async function startPolling() {
+    if (pollingInterval) return;
+
+    pollingInterval = setInterval(async () => {
+      try {
+        const data = await checkForReplies();
+        if (data && data.unreadCount > 0) {
+          updateBadge(data.unreadCount);
+
+          // Update lastMessageId
+          if (data.messages && data.messages.length > 0) {
+            lastMessageId = data.messages[data.messages.length - 1].id;
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 30000); // Every 30 seconds
+  }
+
+  function updateBadge(count) {
+    const button = document.getElementById('feedback-button');
+    if (!button) return;
+
+    // Add red dot with count
+    let badge = button.querySelector('.badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge';
+      button.appendChild(badge);
+    }
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+
   // Initialize
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     createWidget();
 
     // Add character counter listener
     const textarea = document.getElementById('feedback-text');
     if (textarea) {
       textarea.addEventListener('input', updateCharCount);
+    }
+
+    // Initialize visitor ID and start polling
+    visitorId = await getVisitorId();
+    startPolling();
+
+    // Check immediately for any existing replies
+    const data = await checkForReplies();
+    if (data && data.unreadCount > 0) {
+      updateBadge(data.unreadCount);
     }
   });
 

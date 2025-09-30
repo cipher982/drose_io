@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { notifications } from './notifications';
+import { appendMessage, getMessages, getUnreadCount, isBlocked, generateMessageId, getVisitorMetadata } from './storage/threads';
 
 // Simple in-memory rate limiting
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -24,7 +25,16 @@ function checkRateLimit(ip: string, maxRequests = 10, windowMs = 3600000): boole
 export async function handleFeedback(c: Context) {
   try {
     const body = await c.req.json();
-    const { type, text, page } = body;
+    const { visitorId, type, text, page } = body;
+
+    if (!visitorId) {
+      return c.json({ error: 'visitorId required' }, 400);
+    }
+
+    // Check if blocked
+    if (isBlocked(visitorId)) {
+      return c.json({ error: 'Blocked' }, 403);
+    }
 
     // Get IP for rate limiting
     const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
@@ -34,24 +44,32 @@ export async function handleFeedback(c: Context) {
       return c.json({ error: 'Rate limit exceeded' }, 429);
     }
 
-    // Log feedback
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      type,
-      text: text || null,
-      page: page || 'unknown',
-      ip: ip.split(',')[0], // First IP if multiple
+    // Create message
+    const messageId = generateMessageId();
+    const message = {
+      id: messageId,
+      from: 'visitor' as const,
+      text: text || '',
+      ts: Date.now(),
+      page: page || '/',
     };
 
-    console.log('📝 Feedback received:', JSON.stringify(logEntry));
+    // Store message in thread
+    appendMessage(visitorId, message);
+
+    console.log('📝 Message stored:', { visitorId, messageId, type, page });
+
+    // Get visitor metadata for notifications
+    const metadata = getVisitorMetadata(visitorId);
 
     // Send notifications for both pings and messages
     try {
       if (type === 'ping') {
-        await notifications.sendAll(`👋 Someone pinged from ${page}`);
+        const notificationText = `👋 Someone pinged from ${page}\n\nVisitor: ${visitorId.substring(0, 8)}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}`;
+        await notifications.sendAll(notificationText);
       } else if (type === 'message' && text) {
-        await notifications.sendAll(`💬 drose.io feedback from ${page}:\n\n${text}`);
+        const notificationText = `💬 New message from ${visitorId.substring(0, 8)}\n\nPage: ${page}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}\n\n"${text}"`;
+        await notifications.sendAll(notificationText);
       }
     } catch (error) {
       console.error('❌ Notification failed:', error);
@@ -67,6 +85,8 @@ export async function handleFeedback(c: Context) {
 
     return c.json({
       success: true,
+      messageId,
+      visitorId,
       count: type === 'ping' ? count : undefined,
     });
   } catch (error) {
