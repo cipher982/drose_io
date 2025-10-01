@@ -11,6 +11,10 @@ services:
       - NTFY_TOPIC=${NTFY_TOPIC}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     restart: unless-stopped
+    labels:
+      # Override Coolify's broken labels - force correct network and port
+      caddy_ingress_network: "coolify"
+      caddy_0.reverse_proxy: "{{upstreams 3000}}"
     volumes:
       # Persist thread data only
       - threads-data:/app/data
