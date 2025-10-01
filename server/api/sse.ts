@@ -11,39 +11,39 @@ export function streamVisitorThread(c: Context) {
   const { visitorId } = c.req.param();
 
   return streamSSE(c, async (stream) => {
-    let cleanup: (() => void) | null = null;
-    let keepAliveInterval: NodeJS.Timeout | null = null;
+    // Register connection
+    const cleanup = connectionManager.registerVisitor(visitorId, stream as any);
 
-    try {
-      // Register connection - store the writable stream
-      cleanup = connectionManager.registerVisitor(visitorId, stream as any);
+    // Send initial messages
+    const messages = getMessages(visitorId);
+    if (messages.length > 0) {
+      await stream.writeSSE({
+        data: JSON.stringify({ type: 'init', messages }),
+      });
+    }
 
-      // Send initial messages
-      const messages = getMessages(visitorId);
-      if (messages.length > 0) {
-        await stream.writeSSE({
-          data: JSON.stringify({ type: 'init', messages }),
-        });
+    // Keep connection alive with periodic pings
+    const keepAliveInterval = setInterval(async () => {
+      try {
+        await stream.writeSSE({ comment: 'ping' });
+      } catch (error) {
+        clearInterval(keepAliveInterval);
       }
+    }, 15000);
 
-      // Keep connection alive with periodic pings
-      keepAliveInterval = setInterval(async () => {
-        try {
-          await stream.writeSSE({ comment: 'ping' });
-        } catch (error) {
-          if (keepAliveInterval) clearInterval(keepAliveInterval);
-          if (cleanup) cleanup();
-        }
-      }, 15000);
-
-      // Stream will stay open until client disconnects
-      await stream.sleep(Number.MAX_SAFE_INTEGER);
-
+    // Keep stream open indefinitely
+    // The abortSignal will handle cleanup when client disconnects
+    try {
+      await new Promise((resolve) => {
+        c.req.raw.signal.addEventListener('abort', () => {
+          clearInterval(keepAliveInterval);
+          cleanup();
+          resolve(null);
+        });
+      });
     } catch (error) {
-      console.log(`Stream error for visitor ${visitorId.substring(0, 8)}:`, error);
-    } finally {
-      if (keepAliveInterval) clearInterval(keepAliveInterval);
-      if (cleanup) cleanup();
+      clearInterval(keepAliveInterval);
+      cleanup();
     }
   });
 }
@@ -65,31 +65,30 @@ export function streamAdminUpdates(c: Context) {
   }
 
   return streamSSE(c, async (stream) => {
-    let cleanup: (() => void) | null = null;
-    let keepAliveInterval: NodeJS.Timeout | null = null;
+    // Register admin connection
+    const cleanup = connectionManager.registerAdmin(stream as any);
 
+    // Keep connection alive
+    const keepAliveInterval = setInterval(async () => {
+      try {
+        await stream.writeSSE({ comment: 'ping' });
+      } catch (error) {
+        clearInterval(keepAliveInterval);
+      }
+    }, 15000);
+
+    // Keep stream open indefinitely
     try {
-      // Register admin connection
-      cleanup = connectionManager.registerAdmin(stream as any);
-
-      // Keep connection alive
-      keepAliveInterval = setInterval(async () => {
-        try {
-          await stream.writeSSE({ comment: 'ping' });
-        } catch (error) {
-          if (keepAliveInterval) clearInterval(keepAliveInterval);
-          if (cleanup) cleanup();
-        }
-      }, 15000);
-
-      // Stream will stay open
-      await stream.sleep(Number.MAX_SAFE_INTEGER);
-
+      await new Promise((resolve) => {
+        c.req.raw.signal.addEventListener('abort', () => {
+          clearInterval(keepAliveInterval);
+          cleanup();
+          resolve(null);
+        });
+      });
     } catch (error) {
-      console.log('Admin stream error:', error);
-    } finally {
-      if (keepAliveInterval) clearInterval(keepAliveInterval);
-      if (cleanup) cleanup();
+      clearInterval(keepAliveInterval);
+      cleanup();
     }
   });
 }

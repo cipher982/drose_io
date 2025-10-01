@@ -192,31 +192,45 @@
           padding: 9px 15px 7px 17px;
         }
 
-        .badge {
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          background: #ff0000;
-          color: white;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: none;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
+        #feedback-notification {
+          background: var(--win98-face);
+          border: 2px solid;
+          border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+          padding: 12px 16px;
+          margin-bottom: 12px;
+          box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+          cursor: pointer;
+          animation: slideInBounce 0.5s ease-out;
+        }
+
+        #feedback-notification:hover {
+          filter: brightness(1.05);
+        }
+
+        #feedback-notification:active {
+          border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+          padding: 13px 15px 11px 17px;
+        }
+
+        #feedback-notification .notification-content {
           font-weight: bold;
-          border: 2px solid var(--win98-face);
-          animation: pulse 1s ease-in-out infinite;
+          font-size: 14px;
+          color: #000080;
+          text-align: center;
         }
 
-        .badge.show {
-          display: flex;
-        }
-
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
+        @keyframes slideInBounce {
+          0% {
+            opacity: 0;
+            transform: translateY(30px) scale(0.9);
+          }
+          60% {
+            opacity: 1;
+            transform: translateY(-5px) scale(1.05);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+          }
         }
 
         #feedback-toast {
@@ -383,6 +397,12 @@
         }
       </style>
 
+      <div id="feedback-notification" class="hidden">
+        <div class="notification-content" onclick="window.feedbackWidget.handleClick()">
+          💬 David replied!
+        </div>
+      </div>
+
       <div id="feedback-toast" class="hidden"></div>
       <div id="feedback-panel" class="hidden">
         <div class="title-bar">
@@ -485,21 +505,13 @@
   }
 
   function updateBadge(count) {
-    const button = document.getElementById('feedback-button');
-    if (!button) return;
-
-    let badge = button.querySelector('.badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'badge';
-      button.appendChild(badge);
-    }
-    badge.textContent = count;
+    const notification = document.getElementById('feedback-notification');
+    if (!notification) return;
 
     if (count > 0) {
-      badge.classList.add('show');
+      notification.classList.remove('hidden');
     } else {
-      badge.classList.remove('show');
+      notification.classList.add('hidden');
     }
   }
 
