@@ -12,8 +12,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     restart: unless-stopped
     volumes:
-      # Mount for development (optional, remove for production)
-      - ./server:/app/server
-      - ./public:/app/public
-      # Persist thread data
-      - ./data:/app/data
+      # Persist thread data only
+      - threads-data:/app/data
+
+volumes:
+  threads-data:
