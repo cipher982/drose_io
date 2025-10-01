@@ -567,8 +567,8 @@
         panel.classList.remove('hidden');
         expanded = true;
 
-        // Open SSE connection for live updates
-        openSSEConnection();
+        // Hide notification if visible
+        updateBadge(0);
 
         // Focus textarea
         const textarea = document.getElementById('feedback-text');
@@ -637,8 +637,8 @@
       toast.classList.add('hidden');
       expanded = false;
 
-      // Close SSE connection when panel closes
-      closeSSEConnection();
+      // Keep SSE open even when panel closes (to receive future replies)
+      // Connection stays open for badge notifications
     }
   };
 
@@ -651,12 +651,17 @@
     const messages = await loadConversation();
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
+      lastMessageId = lastMessage.id;
+
       if (lastMessage.from === 'david') {
         // Has unread reply from David
         updateBadge(1);
-        lastMessageId = lastMessage.id;
       }
     }
+
+    // Open SSE connection immediately (not just when panel opens)
+    // This allows receiving replies even when panel is collapsed
+    openSSEConnection();
   });
 
   // Expose to global scope
