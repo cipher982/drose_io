@@ -1,4 +1,4 @@
-.PHONY: help install dev test test-watch test-full clean deploy docker-up docker-down docker-logs
+.PHONY: help install dev test test-watch test-full test-e2e test-e2e-ui test-e2e-debug test-e2e-headed test-all clean deploy docker-up docker-down docker-logs
 
 help:
 	@echo "drose.io - Feedback Widget System"
@@ -9,6 +9,11 @@ help:
 	@echo "  make test         Run automated test suite"
 	@echo "  make test-watch   Watch and test continuously"
 	@echo "  make test-full    Full integration test with conversation flow"
+	@echo "  make test-e2e      Run Playwright end-to-end tests"
+	@echo "  make test-e2e-ui   Run Playwright in UI mode"
+	@echo "  make test-e2e-debug Debug Playwright tests"
+	@echo "  make test-e2e-headed Run Playwright headed"
+	@echo "  make test-all     Run unit, integration, and e2e suites"
 	@echo "  make docker-up    Start docker compose"
 	@echo "  make docker-down  Stop docker compose"
 	@echo "  make docker-logs  Tail docker logs"
@@ -36,6 +41,24 @@ test-full:
 	@echo "Running full integration test..."
 	@bun test/integration-test.ts
 
+test-e2e:
+	TEST_MODE=true bunx playwright test
+
+test-e2e-debug:
+	TEST_MODE=true bunx playwright test --debug
+
+test-e2e-ui:
+	TEST_MODE=true bunx playwright test --ui
+
+test-e2e-headed:
+	TEST_MODE=true bunx playwright test --headed
+
+test-all:
+	@echo "Running all tests..."
+	@make test
+	@make test-full
+	@make test-e2e
+
 docker-up:
 	docker compose up --build -d
 
@@ -55,4 +78,6 @@ deploy:
 clean:
 	rm -rf node_modules
 	rm -rf data/threads/*.jsonl
+	rm -rf data/threads/test
+	rm -rf data/blocked/test
 	rm -f bun.lockb

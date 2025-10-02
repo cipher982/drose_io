@@ -2,12 +2,18 @@ import { existsSync, mkdirSync, readFileSync, appendFileSync, readdirSync, statS
 import { join } from 'path';
 import { connectionManager } from '../sse/connection-manager';
 
-const THREADS_DIR = process.env.THREADS_DIR || './data/threads';
+const isTestMode = Bun.env.TEST_MODE === 'true';
+const THREADS_DIR = Bun.env.THREADS_DIR || (isTestMode ? './data/threads/test' : './data/threads');
 const MAX_THREAD_SIZE = 1024 * 1024; // 1MB
+const BLOCKED_DIR = Bun.env.BLOCKED_DIR || (isTestMode ? './data/blocked/test' : './data/blocked');
 
 // Ensure directories exist
 if (!existsSync(THREADS_DIR)) {
   mkdirSync(THREADS_DIR, { recursive: true });
+}
+
+if (!existsSync(BLOCKED_DIR)) {
+  mkdirSync(BLOCKED_DIR, { recursive: true });
 }
 
 export interface Message {
@@ -139,7 +145,7 @@ export function listThreads(): VisitorMetadata[] {
  * Check if visitor is blocked
  */
 export function isBlocked(visitorId: string): boolean {
-  const blockedPath = join('./data/blocked', visitorId);
+  const blockedPath = join(BLOCKED_DIR, visitorId);
   return existsSync(blockedPath);
 }
 

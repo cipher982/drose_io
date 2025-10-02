@@ -3,9 +3,14 @@ import { notifications } from './notifications';
 import { appendMessage, getMessages, getUnreadCount, isBlocked, generateMessageId, getVisitorMetadata } from './storage/threads';
 
 // Simple in-memory rate limiting
+const BYPASS_RATE_LIMIT = Bun.env.TEST_MODE === 'true';
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string, maxRequests = 10, windowMs = 3600000): boolean {
+  if (BYPASS_RATE_LIMIT) {
+    return true;
+  }
+
   const now = Date.now();
   const limit = rateLimits.get(ip);
 
