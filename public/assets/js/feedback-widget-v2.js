@@ -410,8 +410,8 @@
           <button class="close-btn" onclick="window.feedbackWidget.closePanel()">×</button>
         </div>
         <div class="content">
-          <h3>Text me directly. Right now.</h3>
-          <p style="font-size: 12px; margin-bottom: 12px;">Type anything and it goes straight to my phone. Try "banana" and I'll reply with proof 🍌</p>
+          <h3>Send me a message</h3>
+          <p style="font-size: 12px; margin-bottom: 12px;">This goes directly to me (not a form that disappears into the void). Say hi, ask a question, or just leave feedback.</p>
           <div class="conversation-container"></div>
           <textarea id="feedback-text" placeholder="Say anything..." maxlength="280"></textarea>
           <div class="char-count"><span id="char-count">0</span>/280</div>
