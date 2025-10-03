@@ -57,21 +57,22 @@
       console.log('🟢 Visitor SSE connected');
     };
 
-    eventSource.onmessage = (event) => {
+    // Listen for named 'new-message' events (consistent with admin)
+    eventSource.addEventListener('new-message', (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📨 Visitor SSE received:', data);
+        console.log('📨 Visitor SSE received new-message:', data);
 
         if (data.type === 'init') return;
 
-        if (data.type === 'new-message' && data.message) {
+        if (data.message) {
           console.log('✅ Handling new message from:', data.message.from);
           handleNewMessage(data.message);
         }
       } catch (error) {
         console.error('SSE message error:', error);
       }
-    };
+    });
 
     eventSource.onerror = () => {
       isConnected = false;

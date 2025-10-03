@@ -81,45 +81,78 @@ class ConnectionManager extends EventEmitter {
   /**
    * Broadcast message to all connections for a visitor
    */
-  notifyVisitor(visitorId: string, message: any): void {
+  async notifyVisitor(visitorId: string, message: any): Promise<void> {
     const connections = this.connections.get(visitorId);
     if (!connections || connections.length === 0) {
       return;
     }
 
-    connections.forEach(conn => {
-      try {
-        conn.stream.writeSSE({ data: JSON.stringify(message) });
-        conn.lastActivity = Date.now();
-      } catch (error) {
-        console.error('Failed to send to visitor connection:', error);
-      }
-    });
+    const results = await Promise.allSettled(
+      connections.map(async (conn) => {
+        try {
+          await conn.stream.writeSSE({
+            event: 'new-message', // Named event for consistency
+            data: JSON.stringify(message),
+          });
+          conn.lastActivity = Date.now();
+          return { success: true, conn };
+        } catch (error) {
+          console.error('Failed to send to visitor connection:', error);
+          return { success: false, conn, error };
+        }
+      })
+    );
 
-    console.log(`📤 Notified ${connections.length} connection(s) for visitor ${visitorId.substring(0, 8)}`);
+    // Remove failed connections
+    const failed = results
+      .filter((r) => r.status === 'fulfilled' && !r.value.success)
+      .map((r: any) => r.value.conn);
+
+    failed.forEach((conn) => this.removeConnection(visitorId, conn));
+
+    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
+    console.log(`📤 Notified ${successCount}/${connections.length} visitor connection(s) for ${visitorId.substring(0, 8)}`);
   }
 
   /**
    * Broadcast to all admin connections
    */
-  notifyAdmins(event: string, data: any): void {
+  async notifyAdmins(event: string, data: any): Promise<void> {
     if (this.adminConnections.length === 0) {
       return;
     }
 
-    this.adminConnections.forEach(conn => {
-      try {
-        conn.stream.writeSSE({
-          event,
-          data: JSON.stringify(data),
-        });
-        conn.lastActivity = Date.now();
-      } catch (error) {
-        console.error('Failed to send to admin connection:', error);
+    const results = await Promise.allSettled(
+      this.adminConnections.map(async (conn) => {
+        try {
+          await conn.stream.writeSSE({
+            event,
+            data: JSON.stringify(data),
+          });
+          conn.lastActivity = Date.now();
+          return { success: true, conn };
+        } catch (error) {
+          console.error('Failed to send to admin connection:', error);
+          return { success: false, conn, error };
+        }
+      })
+    );
+
+    // Remove failed connections
+    const failed = results
+      .filter((r) => r.status === 'fulfilled' && !r.value.success)
+      .map((r: any) => r.value.conn);
+
+    failed.forEach((conn) => {
+      const index = this.adminConnections.indexOf(conn);
+      if (index > -1) {
+        this.adminConnections.splice(index, 1);
+        console.log(`🔌 Removed dead admin connection (${this.adminConnections.length} remaining)`);
       }
     });
 
-    console.log(`📤 Notified ${this.adminConnections.length} admin(s) of ${event}`);
+    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
+    console.log(`📤 Notified ${successCount}/${this.adminConnections.length + failed.length} admin(s) of ${event}`);
   }
 
   /**
