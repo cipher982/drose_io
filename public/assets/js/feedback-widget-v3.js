@@ -304,6 +304,12 @@
         if (textarea) {
           textarea.focus();
           textarea.addEventListener('input', updateCharCount);
+          textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              widget.sendMessage();
+            }
+          });
         }
 
       } catch (error) {

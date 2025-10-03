@@ -457,6 +457,17 @@
                 document.getElementById('password-input').value = storedPwd;
                 app.loadThreads();
             }
+
+            // Add Enter key handler for reply textarea
+            const replyTextarea = document.getElementById('reply-text');
+            if (replyTextarea) {
+                replyTextarea.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        app.sendReply();
+                    }
+                });
+            }
         });
     </script>
 </body>
