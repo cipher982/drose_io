@@ -54,16 +54,18 @@
     eventSource.onopen = () => {
       isConnected = true;
       updateConnectionStatus(true);
-      console.log('SSE connected');
+      console.log('🟢 Visitor SSE connected');
     };
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('📨 Visitor SSE received:', data);
 
         if (data.type === 'init') return;
 
         if (data.type === 'new-message' && data.message) {
+          console.log('✅ Handling new message from:', data.message.from);
           handleNewMessage(data.message);
         }
       } catch (error) {
@@ -95,14 +97,21 @@
   }
 
   function handleNewMessage(message) {
-    if (message.from !== 'david') return;
+    console.log('📬 handleNewMessage called:', { from: message.from, expanded, panelHidden: document.getElementById('feedback-panel')?.classList.contains('hidden') });
+
+    if (message.from !== 'david') {
+      console.log('⏭️ Skipping: not from david');
+      return;
+    }
 
     lastMessageId = message.id;
 
     const panel = document.getElementById('feedback-panel');
     if (expanded && !panel.classList.contains('hidden')) {
+      console.log('💬 Appending message to conversation');
       appendMessageToConversation(message);
     } else {
+      console.log('🔔 Showing badge instead (panel not visible)');
       updateBadge(1);
     }
   }
