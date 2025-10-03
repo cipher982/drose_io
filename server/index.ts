@@ -48,5 +48,5 @@ console.log(`🚀 Server running on http://localhost:${port}`);
 export default {
   port,
   fetch: app.fetch,
-  idleTimeout: 300, // 5 minutes for SSE connections
+  idleTimeout: 255, // Max allowed by Bun for SSE connections
 };
