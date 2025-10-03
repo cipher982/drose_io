@@ -90,14 +90,16 @@ class ConnectionManager extends EventEmitter {
     const results = await Promise.allSettled(
       connections.map(async (conn) => {
         try {
+          console.log('🔵 Sending to visitor:', { visitorId: visitorId.substring(0, 8), messageType: message.type, messageFrom: message.message?.from });
           await conn.stream.writeSSE({
             event: 'new-message', // Named event for consistency
             data: JSON.stringify(message),
           });
           conn.lastActivity = Date.now();
+          console.log('✅ Visitor write succeeded');
           return { success: true, conn };
         } catch (error) {
-          console.error('Failed to send to visitor connection:', error);
+          console.error('❌ Failed to send to visitor connection:', error);
           return { success: false, conn, error };
         }
       })

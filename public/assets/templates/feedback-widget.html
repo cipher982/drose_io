@@ -29,63 +29,24 @@
     padding: 9px 15px 7px 17px;
   }
 
-  #badge-indicator {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 12px;
-    height: 12px;
-    background: #ff0000;
-    border-radius: 50%;
-    border: 2px solid var(--win98-face);
-    animation: badgePulse 2s ease-in-out infinite;
-  }
-
-  @keyframes badgePulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-  }
-
   #feedback-notification {
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 12px 16px;
-    margin-bottom: 12px;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    cursor: pointer;
-    animation: slideInBounce 0.5s ease-out;
-  }
-
-  #feedback-notification:hover {
-    filter: brightness(1.05);
-  }
-
-  #feedback-notification:active {
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    padding: 13px 15px 11px 17px;
-  }
-
-  #feedback-notification .notification-content {
-    font-weight: bold;
-    font-size: 14px;
-    color: #000080;
     text-align: center;
+    margin-bottom: 8px;
+    animation: notificationPulse 2s ease-in-out infinite;
   }
 
-  @keyframes slideInBounce {
-    0% {
-      opacity: 0;
-      transform: translateY(30px) scale(0.9);
-    }
-    60% {
-      opacity: 1;
-      transform: translateY(-5px) scale(1.05);
-    }
-    100% {
-      transform: translateY(0) scale(1);
-    }
+  #feedback-notification .notification-text {
+    font-size: 13px;
+    font-weight: bold;
+    color: #000080;
+    text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.5);
   }
+
+  @keyframes notificationPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
 
   #feedback-toast {
     background: var(--win98-face);
@@ -251,7 +212,9 @@
   }
 </style>
 
-<!-- Notification banner removed - using badge on button instead -->
+<div id="feedback-notification" class="hidden">
+  <div class="notification-text">💬 David replied</div>
+</div>
 
 <div id="feedback-toast" class="hidden"></div>
 
@@ -271,6 +234,5 @@
 </div>
 
 <button id="feedback-button" onclick="window.feedbackWidget.handleClick()">
-  <span id="badge-indicator" class="hidden"></span>
   👋 Are you real or AI? Click here!
 </button>
