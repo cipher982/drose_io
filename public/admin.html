@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Admin">
-    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 
     <!-- Theme Colors -->
     <meta name="theme-color" content="#0066cc">
@@ -228,13 +228,26 @@
     <script>
         // Fetch VAPID public key
         let vapidPublicKey = null;
+        let vapidKeyLoaded = false;
         fetch('/api/push/vapid-public-key')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`VAPID key fetch failed: ${res.status}`);
+                }
+                return res.json();
+            })
             .then(data => {
+                if (!data.publicKey) {
+                    throw new Error('VAPID public key missing in response');
+                }
                 window.vapidPublicKey = data.publicKey;
                 vapidPublicKey = data.publicKey;
+                vapidKeyLoaded = true;
             })
-            .catch(err => console.warn('VAPID key fetch failed:', err));
+            .catch(err => {
+                console.error('VAPID key fetch failed:', err);
+                vapidKeyLoaded = false;
+            });
 
         const app = {
             password: null,
@@ -278,6 +291,9 @@
 
                     // Start SSE for live updates
                     this.startSSE();
+
+                    // Setup push notifications (with user gesture context)
+                    this.setupPushNotifications();
 
                 } catch (error) {
                     this.showError(error.message);
@@ -481,6 +497,12 @@
                     return;
                 }
 
+                // Check if VAPID key is loaded
+                if (!vapidKeyLoaded || !window.vapidPublicKey) {
+                    console.warn('VAPID key not loaded, cannot setup push notifications');
+                    return;
+                }
+
                 try {
                     const registration = await navigator.serviceWorker.ready;
                     let subscription = await registration.pushManager.getSubscription();
@@ -498,19 +520,20 @@
                             userVisibleOnly: true,
                             applicationServerKey: this.urlBase64ToUint8Array(window.vapidPublicKey)
                         });
-
-                        // Send subscription to server
-                        await fetch('/api/admin/push-subscribe', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${this.password}`
-                            },
-                            body: JSON.stringify(subscription)
-                        });
-
-                        console.log('Push notifications enabled');
                     }
+
+                    // Always send subscription to server (even if it exists)
+                    // This ensures server has current subscription after restarts
+                    await fetch('/api/admin/push-subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.password}`
+                        },
+                        body: JSON.stringify(subscription)
+                    });
+
+                    console.log('Push notifications enabled');
                 } catch (error) {
                     console.error('Push notification setup failed:', error);
                 }
@@ -556,9 +579,7 @@
                 app.password = storedPwd;
                 document.getElementById('password-input').value = storedPwd;
                 app.loadThreads();
-
-                // Setup push notifications after login
-                setTimeout(() => app.setupPushNotifications(), 1000);
+                // Push notifications will be setup in loadThreads() success path
             }
 
             // Add Enter key handler for reply textarea
