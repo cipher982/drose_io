@@ -10,6 +10,10 @@ import { getMessages } from '../storage/threads';
 export function streamVisitorThread(c: Context) {
   const { visitorId } = c.req.param();
 
+  // Disable Cloudflare/nginx buffering for SSE
+  c.header('X-Accel-Buffering', 'no');
+  c.header('Cache-Control', 'no-cache');
+
   return streamSSE(c, async (stream) => {
     // Register connection
     const { cleanup, connection } = connectionManager.registerVisitor(visitorId, stream as any);
@@ -65,6 +69,10 @@ export function streamAdminUpdates(c: Context) {
   if (!providedAuth || providedAuth !== adminPassword) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
+
+  // Disable Cloudflare/nginx buffering for SSE
+  c.header('X-Accel-Buffering', 'no');
+  c.header('Cache-Control', 'no-cache');
 
   return streamSSE(c, async (stream) => {
     // Register admin connection
