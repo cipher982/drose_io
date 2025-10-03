@@ -305,22 +305,43 @@
 
                 this.eventSource = new EventSource(`/api/admin/stream?auth=${encodeURIComponent(this.password)}`);
 
+                this.eventSource.onopen = () => {
+                    console.log('🟢 Admin SSE connected');
+                };
+
                 this.eventSource.addEventListener('new-message', (event) => {
                     const data = JSON.parse(event.data);
+                    console.log('📨 SSE new-message received:', {
+                        visitorId: data.visitorId,
+                        currentVisitorId: this.currentVisitorId,
+                        messageFrom: data.message?.from
+                    });
 
                     // If viewing this thread, append message
                     if (this.currentVisitorId === data.visitorId) {
+                        console.log('✅ Appending message to current conversation');
                         this.appendMessage(data.message);
                     }
 
                     // Refresh thread list to update counts
                     if (!this.currentVisitorId) {
+                        console.log('📋 Refreshing thread list');
                         this.loadThreads();
                     }
                 });
 
                 this.eventSource.onerror = () => {
-                    console.log('Admin SSE disconnected, will reconnect...');
+                    console.log('🔴 Admin SSE disconnected, will reconnect...');
+                    this.eventSource.close();
+                    this.eventSource = null;
+
+                    // Reconnect after 2 seconds
+                    setTimeout(() => {
+                        if (!this.eventSource) {
+                            console.log('🔄 Reconnecting SSE...');
+                            this.startSSE();
+                        }
+                    }, 2000);
                 };
             },
 
