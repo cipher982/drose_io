@@ -57,20 +57,28 @@
       console.log('🟢 Visitor SSE connected');
     };
 
+    // Debug: Log ALL events to see what's actually arriving
+    eventSource.onmessage = (event) => {
+      console.error('❌ UNEXPECTED: Received unnamed SSE event (should be named "new-message"):', event.data);
+    };
+
     // Listen for named 'new-message' events (consistent with admin)
     eventSource.addEventListener('new-message', (event) => {
+      console.log('📨 Visitor SSE received new-message event');
       try {
         const data = JSON.parse(event.data);
-        console.log('📨 Visitor SSE received new-message:', data);
+        console.log('📨 Parsed data:', data);
 
         if (data.type === 'init') return;
 
         if (data.message) {
           console.log('✅ Handling new message from:', data.message.from);
           handleNewMessage(data.message);
+        } else {
+          console.error('❌ FAIL: data.message is missing:', data);
         }
       } catch (error) {
-        console.error('SSE message error:', error);
+        console.error('❌ FAIL: SSE parse error:', error, 'Raw data:', event.data);
       }
     });
 
