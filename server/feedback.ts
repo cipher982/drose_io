@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import { notifications } from './notifications';
 import { appendMessage, getMessages, getUnreadCount, isBlocked, generateMessageId, getVisitorMetadata } from './storage/threads';
+import { sendPushNotification } from './api/push';
 
 // Simple in-memory rate limiting
 const BYPASS_RATE_LIMIT = Bun.env.TEST_MODE === 'true';
@@ -72,9 +73,11 @@ export async function handleFeedback(c: Context) {
       if (type === 'ping') {
         const notificationText = `👋 Someone pinged from ${page}\n\nVisitor: ${visitorId.substring(0, 8)}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}`;
         await notifications.sendAll(notificationText);
+        await sendPushNotification('New Ping!', `Someone pinged from ${page}`, visitorId);
       } else if (type === 'message' && text) {
         const notificationText = `💬 New message from ${visitorId.substring(0, 8)}\n\nPage: ${page}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}\n\n"${text}"`;
         await notifications.sendAll(notificationText);
+        await sendPushNotification('New Message!', text, visitorId);
       }
     } catch (error) {
       console.error('❌ Notification failed:', error);

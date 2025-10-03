@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Thread Management</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- iOS Specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Admin">
+    <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+
+    <!-- Theme Colors -->
+    <meta name="theme-color" content="#0066cc">
     <style>
         * {
             margin: 0;
@@ -214,6 +226,16 @@
     </div>
 
     <script>
+        // Fetch VAPID public key
+        let vapidPublicKey = null;
+        fetch('/api/push/vapid-public-key')
+            .then(res => res.json())
+            .then(data => {
+                window.vapidPublicKey = data.publicKey;
+                vapidPublicKey = data.publicKey;
+            })
+            .catch(err => console.warn('VAPID key fetch failed:', err));
+
         const app = {
             password: null,
             currentVisitorId: null,
@@ -314,8 +336,13 @@
 
                 if (!threads || threads.length === 0) {
                     container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No conversations yet</p>';
+                    this.updateBadge(0);
                     return;
                 }
+
+                // Calculate total unread count
+                const totalUnread = threads.reduce((sum, t) => sum + (t.unreadFromVisitor || 0), 0);
+                this.updateBadge(totalUnread);
 
                 container.innerHTML = threads.map(thread => {
                     const lastMsg = thread.lastMessage;
@@ -446,8 +473,81 @@
                 if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
                 if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
                 return date.toLocaleString();
+            },
+
+            async setupPushNotifications() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    console.log('Push notifications not supported');
+                    return;
+                }
+
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    let subscription = await registration.pushManager.getSubscription();
+
+                    if (!subscription) {
+                        // Request notification permission
+                        const permission = await Notification.requestPermission();
+                        if (permission !== 'granted') {
+                            console.log('Notification permission denied');
+                            return;
+                        }
+
+                        // Subscribe to push notifications
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: this.urlBase64ToUint8Array(window.vapidPublicKey)
+                        });
+
+                        // Send subscription to server
+                        await fetch('/api/admin/push-subscribe', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.password}`
+                            },
+                            body: JSON.stringify(subscription)
+                        });
+
+                        console.log('Push notifications enabled');
+                    }
+                } catch (error) {
+                    console.error('Push notification setup failed:', error);
+                }
+            },
+
+            urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            },
+
+            updateBadge(count) {
+                if ('setAppBadge' in navigator) {
+                    if (count > 0) {
+                        navigator.setAppBadge(count);
+                    } else {
+                        navigator.clearAppBadge();
+                    }
+                }
             }
         };
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.error('Service Worker registration failed:', err));
+        }
 
         // Auto-login if password stored
         window.addEventListener('DOMContentLoaded', () => {
@@ -456,6 +556,9 @@
                 app.password = storedPwd;
                 document.getElementById('password-input').value = storedPwd;
                 app.loadThreads();
+
+                // Setup push notifications after login
+                setTimeout(() => app.setupPushNotifications(), 1000);
             }
 
             // Add Enter key handler for reply textarea

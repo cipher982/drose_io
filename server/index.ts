@@ -5,6 +5,7 @@ import { handleFeedback } from './feedback';
 import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads } from './api/threads';
 import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
+import { subscribeToPush, getVapidPublicKey } from './api/push';
 
 const app = new Hono();
 
@@ -23,6 +24,10 @@ app.get('/api/threads/:visitorId/stream', streamVisitorThread);
 app.post('/api/admin/threads/:visitorId/reply', replyToThread);
 app.get('/api/admin/threads', listAllThreads);
 app.get('/api/admin/stream', streamAdminUpdates);
+app.post('/api/admin/push-subscribe', subscribeToPush);
+
+// Push notification routes
+app.get('/api/push/vapid-public-key', getVapidPublicKey);
 
 // Health check
 app.get('/api/health', (c) => c.json({
