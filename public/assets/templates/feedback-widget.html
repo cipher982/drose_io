@@ -29,6 +29,23 @@
     padding: 9px 15px 7px 17px;
   }
 
+  #badge-indicator {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 12px;
+    height: 12px;
+    background: #ff0000;
+    border-radius: 50%;
+    border: 2px solid var(--win98-face);
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+
   #feedback-notification {
     background: var(--win98-face);
     border: 2px solid;
@@ -234,11 +251,7 @@
   }
 </style>
 
-<div id="feedback-notification" class="hidden">
-  <div class="notification-content" onclick="window.feedbackWidget.handleClick()">
-    💬 David replied!
-  </div>
-</div>
+<!-- Notification banner removed - using badge on button instead -->
 
 <div id="feedback-toast" class="hidden"></div>
 
@@ -258,5 +271,6 @@
 </div>
 
 <button id="feedback-button" onclick="window.feedbackWidget.handleClick()">
+  <span id="badge-indicator" class="hidden"></span>
   👋 Are you real or AI? Click here!
 </button>

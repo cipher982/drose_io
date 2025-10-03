@@ -171,9 +171,9 @@
   }
 
   function updateBadge(count) {
-    const notification = document.getElementById('feedback-notification');
-    if (notification) {
-      notification.classList.toggle('hidden', count === 0);
+    const badge = document.getElementById('badge-indicator');
+    if (badge) {
+      badge.classList.toggle('hidden', count === 0);
     }
   }
 
