@@ -30,25 +30,21 @@
   }
 
   #feedback-notification {
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 6px 12px;
-    margin-bottom: 8px;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     text-align: center;
+    margin-bottom: 4px;
     animation: notificationPulse 2s ease-in-out infinite;
   }
 
   #feedback-notification .notification-text {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
     color: #000080;
+    text-shadow: 1px 1px 0 rgba(255,255,255,0.8);
   }
 
   @keyframes notificationPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.85; transform: scale(0.98); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
   }
 
 
