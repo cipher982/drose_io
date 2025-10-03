@@ -29,7 +29,7 @@ class ConnectionManager extends EventEmitter {
   /**
    * Register a visitor connection
    */
-  registerVisitor(visitorId: string, stream: any): () => void {
+  registerVisitor(visitorId: string, stream: any): { cleanup: () => void; connection: SSEConnection } {
     const connection: SSEConnection = {
       visitorId,
       stream,
@@ -43,16 +43,19 @@ class ConnectionManager extends EventEmitter {
 
     console.log(`📡 Visitor ${visitorId.substring(0, 8)} connected (${this.getVisitorCount(visitorId)} active)`);
 
-    // Return cleanup function
-    return () => {
-      this.removeConnection(visitorId, connection);
+    // Return cleanup function and connection object
+    return {
+      cleanup: () => {
+        this.removeConnection(visitorId, connection);
+      },
+      connection,
     };
   }
 
   /**
    * Register an admin connection
    */
-  registerAdmin(stream: any): () => void {
+  registerAdmin(stream: any): { cleanup: () => void; connection: SSEConnection } {
     const connection: SSEConnection = {
       isAdmin: true,
       stream,
@@ -62,13 +65,16 @@ class ConnectionManager extends EventEmitter {
     this.adminConnections.push(connection);
     console.log(`🔐 Admin connected (${this.adminConnections.length} active)`);
 
-    // Return cleanup function
-    return () => {
-      const index = this.adminConnections.indexOf(connection);
-      if (index > -1) {
-        this.adminConnections.splice(index, 1);
-        console.log(`🔐 Admin disconnected (${this.adminConnections.length} active)`);
-      }
+    // Return cleanup function and connection object
+    return {
+      cleanup: () => {
+        const index = this.adminConnections.indexOf(connection);
+        if (index > -1) {
+          this.adminConnections.splice(index, 1);
+          console.log(`🔐 Admin disconnected (${this.adminConnections.length} active)`);
+        }
+      },
+      connection,
     };
   }
 

@@ -12,7 +12,7 @@ export function streamVisitorThread(c: Context) {
 
   return streamSSE(c, async (stream) => {
     // Register connection
-    const cleanup = connectionManager.registerVisitor(visitorId, stream as any);
+    const { cleanup, connection } = connectionManager.registerVisitor(visitorId, stream as any);
 
     // Send initial messages
     const messages = getMessages(visitorId);
@@ -26,6 +26,8 @@ export function streamVisitorThread(c: Context) {
     const keepAliveInterval = setInterval(async () => {
       try {
         await stream.writeSSE({ comment: 'ping' });
+        // Update lastActivity to prevent cleanup
+        connection.lastActivity = Date.now();
       } catch (error) {
         clearInterval(keepAliveInterval);
       }
@@ -66,12 +68,14 @@ export function streamAdminUpdates(c: Context) {
 
   return streamSSE(c, async (stream) => {
     // Register admin connection
-    const cleanup = connectionManager.registerAdmin(stream as any);
+    const { cleanup, connection } = connectionManager.registerAdmin(stream as any);
 
     // Keep connection alive
     const keepAliveInterval = setInterval(async () => {
       try {
         await stream.writeSSE({ comment: 'ping' });
+        // Update lastActivity to prevent cleanup
+        connection.lastActivity = Date.now();
       } catch (error) {
         clearInterval(keepAliveInterval);
       }
