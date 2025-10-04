@@ -65,6 +65,12 @@ export function streamAdminUpdates(c: Context) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
+  const requestMeta = {
+    ip: c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown',
+    ua: c.req.header('user-agent') || 'unknown',
+  };
+  console.log('🔌 Admin SSE request', requestMeta);
+
   // Disable Cloudflare/nginx buffering for SSE
   c.header('X-Accel-Buffering', 'no');
   c.header('Cache-Control', 'no-cache');
@@ -73,13 +79,23 @@ export function streamAdminUpdates(c: Context) {
     // Register admin connection
     const { cleanup, connection } = connectionManager.registerAdmin(stream as any);
 
+    try {
+      await stream.writeSSE({
+        event: 'status',
+        data: JSON.stringify({ type: 'ready', timestamp: Date.now() })
+      });
+    } catch (error) {
+      console.error('Failed to send initial admin SSE status event', error);
+    }
+
     // Keep connection alive
     const keepAliveInterval = setInterval(async () => {
       try {
-        await stream.writeSSE({ comment: 'ping' });
+        await stream.writeSSE({ event: 'ping', data: Date.now().toString() });
         // Update lastActivity to prevent cleanup
         connection.lastActivity = Date.now();
       } catch (error) {
+        console.warn('Admin SSE keepalive failed', error);
         clearInterval(keepAliveInterval);
       }
     }, 15000);
@@ -90,12 +106,14 @@ export function streamAdminUpdates(c: Context) {
         c.req.raw.signal.addEventListener('abort', () => {
           clearInterval(keepAliveInterval);
           cleanup();
+          console.log('🔌 Admin SSE client aborted', requestMeta);
           resolve(null);
         });
       });
     } catch (error) {
       clearInterval(keepAliveInterval);
       cleanup();
+      console.error('Admin SSE stream failed', error);
     }
   });
 }
