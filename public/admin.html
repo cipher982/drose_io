@@ -558,25 +558,33 @@
                     }
                 });
 
-                this.eventSource.onerror = () => {
-                    this.eventSource.close();
-                    this.eventSource = null;
+                this.eventSource.onerror = (e) => {
+                    // EventSource automatically reconnects unless readyState is CLOSED (2)
+                    // Only treat as error if connection is truly closed
+                    if (this.eventSource.readyState === 2) {
+                        console.error('SSE connection closed');
+                        this.eventSource = null;
 
-                    // Exponential backoff: double the delay, cap at maxRetryDelay
-                    const currentDelay = this.retryDelay;
-                    const retrySeconds = Math.ceil(currentDelay / 1000);
+                        // Exponential backoff: double the delay, cap at maxRetryDelay
+                        const currentDelay = this.retryDelay;
+                        const retrySeconds = Math.ceil(currentDelay / 1000);
 
-                    console.log(`SSE disconnected. Retrying in ${retrySeconds}s...`);
-                    this.setConnectionStatus('disconnected', `Retrying in ${retrySeconds}s`);
+                        console.log(`SSE disconnected. Retrying in ${retrySeconds}s...`);
+                        this.setConnectionStatus('disconnected', `Retrying in ${retrySeconds}s`);
 
-                    setTimeout(() => {
-                        if (!this.eventSource) {
-                            this.startSSE();
-                        }
-                    }, currentDelay);
+                        setTimeout(() => {
+                            if (!this.eventSource) {
+                                this.startSSE();
+                            }
+                        }, currentDelay);
 
-                    // Double the delay for next retry, cap at max
-                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
+                        // Double the delay for next retry, cap at max
+                        this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
+                    } else {
+                        // EventSource is auto-reconnecting, just log it
+                        console.log('SSE reconnecting...');
+                        this.setConnectionStatus('connecting');
+                    }
                 };
             },
 
