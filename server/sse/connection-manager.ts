@@ -90,16 +90,14 @@ class ConnectionManager extends EventEmitter {
     const results = await Promise.allSettled(
       connections.map(async (conn) => {
         try {
-          console.log('🔵 Sending to visitor:', { visitorId: visitorId.substring(0, 8), messageType: message.type, messageFrom: message.message?.from });
           await conn.stream.writeSSE({
-            event: 'new-message', // Named event for consistency
+            event: 'new-message',
             data: JSON.stringify(message),
           });
           conn.lastActivity = Date.now();
-          console.log('✅ Visitor write succeeded');
           return { success: true, conn };
         } catch (error) {
-          console.error('❌ Failed to send to visitor connection:', error);
+          console.error('Failed to send to visitor:', error);
           return { success: false, conn, error };
         }
       })
@@ -111,9 +109,6 @@ class ConnectionManager extends EventEmitter {
       .map((r: any) => r.value.conn);
 
     failed.forEach((conn) => this.removeConnection(visitorId, conn));
-
-    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
-    console.log(`📤 Notified ${successCount}/${connections.length} visitor connection(s) for ${visitorId.substring(0, 8)}`);
   }
 
   /**
@@ -134,7 +129,6 @@ class ConnectionManager extends EventEmitter {
           conn.lastActivity = Date.now();
           return { success: true, conn };
         } catch (error) {
-          console.error('Failed to send to admin connection:', error);
           return { success: false, conn, error };
         }
       })
@@ -149,12 +143,8 @@ class ConnectionManager extends EventEmitter {
       const index = this.adminConnections.indexOf(conn);
       if (index > -1) {
         this.adminConnections.splice(index, 1);
-        console.log(`🔌 Removed dead admin connection (${this.adminConnections.length} remaining)`);
       }
     });
-
-    const successCount = results.filter((r) => r.status === 'fulfilled' && r.value.success).length;
-    console.log(`📤 Notified ${successCount}/${this.adminConnections.length + failed.length} admin(s) of ${event}`);
   }
 
   /**

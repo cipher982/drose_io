@@ -43,25 +43,18 @@
     document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
   }
 
-  // SSE Connection Management (using fetch() instead of EventSource for Cloudflare compatibility)
+  // SSE Connection Management
   let abortController = null;
   let reconnectTimer = null;
 
   async function openSSEConnection() {
-    console.log('🔵 openSSEConnection() called');
-    if (abortController) {
-      console.log('⏭️ Already connected, skipping');
-      return;
-    }
+    if (abortController) return;
 
     const vid = await getVisitorId();
     const url = `/api/threads/${vid}/stream`;
-    console.log('🔌 Connecting to:', url);
-
     abortController = new AbortController();
 
     try {
-      console.log('📡 Fetching SSE stream...');
       const response = await fetch(url, {
         headers: {
           'Accept': 'text/event-stream',
@@ -70,16 +63,12 @@
         signal: abortController.signal,
       });
 
-      console.log('📡 Response status:', response.status, response.statusText);
-
       if (!response.ok) {
         throw new Error(`SSE connection failed: ${response.status}`);
       }
 
       isConnected = true;
       updateConnectionStatus(true);
-      console.log('🟢 Visitor SSE connected (fetch)');
-      console.log('📖 Starting to read stream...');
 
       // Parse SSE stream
       const reader = response.body.getReader();
@@ -90,14 +79,9 @@
 
       while (isConnected && abortController) {
         const {value, done} = await reader.read();
-        if (done) {
-          console.log('📭 Stream ended');
-          break;
-        }
+        if (done) break;
 
-        const chunk = decoder.decode(value, {stream: true});
-        console.log('📦 Received chunk:', chunk.length, 'bytes');
-        buffer += chunk;
+        buffer += decoder.decode(value, {stream: true});
 
         while (true) {
           const newlineIndex = buffer.indexOf('\n');
@@ -106,22 +90,17 @@
           let line = buffer.slice(0, newlineIndex);
           buffer = buffer.slice(newlineIndex + 1);
 
-          if (line.endsWith('\r')) {
-            line = line.slice(0, -1);
-          }
+          if (line.endsWith('\r')) line = line.slice(0, -1);
 
           // Empty line = dispatch event
           if (line === '') {
             if (dataLines.length > 0) {
               const data = dataLines.join('\n');
-              console.log('📨 Visitor SSE received event:', eventName || 'message', data.substring(0, 100));
 
               if (eventName === 'new-message' || !eventName) {
                 try {
                   const parsed = JSON.parse(data);
-                  if (parsed.type === 'init') continue;
-                  if (parsed.message) {
-                    console.log('✅ Handling message from:', parsed.message.from);
+                  if (parsed.type !== 'init' && parsed.message) {
                     handleNewMessage(parsed.message);
                   }
                 } catch (error) {
@@ -135,20 +114,16 @@
             continue;
           }
 
-          // Comment line
-          if (line.startsWith(':')) {
-            continue; // Ignore keep-alive pings
-          }
+          // Skip comments
+          if (line.startsWith(':')) continue;
 
-          // Field: value
+          // Parse field: value
           const colonIndex = line.indexOf(':');
           if (colonIndex === -1) continue;
 
           const field = line.slice(0, colonIndex);
           let value = line.slice(colonIndex + 1);
-          if (value.startsWith(' ')) {
-            value = value.slice(1);
-          }
+          if (value.startsWith(' ')) value = value.slice(1);
 
           if (field === 'event') {
             eventName = value;
@@ -181,7 +156,6 @@
       abortController = null;
       isConnected = false;
       updateConnectionStatus(false);
-      console.log('SSE closed');
     }
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
@@ -190,21 +164,14 @@
   }
 
   function handleNewMessage(message) {
-    console.log('📬 handleNewMessage called:', { from: message.from, expanded, panelHidden: document.getElementById('feedback-panel')?.classList.contains('hidden') });
-
-    if (message.from !== 'david') {
-      console.log('⏭️ Skipping: not from david');
-      return;
-    }
+    if (message.from !== 'david') return;
 
     lastMessageId = message.id;
 
     const panel = document.getElementById('feedback-panel');
     if (expanded && !panel.classList.contains('hidden')) {
-      console.log('💬 Appending message to conversation');
       appendMessageToConversation(message);
     } else {
-      console.log('🔔 Showing badge instead (panel not visible)');
       updateBadge(1);
     }
   }
