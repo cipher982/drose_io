@@ -373,6 +373,8 @@
             currentVisitorId: null,
             eventSource: null,
             connectionStatus: 'disconnected',
+            retryDelay: 1000, // Start at 1 second
+            maxRetryDelay: 30000, // Cap at 30 seconds
 
             login() {
                 const password = document.getElementById('password-input').value;
@@ -428,6 +430,8 @@
 
                 this.eventSource.onopen = () => {
                     this.setConnectionStatus('connected');
+                    // Reset retry delay on successful connection
+                    this.retryDelay = 1000;
                 };
 
                 this.eventSource.addEventListener('new-message', (event) => {
@@ -443,15 +447,24 @@
                 });
 
                 this.eventSource.onerror = () => {
-                    this.setConnectionStatus('disconnected');
                     this.eventSource.close();
                     this.eventSource = null;
+
+                    // Exponential backoff: double the delay, cap at maxRetryDelay
+                    const currentDelay = this.retryDelay;
+                    const retrySeconds = Math.ceil(currentDelay / 1000);
+
+                    console.log(`SSE disconnected. Retrying in ${retrySeconds}s...`);
+                    this.setConnectionStatus('disconnected', `Retrying in ${retrySeconds}s`);
 
                     setTimeout(() => {
                         if (!this.eventSource) {
                             this.startSSE();
                         }
-                    }, 2000);
+                    }, currentDelay);
+
+                    // Double the delay for next retry, cap at max
+                    this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
                 };
             },
 
@@ -679,7 +692,7 @@
                 }
             },
 
-            setConnectionStatus(status) {
+            setConnectionStatus(status, message) {
                 this.connectionStatus = status;
                 const statusEl = document.getElementById('connection-status');
                 const textEl = document.getElementById('connection-text');
@@ -689,15 +702,15 @@
 
                 if (status === 'connected') {
                     statusEl.classList.add('connected', 'show');
-                    textEl.textContent = '●  Connected';
+                    textEl.textContent = message || '●  Connected';
                     // Hide after 2 seconds
                     setTimeout(() => statusEl.classList.remove('show'), 2000);
                 } else if (status === 'connecting') {
                     statusEl.classList.add('connecting', 'show');
-                    textEl.textContent = '●  Connecting...';
+                    textEl.textContent = message || '●  Connecting...';
                 } else if (status === 'disconnected') {
                     statusEl.classList.add('disconnected', 'show');
-                    textEl.textContent = '●  Disconnected';
+                    textEl.textContent = message || '●  Disconnected';
                 }
             }
         };
