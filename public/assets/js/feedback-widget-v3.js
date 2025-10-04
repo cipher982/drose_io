@@ -178,13 +178,19 @@
   }
 
   function appendMessageToConversation(message) {
-    const conv = document.querySelector('.conversation');
+    const container = document.querySelector('.conversation-container');
+    if (!container) return;
+
+    let conv = container.querySelector('.conversation');
     if (!conv) return;
 
-    // Clear any non-message content (placeholders, etc)
-    const existingMessages = conv.querySelectorAll('.message');
-    if (existingMessages.length === 0) {
-      conv.innerHTML = '';
+    // If this is the first real message, rebuild the conversation without placeholder
+    const hasOnlyPlaceholder = conv.querySelector('.empty-placeholder') !== null;
+    const hasNoMessages = conv.querySelectorAll('.message').length === 0;
+
+    if (hasOnlyPlaceholder || hasNoMessages) {
+      container.innerHTML = '<div class="conversation"></div>';
+      conv = container.querySelector('.conversation');
     }
 
     const wasAtBottom = conv.scrollHeight - conv.scrollTop <= conv.clientHeight + 50;
