@@ -1,5 +1,5 @@
 // Service Worker for drose.io Admin PWA
-const CACHE_NAME = 'admin-v3';
+const CACHE_NAME = 'admin-v4';
 const ASSETS_TO_CACHE = [
   '/admin.html',
   '/manifest.json'
@@ -26,8 +26,51 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch - network first, fallback to cache
+// Fetch - smart caching strategy
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // App shell: cache-first for offline reliability
+  if (url.pathname === '/admin.html' ||
+      url.pathname === '/manifest.json' ||
+      url.pathname === '/sw.js') {
+    event.respondWith(
+      caches.match(event.request)
+        .then(cached => cached || fetch(event.request)
+          .then(response => {
+            // Cache the fetched version
+            caches.open(CACHE_NAME).then(cache =>
+              cache.put(event.request, response.clone())
+            );
+            return response;
+          })
+        )
+    );
+    return;
+  }
+
+  // API calls: network-first with timeout, cache fallback
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      Promise.race([
+        fetch(event.request).then(response => {
+          // Cache successful GET requests
+          if (event.request.method === 'GET' && response.ok) {
+            caches.open(CACHE_NAME).then(cache =>
+              cache.put(event.request, response.clone())
+            );
+          }
+          return response;
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 5000)
+        )
+      ]).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Everything else: network-first with cache fallback
   event.respondWith(
     fetch(event.request)
       .catch(() => caches.match(event.request))
