@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import webpush from 'web-push';
+import { addSubscription, removeSubscription, getAllSubscriptions, touchSubscription } from '../storage/push-subscriptions';
 
 // VAPID keys for web push
 // In production, generate these once and store in env vars:
@@ -11,9 +12,6 @@ const vapidEmail = Bun.env.VAPID_EMAIL || 'mailto:david@drose.io';
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 }
-
-// Store push subscriptions in memory (in production, use database)
-const pushSubscriptions = new Map<string, any>();
 
 /**
  * Subscribe to push notifications (admin only)
@@ -31,8 +29,8 @@ export async function subscribeToPush(c: Context) {
 
     const subscription = await c.req.json();
 
-    // Store subscription (keyed by endpoint for now)
-    pushSubscriptions.set(subscription.endpoint, subscription);
+    // Persist subscription to disk
+    addSubscription(subscription);
 
     console.log('✅ Push subscription added:', subscription.endpoint.substring(0, 50));
 
@@ -70,16 +68,21 @@ export async function sendPushNotification(title: string, message: string, visit
     visitorId,
   });
 
+  const subscriptions = getAllSubscriptions();
   const promises: Promise<any>[] = [];
 
-  for (const [endpoint, subscription] of pushSubscriptions.entries()) {
-    const promise = webpush.sendNotification(subscription, payload)
+  for (const sub of subscriptions) {
+    const promise = webpush.sendNotification(sub, payload)
+      .then(() => {
+        // Update last used timestamp on success
+        touchSubscription(sub.endpoint);
+      })
       .catch((error: any) => {
-        console.error('❌ Push notification failed for:', endpoint.substring(0, 50), error.message);
+        console.error('❌ Push notification failed for:', sub.endpoint.substring(0, 50), error.message);
 
-        // Remove invalid subscriptions
+        // Remove invalid/expired subscriptions
         if (error.statusCode === 410 || error.statusCode === 404) {
-          pushSubscriptions.delete(endpoint);
+          removeSubscription(sub.endpoint);
           console.log('🗑️  Removed invalid subscription');
         }
       });
@@ -88,5 +91,5 @@ export async function sendPushNotification(title: string, message: string, visit
   }
 
   await Promise.allSettled(promises);
-  console.log('📤 Push notifications sent:', promises.length);
+  console.log(`📤 Push notifications sent: ${promises.length} subscriber(s)`);
 }
