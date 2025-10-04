@@ -499,6 +499,7 @@
 
                     if (!response.ok) {
                         if (response.status === 401) {
+                            console.error('Authentication failed - clearing stored credentials');
                             await authStore.clearPassword();
                             this.password = null;
                             if (this.eventSource) {
@@ -506,7 +507,6 @@
                                 this.eventSource = null;
                             }
                             this.setConnectionStatus('disconnected', 'Login required');
-                            this.showError('Invalid password. Please log in again.');
                             this.showLogin();
                             return;
                         }
@@ -878,17 +878,37 @@
                 // Ignore if localStorage is unavailable (e.g., private mode)
             }
 
-            // Clear old token storage from previous auth system
+            // Clear old token storage from previous auth system and migrate
             try {
                 const db = await authStore.getDB();
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction('session', 'readwrite');
-                    tx.objectStore('session').delete('token');
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(tx.error);
+
+                // Check if we have an old token (base64-like string longer than typical password)
+                const storedValue = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('session', 'readonly');
+                    const request = tx.objectStore('session').get('password');
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                // If stored value looks like an old token (long base64), clear it
+                if (storedValue && storedValue.length > 40 && /^[A-Za-z0-9_-]+$/.test(storedValue)) {
+                    console.log('Detected old session token, clearing...');
+                    await authStore.clearPassword();
+                }
+
+                // Also clear any leftover 'token' key
+                await new Promise((resolve) => {
+                    try {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').delete('token');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => resolve(); // Ignore errors
+                    } catch {
+                        resolve();
+                    }
                 });
             } catch (err) {
-                console.log('No old token to clear');
+                console.log('Migration check failed:', err);
             }
 
             authStore.getPassword().then((password) => {
