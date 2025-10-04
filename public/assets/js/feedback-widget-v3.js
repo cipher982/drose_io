@@ -7,6 +7,7 @@
   let visitorId = null;
   let lastMessageId = null;
   let isConnected = false;
+  let textareaHandlers = null;
 
   // Device ID generation
   async function getVisitorId() {
@@ -180,6 +181,12 @@
     const conv = document.querySelector('.conversation');
     if (!conv) return;
 
+    // Remove "No messages yet" placeholder if present
+    const placeholder = conv.querySelector('p');
+    if (placeholder && placeholder.textContent.includes('No messages yet')) {
+      placeholder.remove();
+    }
+
     const wasAtBottom = conv.scrollHeight - conv.scrollTop <= conv.clientHeight + 50;
 
     const msgDiv = document.createElement('div');
@@ -187,17 +194,18 @@
     msgDiv.style.opacity = '0';
     msgDiv.style.transition = 'opacity 0.3s ease-in';
     msgDiv.innerHTML = `
-      <div class="author">${message.from === 'david' ? 'David' : 'You'}</div>
+      <div class="author">${getAuthorName(message.from)}</div>
       <div class="text">${escapeHtml(message.text)}</div>
       <div class="time">${formatTime(message.ts)}</div>
     `;
 
     conv.appendChild(msgDiv);
-    setTimeout(() => msgDiv.style.opacity = '1', 10);
-
-    if (wasAtBottom) {
-      setTimeout(() => conv.scrollTop = conv.scrollHeight, 100);
-    }
+    requestAnimationFrame(() => {
+      msgDiv.style.opacity = '1';
+      if (wasAtBottom) {
+        conv.scrollTop = conv.scrollHeight;
+      }
+    });
   }
 
   function updateConnectionStatus(connected) {
@@ -226,6 +234,18 @@
     if (notification) {
       notification.classList.toggle('hidden', count === 0);
     }
+  }
+
+  function showToast(message, duration = 3000) {
+    const toast = document.getElementById('feedback-toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, duration);
   }
 
   // Load template and create widget
@@ -298,6 +318,10 @@
     return div.innerHTML;
   }
 
+  function getAuthorName(from) {
+    return from === 'david' ? 'David' : 'You';
+  }
+
   function renderConversation(messages) {
     if (!messages || messages.length === 0) {
       return '<div class="conversation"><p style="text-align: center; color: #666; font-size: 12px; padding: 20px;">No messages yet</p></div>';
@@ -305,7 +329,7 @@
 
     const html = messages.map(m => `
       <div class="message ${m.from}">
-        <div class="author">${m.from === 'david' ? 'David' : 'You'}</div>
+        <div class="author">${getAuthorName(m.from)}</div>
         <div class="text">${escapeHtml(m.text)}</div>
         <div class="time">${formatTime(m.ts)}</div>
       </div>
@@ -334,9 +358,7 @@
         if (messages.length === 0) {
           const result = await sendFeedback('ping');
 
-          const toast = document.getElementById('feedback-toast');
-          toast.textContent = `✓ David's phone just buzzed (you're human #${result.count || '?'} today)`;
-          toast.classList.remove('hidden');
+          showToast(`✓ David's phone just buzzed (you're human #${result.count || '?'} today)`);
 
           if (result.messageId) {
             lastMessageId = result.messageId;
@@ -349,10 +371,10 @@
 
           updateBadge(0);
 
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             const conv = container.querySelector('.conversation');
             if (conv) conv.scrollTop = conv.scrollHeight;
-          }, 50);
+          });
         }
 
         const panel = document.getElementById('feedback-panel');
@@ -363,21 +385,31 @@
 
         const textarea = document.getElementById('feedback-text');
         if (textarea) {
-          textarea.focus();
-          textarea.addEventListener('input', updateCharCount);
-          textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              widget.sendMessage();
+          // Remove old listeners if they exist
+          if (textareaHandlers) {
+            textarea.removeEventListener('input', textareaHandlers.input);
+            textarea.removeEventListener('keydown', textareaHandlers.keydown);
+          }
+
+          // Create new handlers
+          textareaHandlers = {
+            input: updateCharCount,
+            keydown: (e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                widget.sendMessage();
+              }
             }
-          });
+          };
+
+          textarea.addEventListener('input', textareaHandlers.input);
+          textarea.addEventListener('keydown', textareaHandlers.keydown);
+          textarea.focus();
         }
 
       } catch (error) {
         console.error('Feedback error:', error);
-        const toast = document.getElementById('feedback-toast');
-        toast.textContent = '❌ Oops, something broke. Try again?';
-        toast.classList.remove('hidden');
+        showToast('❌ Oops, something broke. Try again?');
       }
     },
 
@@ -414,17 +446,23 @@
 
       } catch (error) {
         console.error('Send error:', error);
-        btn.textContent = '❌ Failed. Try again?';
+        showToast('❌ Failed. Try again?', 2000);
         btn.disabled = false;
-        setTimeout(() => {
-          btn.textContent = 'Send message →';
-        }, 2000);
+        btn.textContent = 'Send message →';
       }
     },
 
     closePanel: function() {
       const panel = document.getElementById('feedback-panel');
       const toast = document.getElementById('feedback-toast');
+
+      // Clean up event listeners
+      const textarea = document.getElementById('feedback-text');
+      if (textarea && textareaHandlers) {
+        textarea.removeEventListener('input', textareaHandlers.input);
+        textarea.removeEventListener('keydown', textareaHandlers.keydown);
+        textareaHandlers = null;
+      }
 
       panel.classList.add('hidden');
       toast.classList.add('hidden');
