@@ -264,9 +264,48 @@
             padding: 20px;
             color: #666;
         }
+
+        .connection-status {
+            position: fixed;
+            top: env(safe-area-inset-top, 0);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .connection-status.show {
+            opacity: 1;
+        }
+
+        .connection-status.connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background: #ff9800;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
     </style>
 </head>
 <body>
+    <!-- Connection Status Indicator -->
+    <div id="connection-status" class="connection-status">
+        <span id="connection-text">●  Connected</span>
+    </div>
+
     <div class="container">
         <!-- Login Form -->
         <div id="login-screen" class="login-form">
@@ -333,6 +372,7 @@
             password: null,
             currentVisitorId: null,
             eventSource: null,
+            connectionStatus: 'disconnected',
 
             login() {
                 const password = document.getElementById('password-input').value;
@@ -383,7 +423,12 @@
             startSSE() {
                 if (this.eventSource) return;
 
+                this.setConnectionStatus('connecting');
                 this.eventSource = new EventSource(`/api/admin/stream?auth=${encodeURIComponent(this.password)}`);
+
+                this.eventSource.onopen = () => {
+                    this.setConnectionStatus('connected');
+                };
 
                 this.eventSource.addEventListener('new-message', (event) => {
                     const data = JSON.parse(event.data);
@@ -398,6 +443,7 @@
                 });
 
                 this.eventSource.onerror = () => {
+                    this.setConnectionStatus('disconnected');
                     this.eventSource.close();
                     this.eventSource = null;
 
@@ -630,6 +676,28 @@
                     } else {
                         navigator.clearAppBadge();
                     }
+                }
+            },
+
+            setConnectionStatus(status) {
+                this.connectionStatus = status;
+                const statusEl = document.getElementById('connection-status');
+                const textEl = document.getElementById('connection-text');
+
+                // Remove all status classes
+                statusEl.classList.remove('connected', 'connecting', 'disconnected');
+
+                if (status === 'connected') {
+                    statusEl.classList.add('connected', 'show');
+                    textEl.textContent = '●  Connected';
+                    // Hide after 2 seconds
+                    setTimeout(() => statusEl.classList.remove('show'), 2000);
+                } else if (status === 'connecting') {
+                    statusEl.classList.add('connecting', 'show');
+                    textEl.textContent = '●  Connecting...';
+                } else if (status === 'disconnected') {
+                    statusEl.classList.add('disconnected', 'show');
+                    textEl.textContent = '●  Disconnected';
                 }
             }
         };
