@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { getMessages, getUnreadCount, appendMessage, generateMessageId, listThreads, getVisitorMetadata } from '../storage/threads';
+import { getMessages, getUnreadCount, appendMessage, generateMessageId, listThreads, getVisitorMetadata, deleteThread } from '../storage/threads';
 import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 /**
@@ -115,6 +115,32 @@ export async function listAllThreads(c: Context) {
     return c.json({ threads: threadsWithMessages });
   } catch (error) {
     console.error('Error listing threads:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+}
+
+/**
+ * Delete a thread (admin only)
+ * DELETE /api/admin/threads/:visitorId
+ */
+export async function deleteThreadById(c: Context) {
+  try {
+    const password = extractAuthPassword(c);
+    if (!isValidAdminPassword(password)) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { visitorId } = c.req.param();
+
+    const deleted = deleteThread(visitorId);
+
+    if (!deleted) {
+      return c.json({ error: 'Thread not found' }, 404);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting thread:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 }

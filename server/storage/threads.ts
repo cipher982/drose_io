@@ -150,6 +150,31 @@ export function isBlocked(visitorId: string): boolean {
 }
 
 /**
+ * Delete a thread and all its messages
+ */
+export function deleteThread(visitorId: string): boolean {
+  const threadPath = join(THREADS_DIR, `${visitorId}.jsonl`);
+
+  if (!existsSync(threadPath)) {
+    return false;
+  }
+
+  try {
+    const fs = require('fs');
+    fs.unlinkSync(threadPath);
+
+    // Notify admin connections that thread was deleted
+    connectionManager.notifyAdmins('thread-deleted', { visitorId });
+
+    console.log('🗑️  Thread deleted:', visitorId);
+    return true;
+  } catch (error) {
+    console.error('Error deleting thread:', error);
+    return false;
+  }
+}
+
+/**
  * Generate unique message ID
  */
 export function generateMessageId(): string {
