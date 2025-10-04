@@ -447,21 +447,41 @@
                 const password = document.getElementById('password-input').value;
                 if (!password) return;
 
-                // Store password and use it directly for auth
-                this.password = password;
-                await authStore.savePassword(password);
+                // Validate password by trying to fetch threads first
+                try {
+                    const response = await fetch('/api/admin/threads', {
+                        headers: {
+                            'Authorization': `Bearer ${password}`
+                        }
+                    });
 
-                if (this.eventSource) {
-                    this.eventSource.close();
-                    this.eventSource = null;
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            this.showError('Invalid password');
+                            return;
+                        }
+                        throw new Error('Failed to validate password');
+                    }
+
+                    // Password is valid, store it
+                    this.password = password;
+                    await authStore.savePassword(password);
+
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                        this.eventSource = null;
+                    }
+                    this.retryDelay = 1000;
+
+                    document.getElementById('password-input').value = '';
+                    document.getElementById('login-error').classList.add('hidden');
+
+                    // Load initial data
+                    this.loadThreads();
+                } catch (error) {
+                    console.error('Login failed:', error);
+                    this.showError('Login failed. Check your connection and try again.');
                 }
-                this.retryDelay = 1000;
-
-                document.getElementById('password-input').value = '';
-                document.getElementById('login-error').classList.add('hidden');
-
-                // Load initial data
-                this.loadThreads();
             },
 
             async loadThreads() {
@@ -850,12 +870,25 @@
         }
 
         // Restore password if available
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             // Clean up legacy storage if it exists
             try {
                 localStorage.removeItem('__admin_pwd');
             } catch (err) {
                 // Ignore if localStorage is unavailable (e.g., private mode)
+            }
+
+            // Clear old token storage from previous auth system
+            try {
+                const db = await authStore.getDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction('session', 'readwrite');
+                    tx.objectStore('session').delete('token');
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch (err) {
+                console.log('No old token to clear');
             }
 
             authStore.getPassword().then((password) => {
