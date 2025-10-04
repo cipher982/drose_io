@@ -181,9 +181,11 @@
     const conv = document.querySelector('.conversation');
     if (!conv) return;
 
-    // Remove empty placeholder
-    const placeholder = conv.querySelector('.empty-placeholder');
-    if (placeholder) placeholder.remove();
+    // Clear any non-message content (placeholders, etc)
+    const existingMessages = conv.querySelectorAll('.message');
+    if (existingMessages.length === 0) {
+      conv.innerHTML = '';
+    }
 
     const wasAtBottom = conv.scrollHeight - conv.scrollTop <= conv.clientHeight + 50;
 
