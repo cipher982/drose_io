@@ -553,15 +553,22 @@
                         this.appendMessage(data.message);
                     }
 
+                    if (this.connectionStatus !== 'connected') {
+                        this.setConnectionStatus('connected');
+                    }
+
                     if (!this.currentVisitorId) {
                         this.loadThreads();
                     }
                 });
 
-                this.eventSource.onerror = (e) => {
-                    // EventSource automatically reconnects unless readyState is CLOSED (2)
-                    // Only treat as error if connection is truly closed
-                    if (this.eventSource.readyState === 2) {
+                this.eventSource.onerror = (event) => {
+                    const readyState = this.eventSource ? this.eventSource.readyState : 2;
+                    const CLOSED = typeof EventSource !== 'undefined' && 'CLOSED' in EventSource ? EventSource.CLOSED : 2;
+                    const CONNECTING = typeof EventSource !== 'undefined' && 'CONNECTING' in EventSource ? EventSource.CONNECTING : 0;
+                    const OPEN = typeof EventSource !== 'undefined' && 'OPEN' in EventSource ? EventSource.OPEN : 1;
+
+                    if (readyState === CLOSED) {
                         console.error('SSE connection closed');
                         this.eventSource = null;
 
@@ -578,13 +585,25 @@
                             }
                         }, currentDelay);
 
-                        // Double the delay for next retry, cap at max
                         this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-                    } else {
-                        // EventSource is auto-reconnecting, just log it
+                        return;
+                    }
+
+                    if (readyState === CONNECTING) {
                         console.log('SSE reconnecting...');
                         this.setConnectionStatus('connecting');
+                        return;
                     }
+
+                    if (readyState === OPEN) {
+                        console.warn('SSE error while connection is open', event);
+                        if (this.connectionStatus !== 'connected') {
+                            this.setConnectionStatus('connected');
+                        }
+                        return;
+                    }
+
+                    console.warn('SSE error with unexpected readyState', { readyState, event });
                 };
             },
 
