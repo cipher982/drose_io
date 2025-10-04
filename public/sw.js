@@ -85,6 +85,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // SSE stream should bypass service worker to keep connection alive
+  if (url.pathname === '/api/admin/stream' || event.request.headers.get('accept') === 'text/event-stream') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // API calls: network-first with timeout, cache fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
