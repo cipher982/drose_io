@@ -6,7 +6,6 @@
   let expanded = false;
   let visitorId = null;
   let lastMessageId = null;
-  let eventSource = null;
   let isConnected = false;
 
   // Device ID generation
@@ -44,64 +43,135 @@
     document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
   }
 
-  // SSE Connection Management
+  // SSE Connection Management (using fetch() instead of EventSource for Cloudflare compatibility)
+  let abortController = null;
+  let reconnectTimer = null;
+
   async function openSSEConnection() {
-    if (eventSource) return;
+    if (abortController) return; // Already connected
 
     const vid = await getVisitorId();
-    eventSource = new EventSource(`/api/threads/${vid}/stream`);
+    const url = `/api/threads/${vid}/stream`;
 
-    eventSource.onopen = () => {
+    abortController = new AbortController();
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`SSE connection failed: ${response.status}`);
+      }
+
       isConnected = true;
       updateConnectionStatus(true);
-      console.log('🟢 Visitor SSE connected');
-    };
+      console.log('🟢 Visitor SSE connected (fetch)');
 
-    // Debug: Log ALL events to see what's actually arriving
-    eventSource.onmessage = (event) => {
-      console.error('❌ UNEXPECTED: Received unnamed SSE event (should be named "new-message"):', event.data);
-    };
+      // Parse SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let eventName = '';
+      let dataLines = [];
 
-    // Listen for named 'new-message' events (consistent with admin)
-    eventSource.addEventListener('new-message', (event) => {
-      console.log('📨 Visitor SSE received new-message event');
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📨 Parsed data:', data);
+      while (isConnected && abortController) {
+        const {value, done} = await reader.read();
+        if (done) break;
 
-        if (data.type === 'init') return;
+        buffer += decoder.decode(value, {stream: true});
 
-        if (data.message) {
-          console.log('✅ Handling new message from:', data.message.from);
-          handleNewMessage(data.message);
-        } else {
-          console.error('❌ FAIL: data.message is missing:', data);
+        while (true) {
+          const newlineIndex = buffer.indexOf('\n');
+          if (newlineIndex === -1) break;
+
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith('\r')) {
+            line = line.slice(0, -1);
+          }
+
+          // Empty line = dispatch event
+          if (line === '') {
+            if (dataLines.length > 0) {
+              const data = dataLines.join('\n');
+              console.log('📨 Visitor SSE received event:', eventName || 'message', data.substring(0, 100));
+
+              if (eventName === 'new-message' || !eventName) {
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.type === 'init') continue;
+                  if (parsed.message) {
+                    console.log('✅ Handling message from:', parsed.message.from);
+                    handleNewMessage(parsed.message);
+                  }
+                } catch (error) {
+                  console.error('SSE parse error:', error);
+                }
+              }
+
+              eventName = '';
+              dataLines = [];
+            }
+            continue;
+          }
+
+          // Comment line
+          if (line.startsWith(':')) {
+            continue; // Ignore keep-alive pings
+          }
+
+          // Field: value
+          const colonIndex = line.indexOf(':');
+          if (colonIndex === -1) continue;
+
+          const field = line.slice(0, colonIndex);
+          let value = line.slice(colonIndex + 1);
+          if (value.startsWith(' ')) {
+            value = value.slice(1);
+          }
+
+          if (field === 'event') {
+            eventName = value;
+          } else if (field === 'data') {
+            dataLines.push(value);
+          }
         }
-      } catch (error) {
-        console.error('❌ FAIL: SSE parse error:', error, 'Raw data:', event.data);
       }
-    });
 
-    eventSource.onerror = () => {
+    } catch (error) {
+      if (error.name === 'AbortError') return; // Normal close
+
+      console.error('SSE connection error:', error);
       isConnected = false;
       updateConnectionStatus(false);
-      console.log('SSE disconnected, will reconnect...');
+      abortController = null;
 
-      setTimeout(() => {
-        if (eventSource && eventSource.readyState === EventSource.CLOSED) {
-          eventSource = null;
-        }
-      }, 5000);
-    };
+      // Reconnect after 2 seconds
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        openSSEConnection();
+      }, 2000);
+    }
   }
 
   function closeSSEConnection() {
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
       isConnected = false;
       updateConnectionStatus(false);
       console.log('SSE closed');
+    }
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
   }
 
@@ -161,21 +231,13 @@
   function handleOffline() {
     isConnected = false;
     updateConnectionStatus(false);
-    if (eventSource) {
-      try {
-        eventSource.close();
-      } catch (error) {
-        console.error('Error closing SSE on offline:', error);
-      }
-      eventSource = null;
-    }
+    closeSSEConnection();
   }
 
   function handleOnline() {
-    if (eventSource) {
-      return;
+    if (!abortController) {
+      openSSEConnection();
     }
-    openSSEConnection();
   }
 
   function updateBadge(count) {
