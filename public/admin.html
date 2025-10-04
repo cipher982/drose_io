@@ -368,6 +368,73 @@
                 vapidKeyLoaded = false;
             });
 
+        const authStore = {
+            dbPromise: null,
+            async getDB() {
+                if (!('indexedDB' in window)) {
+                    throw new Error('IndexedDB not supported');
+                }
+
+                if (!this.dbPromise) {
+                    this.dbPromise = new Promise((resolve, reject) => {
+                        const request = indexedDB.open('admin-auth', 1);
+
+                        request.onupgradeneeded = () => {
+                            const db = request.result;
+                            if (!db.objectStoreNames.contains('session')) {
+                                db.createObjectStore('session');
+                            }
+                        };
+
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+
+                return this.dbPromise;
+            },
+            async savePassword(password) {
+                try {
+                    const db = await this.getDB();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').put(password, 'password');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to save password to IndexedDB:', error);
+                }
+            },
+            async getPassword() {
+                try {
+                    const db = await this.getDB();
+                    return await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readonly');
+                        const request = tx.objectStore('session').get('password');
+                        request.onsuccess = () => resolve(request.result || null);
+                        request.onerror = () => reject(request.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to load password from IndexedDB:', error);
+                    return null;
+                }
+            },
+            async clearPassword() {
+                try {
+                    const db = await this.getDB();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').delete('password');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to clear password from IndexedDB:', error);
+                }
+            }
+        };
+
         const app = {
             password: null,
             currentVisitorId: null,
@@ -376,18 +443,33 @@
             retryDelay: 1000, // Start at 1 second
             maxRetryDelay: 30000, // Cap at 30 seconds
 
-            login() {
+            async login() {
                 const password = document.getElementById('password-input').value;
                 if (!password) return;
 
+                // Store password and use it directly for auth
                 this.password = password;
-                localStorage.setItem('__admin_pwd', password);
+                await authStore.savePassword(password);
 
-                // Try to fetch threads to verify password
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
+                this.retryDelay = 1000;
+
+                document.getElementById('password-input').value = '';
+                document.getElementById('login-error').classList.add('hidden');
+
+                // Load initial data
                 this.loadThreads();
             },
 
             async loadThreads() {
+                if (!this.password) {
+                    this.showLogin();
+                    return;
+                }
+
                 try {
                     const response = await fetch('/api/admin/threads', {
                         headers: {
@@ -397,8 +479,15 @@
 
                     if (!response.ok) {
                         if (response.status === 401) {
-                            this.showError('Invalid password');
-                            localStorage.removeItem('__admin_pwd');
+                            await authStore.clearPassword();
+                            this.password = null;
+                            if (this.eventSource) {
+                                this.eventSource.close();
+                                this.eventSource = null;
+                            }
+                            this.setConnectionStatus('disconnected', 'Login required');
+                            this.showError('Invalid password. Please log in again.');
+                            this.showLogin();
                             return;
                         }
                         throw new Error('Failed to load threads');
@@ -424,9 +513,12 @@
 
             startSSE() {
                 if (this.eventSource) return;
+                if (!this.password) {
+                    return;
+                }
 
                 this.setConnectionStatus('connecting');
-                this.eventSource = new EventSource(`/api/admin/stream?auth=${encodeURIComponent(this.password)}`);
+                this.eventSource = new EventSource(`/api/admin/stream?token=${encodeURIComponent(this.password)}`);
 
                 this.eventSource.onopen = () => {
                     this.setConnectionStatus('connected');
@@ -572,6 +664,11 @@
                 const text = textarea.value.trim();
 
                 if (!text || !this.currentVisitorId) return;
+                if (!this.password) {
+                    alert('Please log in again.');
+                    this.showLogin();
+                    return;
+                }
 
                 try {
                     const response = await fetch(`/api/admin/threads/${this.currentVisitorId}/reply`, {
@@ -607,6 +704,12 @@
                 this.loadThreads();
             },
 
+            showLogin() {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('thread-list-screen').classList.add('hidden');
+                document.getElementById('conversation-screen').classList.add('hidden');
+            },
+
             refresh() {
                 this.loadThreads();
             },
@@ -638,6 +741,7 @@
             async setupPushNotifications() {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
                 if (!vapidKeyLoaded || !window.vapidPublicKey) return;
+                if (!this.password) return;
 
                 try {
                     const registration = await navigator.serviceWorker.ready;
@@ -654,7 +758,7 @@
                     }
 
                     // Always send subscription to server (survives server restarts)
-                    await fetch('/api/admin/push-subscribe', {
+                    const registerResponse = await fetch('/api/admin/push-subscribe', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -662,6 +766,23 @@
                         },
                         body: JSON.stringify(subscription)
                     });
+
+                    if (registerResponse.status === 401) {
+                        console.warn('Push subscription registration failed: invalid password');
+                        await authStore.clearPassword();
+                        this.password = null;
+                        if (this.eventSource) {
+                            this.eventSource.close();
+                            this.eventSource = null;
+                        }
+                        this.setConnectionStatus('disconnected', 'Login required');
+                        this.showLogin();
+                        return;
+                    }
+
+                    if (!registerResponse.ok) {
+                        throw new Error(`Push subscription registration failed (${registerResponse.status})`);
+                    }
                 } catch (error) {
                     console.error('Push notification setup failed:', error);
                 }
@@ -728,15 +849,21 @@
             });
         }
 
-        // Auto-login if password stored
+        // Restore password if available
         window.addEventListener('DOMContentLoaded', () => {
-            const storedPwd = localStorage.getItem('__admin_pwd');
-            if (storedPwd) {
-                app.password = storedPwd;
-                document.getElementById('password-input').value = storedPwd;
-                app.loadThreads();
-                // Push notifications will be setup in loadThreads() success path
+            // Clean up legacy storage if it exists
+            try {
+                localStorage.removeItem('__admin_pwd');
+            } catch (err) {
+                // Ignore if localStorage is unavailable (e.g., private mode)
             }
+
+            authStore.getPassword().then((password) => {
+                if (password) {
+                    app.password = password;
+                    app.loadThreads();
+                }
+            });
 
             // Add Enter key handler for reply textarea
             const replyTextarea = document.getElementById('reply-text');

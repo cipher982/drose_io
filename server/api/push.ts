@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import webpush from 'web-push';
 import { addSubscription, removeSubscription, getAllSubscriptions, touchSubscription } from '../storage/push-subscriptions';
+import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 // VAPID keys for web push
 // In production, generate these once and store in env vars:
@@ -19,11 +20,8 @@ if (vapidPublicKey && vapidPrivateKey) {
  */
 export async function subscribeToPush(c: Context) {
   try {
-    // Check auth
-    const authHeader = c.req.header('authorization');
-    const adminPassword = Bun.env.ADMIN_PASSWORD || 'changeme';
-
-    if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
+    const password = extractAuthPassword(c);
+    if (!isValidAdminPassword(password)) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 

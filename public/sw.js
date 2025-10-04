@@ -1,9 +1,45 @@
 // Service Worker for drose.io Admin PWA
-const CACHE_NAME = 'admin-v5';
+const CACHE_NAME = 'admin-v7';
 const ASSETS_TO_CACHE = [
   '/admin.html',
   '/manifest.json'
 ];
+
+async function getStoredPassword() {
+  if (!('indexedDB' in self)) {
+    return null;
+  }
+
+  try {
+    const dbRequest = indexedDB.open('admin-auth', 1);
+
+    return await new Promise((resolve, reject) => {
+      dbRequest.onupgradeneeded = () => {
+        const db = dbRequest.result;
+        if (!db.objectStoreNames.contains('session')) {
+          db.createObjectStore('session');
+        }
+      };
+
+      dbRequest.onerror = () => reject(dbRequest.error);
+
+      dbRequest.onsuccess = () => {
+        const db = dbRequest.result;
+        const tx = db.transaction('session', 'readonly');
+        const store = tx.objectStore('session');
+        const getRequest = store.get('password');
+
+        getRequest.onsuccess = () => resolve(getRequest.result || null);
+        getRequest.onerror = () => reject(getRequest.error);
+
+        tx.oncomplete = () => db.close();
+      };
+    });
+  } catch (error) {
+    console.error('Failed to read password from IndexedDB:', error);
+    return null;
+  }
+}
 
 // Install - cache assets
 self.addEventListener('install', (event) => {
@@ -106,9 +142,16 @@ self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
     (async () => {
       try {
-        // Get the admin password from IndexedDB or prompt user to re-login
-        // For now, we'll try to resubscribe if we have the VAPID key
+        const password = await getStoredPassword();
+        if (!password) {
+          console.warn('No password available for push resubscription. User will need to log in again.');
+          return;
+        }
+
         const response = await fetch('/api/push/vapid-public-key');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch VAPID key: ${response.status}`);
+        }
         const { publicKey } = await response.json();
 
         // Subscribe to push notifications
@@ -117,19 +160,20 @@ self.addEventListener('pushsubscriptionchange', (event) => {
           applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
 
-        // Note: This won't have auth token, so server-side needs to handle
-        // or we need to store auth token in IndexedDB
         console.log('Resubscribed to push notifications:', subscription.endpoint.substring(0, 50));
 
-        // Try to send to server (may fail if no auth available)
-        // In production, you'd want to store auth token in IndexedDB
-        await fetch('/api/admin/push-subscribe', {
+        const registerResponse = await fetch('/api/admin/push-subscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${password}`
+          },
           body: JSON.stringify(subscription)
-        }).catch(err => {
-          console.warn('Failed to register new subscription with server:', err.message);
         });
+
+        if (!registerResponse.ok) {
+          console.warn('Failed to register new subscription with server:', registerResponse.status, registerResponse.statusText);
+        }
       } catch (error) {
         console.error('Failed to resubscribe:', error);
       }

@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { connectionManager } from '../sse/connection-manager';
 import { getMessages } from '../storage/threads';
+import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 /**
  * SSE stream for visitor's own thread
@@ -59,14 +60,8 @@ export function streamVisitorThread(c: Context) {
  * GET /api/admin/stream
  */
 export function streamAdminUpdates(c: Context) {
-  // Check auth (from header or query param for SSE)
-  const authHeader = c.req.header('authorization');
-  const authQuery = c.req.query('auth');
-  const adminPassword = Bun.env.ADMIN_PASSWORD || 'changeme';
-
-  const providedAuth = authHeader?.replace('Bearer ', '') || authQuery;
-
-  if (!providedAuth || providedAuth !== adminPassword) {
+  const password = extractAuthPassword(c);
+  if (!isValidAdminPassword(password)) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 

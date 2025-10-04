@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { getMessages, getUnreadCount, appendMessage, generateMessageId, listThreads, getVisitorMetadata } from '../storage/threads';
+import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 /**
  * Check for new messages (polling endpoint)
@@ -46,11 +47,8 @@ export async function getThreadMessages(c: Context) {
  */
 export async function replyToThread(c: Context) {
   try {
-    // Check auth
-    const authHeader = c.req.header('authorization');
-    const adminPassword = Bun.env.ADMIN_PASSWORD || 'changeme';
-
-    if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
+    const password = extractAuthPassword(c);
+    if (!isValidAdminPassword(password)) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
@@ -91,11 +89,8 @@ export async function replyToThread(c: Context) {
  */
 export async function listAllThreads(c: Context) {
   try {
-    // Check auth
-    const authHeader = c.req.header('authorization');
-    const adminPassword = Bun.env.ADMIN_PASSWORD || 'changeme';
-
-    if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
+    const password = extractAuthPassword(c);
+    if (!isValidAdminPassword(password)) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
