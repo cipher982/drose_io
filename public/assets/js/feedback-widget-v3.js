@@ -48,14 +48,20 @@
   let reconnectTimer = null;
 
   async function openSSEConnection() {
-    if (abortController) return; // Already connected
+    console.log('🔵 openSSEConnection() called');
+    if (abortController) {
+      console.log('⏭️ Already connected, skipping');
+      return;
+    }
 
     const vid = await getVisitorId();
     const url = `/api/threads/${vid}/stream`;
+    console.log('🔌 Connecting to:', url);
 
     abortController = new AbortController();
 
     try {
+      console.log('📡 Fetching SSE stream...');
       const response = await fetch(url, {
         headers: {
           'Accept': 'text/event-stream',
@@ -64,6 +70,8 @@
         signal: abortController.signal,
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         throw new Error(`SSE connection failed: ${response.status}`);
       }
@@ -71,6 +79,7 @@
       isConnected = true;
       updateConnectionStatus(true);
       console.log('🟢 Visitor SSE connected (fetch)');
+      console.log('📖 Starting to read stream...');
 
       // Parse SSE stream
       const reader = response.body.getReader();
@@ -81,9 +90,14 @@
 
       while (isConnected && abortController) {
         const {value, done} = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('📭 Stream ended');
+          break;
+        }
 
-        buffer += decoder.decode(value, {stream: true});
+        const chunk = decoder.decode(value, {stream: true});
+        console.log('📦 Received chunk:', chunk.length, 'bytes');
+        buffer += chunk;
 
         while (true) {
           const newlineIndex = buffer.indexOf('\n');
