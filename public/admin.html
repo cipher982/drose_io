@@ -558,6 +558,13 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
                 .catch(err => console.error('Service Worker registration failed:', err));
+
+            // Listen for messages from service worker (e.g., notification clicks)
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'open-thread' && event.data.visitorId) {
+                    app.openThread(event.data.visitorId);
+                }
+            });
         }
 
         // Auto-login if password stored
