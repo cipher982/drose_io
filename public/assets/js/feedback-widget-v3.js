@@ -181,11 +181,9 @@
     const conv = document.querySelector('.conversation');
     if (!conv) return;
 
-    // Remove "No messages yet" placeholder if present
-    const placeholder = conv.querySelector('p');
-    if (placeholder && placeholder.textContent.includes('No messages yet')) {
-      placeholder.remove();
-    }
+    // Remove empty placeholder
+    const placeholder = conv.querySelector('.empty-placeholder');
+    if (placeholder) placeholder.remove();
 
     const wasAtBottom = conv.scrollHeight - conv.scrollTop <= conv.clientHeight + 50;
 
@@ -324,7 +322,7 @@
 
   function renderConversation(messages) {
     if (!messages || messages.length === 0) {
-      return '<div class="conversation"><p style="text-align: center; color: #666; font-size: 12px; padding: 20px;">No messages yet</p></div>';
+      return '<div class="conversation"><p class="empty-placeholder" style="text-align: center; color: #666; font-size: 12px; padding: 20px;">No messages yet</p></div>';
     }
 
     const html = messages.map(m => `
