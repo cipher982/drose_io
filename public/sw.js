@@ -1,5 +1,5 @@
 // Service Worker for drose.io Admin PWA
-const CACHE_NAME = 'admin-v4';
+const CACHE_NAME = 'admin-v5';
 const ASSETS_TO_CACHE = [
   '/admin.html',
   '/manifest.json'
@@ -98,6 +98,60 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'New Message', options)
   );
 });
+
+// Push subscription change - resubscribe automatically
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('Push subscription changed, resubscribing...');
+
+  event.waitUntil(
+    (async () => {
+      try {
+        // Get the admin password from IndexedDB or prompt user to re-login
+        // For now, we'll try to resubscribe if we have the VAPID key
+        const response = await fetch('/api/push/vapid-public-key');
+        const { publicKey } = await response.json();
+
+        // Subscribe to push notifications
+        const subscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        // Note: This won't have auth token, so server-side needs to handle
+        // or we need to store auth token in IndexedDB
+        console.log('Resubscribed to push notifications:', subscription.endpoint.substring(0, 50));
+
+        // Try to send to server (may fail if no auth available)
+        // In production, you'd want to store auth token in IndexedDB
+        await fetch('/api/admin/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        }).catch(err => {
+          console.warn('Failed to register new subscription with server:', err.message);
+        });
+      } catch (error) {
+        console.error('Failed to resubscribe:', error);
+      }
+    })()
+  );
+});
+
+// Helper function for VAPID key conversion
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // Notification click - focus existing window or open new one
 self.addEventListener('notificationclick', (event) => {
