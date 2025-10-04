@@ -541,12 +541,14 @@
                 this.eventSource = new EventSource(`/api/admin/stream?token=${encodeURIComponent(this.password)}`);
 
                 this.eventSource.onopen = () => {
+                    this.logEventSourceState('onopen');
                     this.setConnectionStatus('connected');
                     // Reset retry delay on successful connection
                     this.retryDelay = 1000;
                 };
 
                 this.eventSource.addEventListener('new-message', (event) => {
+                    this.logEventSourceState('message');
                     const data = JSON.parse(event.data);
 
                     if (this.currentVisitorId === data.visitorId) {
@@ -563,6 +565,7 @@
                 });
 
                 this.eventSource.onerror = (event) => {
+                    this.logEventSourceState('onerror', event);
                     const readyState = this.eventSource ? this.eventSource.readyState : 2;
                     const CLOSED = typeof EventSource !== 'undefined' && 'CLOSED' in EventSource ? EventSource.CLOSED : 2;
                     const CONNECTING = typeof EventSource !== 'undefined' && 'CONNECTING' in EventSource ? EventSource.CONNECTING : 0;
@@ -862,6 +865,7 @@
 
             setConnectionStatus(status, message) {
                 this.connectionStatus = status;
+                console.info('[connection-status]', status, message || '');
                 const statusEl = document.getElementById('connection-status');
                 const textEl = document.getElementById('connection-text');
 
@@ -881,6 +885,17 @@
                     textEl.textContent = message || '●  Disconnected';
                 }
             }
+        };
+
+        app.logEventSourceState = function(context, event) {
+            const source = this.eventSource;
+            const state = source ? source.readyState : null;
+            const stateName = state === 0 ? 'CONNECTING' : state === 1 ? 'OPEN' : state === 2 ? 'CLOSED' : 'UNKNOWN';
+            const payload = { context, state: stateName, readyState: state, connectionStatus: this.connectionStatus };
+            if (event) {
+                payload.eventType = event.type;
+            }
+            console.debug('[sse]', payload);
         };
 
         // Register service worker for PWA

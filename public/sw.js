@@ -1,5 +1,5 @@
 // Service Worker for drose.io Admin PWA
-const CACHE_NAME = 'admin-v8';
+const CACHE_NAME = 'admin-v9';
 const ASSETS_TO_CACHE = [
   '/admin.html',
   '/manifest.json'
