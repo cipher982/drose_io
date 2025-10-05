@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Admin - Thread Management</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- iOS Specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Admin">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+
+    <!-- Theme Colors -->
+    <meta name="theme-color" content="#0066cc">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            /* Mobile-first: full viewport height with fallback */
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height (iOS) */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .login-form {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 16px;
+            max-width: 400px;
+            align-self: center;
+        }
+
+        .thread-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 16px;
+            overflow-y: auto;
+            flex: 1;
+            -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+        }
+
+        .conversation {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: white;
+            border-radius: 0; /* Full screen on mobile */
+            padding: 0;
+            box-shadow: none;
+        }
+
+        @media (min-width: 768px) {
+            .conversation {
+                border-radius: 8px;
+                margin: 16px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+        }
+
+        h1 {
+            margin-bottom: 16px;
+            font-size: 24px;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:active {
+            background: #0055aa;
+        }
+
+        button.secondary {
+            background: #666;
+        }
+
+        .thread-item {
+            padding: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .thread-item:active {
+            background: #f9f9f9;
+        }
+
+        .thread-item .visitor-id {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            padding-right: 40px;
+        }
+
+        .delete-thread-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            width: auto;
+            z-index: 10;
+        }
+
+        .delete-thread-btn:hover {
+            background: #cc0000;
+        }
+
+        .delete-thread-btn:active {
+            background: #aa0000;
+        }
+
+        .thread-item .meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .thread-item .last-message {
+            font-size: 14px;
+            color: #333;
+            margin-top: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #ff4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .message.visitor {
+            background: #e8f4f8;
+            margin-right: 40px;
+        }
+
+        .message.david {
+            background: #f0f0f0;
+            margin-left: 40px;
+        }
+
+        .message .author {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: #0066cc;
+        }
+
+        .message .text {
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message .time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .conversation-header {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .back-button {
+            background: #666;
+            margin-bottom: 12px;
+        }
+
+        #messages-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+            padding: 16px;
+            scroll-behavior: smooth;
+        }
+
+        .reply-section {
+            padding: 16px;
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            flex-shrink: 0;
+        }
+
+        .reply-section textarea {
+            margin-bottom: 12px;
+        }
+
+        #login-screen, #thread-list-screen, #conversation-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: env(safe-area-inset-top, 0);
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 0 0 8px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .connection-status.show {
+            opacity: 1;
+        }
+
+        .connection-status.connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background: #ff9800;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Connection Status Indicator -->
+    <div id="connection-status" class="connection-status">
+        <span id="connection-text">●  Connected</span>
+    </div>
+
+    <div class="container">
+        <!-- Login Form -->
+        <div id="login-screen" class="login-form">
+            <h1>🔐 Admin Login</h1>
+            <div id="login-error" class="error hidden"></div>
+            <input type="password" id="password-input" placeholder="Enter admin password" />
+            <button onclick="app.login()">Login</button>
+        </div>
+
+        <!-- Thread List -->
+        <div id="thread-list-screen" class="hidden">
+            <div class="thread-list">
+                <h1>💬 Conversations</h1>
+                <button onclick="app.refresh()" class="secondary" style="margin-bottom: 16px;">Refresh</button>
+                <div id="threads-container" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Conversation View -->
+        <div id="conversation-screen" class="hidden">
+            <div class="conversation">
+                <div class="conversation-header">
+                    <button onclick="app.showThreadList()" class="back-button">← Back to List</button>
+                    <h2 id="conv-title"></h2>
+                    <div id="conv-meta" class="meta"></div>
+                </div>
+
+                <div id="messages-container"></div>
+
+                <div class="reply-section">
+                    <div id="reply-success" class="success hidden">Reply sent!</div>
+                    <textarea id="reply-text" placeholder="Type your reply..." rows="3"></textarea>
+                    <button onclick="app.sendReply()">Send Reply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch VAPID public key
+        let vapidPublicKey = null;
+        let vapidKeyLoaded = false;
+        fetch('/api/push/vapid-public-key')
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`VAPID key fetch failed: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data.publicKey) {
+                    throw new Error('VAPID public key missing in response');
+                }
+                window.vapidPublicKey = data.publicKey;
+                vapidPublicKey = data.publicKey;
+                vapidKeyLoaded = true;
+            })
+            .catch(err => {
+                console.error('VAPID key fetch failed:', err);
+                vapidKeyLoaded = false;
+            });
+
+        const authStore = {
+            dbPromise: null,
+            async getDB() {
+                if (!('indexedDB' in window)) {
+                    throw new Error('IndexedDB not supported');
+                }
+
+                if (!this.dbPromise) {
+                    this.dbPromise = new Promise((resolve, reject) => {
+                        const request = indexedDB.open('admin-auth', 1);
+
+                        request.onupgradeneeded = () => {
+                            const db = request.result;
+                            if (!db.objectStoreNames.contains('session')) {
+                                db.createObjectStore('session');
+                            }
+                        };
+
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+
+                return this.dbPromise;
+            },
+            async savePassword(password) {
+                try {
+                    const db = await this.getDB();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').put(password, 'password');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to save password to IndexedDB:', error);
+                }
+            },
+            async getPassword() {
+                try {
+                    const db = await this.getDB();
+                    return await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readonly');
+                        const request = tx.objectStore('session').get('password');
+                        request.onsuccess = () => resolve(request.result || null);
+                        request.onerror = () => reject(request.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to load password from IndexedDB:', error);
+                    return null;
+                }
+            },
+            async clearPassword() {
+                try {
+                    const db = await this.getDB();
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').delete('password');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (error) {
+                    console.error('Failed to clear password from IndexedDB:', error);
+                }
+            }
+        };
+
+        const app = {
+            password: null,
+            currentVisitorId: null,
+            eventSource: null,
+            connectionStatus: 'disconnected',
+            retryDelay: 1000, // Start at 1 second
+            maxRetryDelay: 30000, // Cap at 30 seconds
+
+            async login() {
+                const password = document.getElementById('password-input').value;
+                if (!password) return;
+
+                // Validate password by trying to fetch threads first
+                try {
+                    const response = await fetch('/api/admin/threads', {
+                        headers: {
+                            'Authorization': `Bearer ${password}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            this.showError('Invalid password');
+                            return;
+                        }
+                        throw new Error('Failed to validate password');
+                    }
+
+                    // Password is valid, store it
+                    this.password = password;
+                    await authStore.savePassword(password);
+
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                        this.eventSource = null;
+                    }
+                    this.retryDelay = 1000;
+
+                    document.getElementById('password-input').value = '';
+                    document.getElementById('login-error').classList.add('hidden');
+
+                    // Load initial data
+                    this.loadThreads();
+                } catch (error) {
+                    console.error('Login failed:', error);
+                    this.showError('Login failed. Check your connection and try again.');
+                }
+            },
+
+            async loadThreads() {
+                if (!this.password) {
+                    this.showLogin();
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/admin/threads', {
+                        headers: {
+                            'Authorization': `Bearer ${this.password}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            console.error('Authentication failed - clearing stored credentials');
+                            await authStore.clearPassword();
+                            this.password = null;
+                            if (this.eventSource) {
+                                this.eventSource.close();
+                                this.eventSource = null;
+                            }
+                            this.setConnectionStatus('disconnected', 'Login required');
+                            this.showLogin();
+                            return;
+                        }
+                        throw new Error('Failed to load threads');
+                    }
+
+                    const data = await response.json();
+                    this.renderThreads(data.threads);
+
+                    // Hide login, show thread list
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('thread-list-screen').classList.remove('hidden');
+
+                    // Start SSE for live updates
+                    this.startSSE();
+
+                    // Setup push notifications (with user gesture context)
+                    this.setupPushNotifications();
+
+                } catch (error) {
+                    this.showError(error.message);
+                }
+            },
+
+            startSSE() {
+                if (this.eventSource) return;
+                if (!this.password) {
+                    return;
+                }
+
+                this.setConnectionStatus('connecting');
+                this.eventSource = new EventSource(`/api/admin/stream?token=${encodeURIComponent(this.password)}`);
+
+                this.eventSource.onopen = () => {
+                    this.logEventSourceState('onopen');
+                    this.setConnectionStatus('connected');
+                    // Reset retry delay on successful connection
+                    this.retryDelay = 1000;
+                };
+
+                this.eventSource.addEventListener('new-message', (event) => {
+                    this.logEventSourceState('message');
+                    const data = JSON.parse(event.data);
+
+                    if (this.currentVisitorId === data.visitorId) {
+                        this.appendMessage(data.message);
+                    }
+
+                    if (this.connectionStatus !== 'connected') {
+                        this.setConnectionStatus('connected');
+                    }
+
+                    if (!this.currentVisitorId) {
+                        this.loadThreads();
+                    }
+                });
+
+                this.eventSource.onerror = (event) => {
+                    this.logEventSourceState('onerror', event);
+                    const readyState = this.eventSource ? this.eventSource.readyState : 2;
+                    const CLOSED = typeof EventSource !== 'undefined' && 'CLOSED' in EventSource ? EventSource.CLOSED : 2;
+                    const CONNECTING = typeof EventSource !== 'undefined' && 'CONNECTING' in EventSource ? EventSource.CONNECTING : 0;
+                    const OPEN = typeof EventSource !== 'undefined' && 'OPEN' in EventSource ? EventSource.OPEN : 1;
+
+                    if (readyState === CLOSED) {
+                        console.error('SSE connection closed');
+                        this.eventSource = null;
+
+                        // Exponential backoff: double the delay, cap at maxRetryDelay
+                        const currentDelay = this.retryDelay;
+                        const retrySeconds = Math.ceil(currentDelay / 1000);
+
+                        console.log(`SSE disconnected. Retrying in ${retrySeconds}s...`);
+                        this.setConnectionStatus('disconnected', `Retrying in ${retrySeconds}s`);
+
+                        setTimeout(() => {
+                            if (!this.eventSource) {
+                                this.startSSE();
+                            }
+                        }, currentDelay);
+
+                        this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
+                        return;
+                    }
+
+                    if (readyState === CONNECTING) {
+                        console.log('SSE reconnecting...');
+                        this.setConnectionStatus('connecting');
+                        return;
+                    }
+
+                    if (readyState === OPEN) {
+                        console.warn('SSE error while connection is open', event);
+                        if (this.connectionStatus !== 'connected') {
+                            this.setConnectionStatus('connected');
+                        }
+                        return;
+                    }
+
+                    console.warn('SSE error with unexpected readyState', { readyState, event });
+                };
+            },
+
+            appendMessage(message) {
+                const container = document.getElementById('messages-container');
+                if (!container) return;
+
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${message.from}`;
+                msgDiv.style.opacity = '0';
+                msgDiv.style.transition = 'opacity 0.3s ease-in';
+                msgDiv.innerHTML = `
+                    <div class="author">${message.from === 'david' ? 'You' : 'Visitor'}</div>
+                    <div class="text">${this.escapeHtml(message.text)}</div>
+                    <div class="time">${this.formatTime(message.ts)}</div>
+                `;
+
+                container.appendChild(msgDiv);
+
+                // Fade in
+                setTimeout(() => msgDiv.style.opacity = '1', 10);
+
+                // Scroll to bottom
+                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
+            },
+
+            renderThreads(threads) {
+                const container = document.getElementById('threads-container');
+
+                if (!threads || threads.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No conversations yet</p>';
+                    this.updateBadge(0);
+                    return;
+                }
+
+                // Calculate total unread count
+                const totalUnread = threads.reduce((sum, t) => sum + (t.unreadFromVisitor || 0), 0);
+                this.updateBadge(totalUnread);
+
+                container.innerHTML = threads.map(thread => {
+                    const lastMsg = thread.lastMessage;
+                    const unread = thread.unreadFromVisitor;
+                    const badge = unread > 0 ? `<span class="badge">${unread}</span>` : '';
+
+                    return `
+                        <div class="thread-item" onclick="app.openThread('${thread.visitorId}')">
+                            <button class="delete-thread-btn" onclick="event.stopPropagation(); app.deleteThread('${thread.visitorId}')">🗑️</button>
+                            <div class="visitor-id">
+                                ${thread.visitorId.substring(0, 16)}...
+                                ${badge}
+                            </div>
+                            <div class="meta">
+                                ${thread.messageCount} messages • ${thread.pagesVisited.join(', ')}
+                            </div>
+                            <div class="last-message">
+                                <strong>${lastMsg.from === 'david' ? 'You' : 'Them'}:</strong>
+                                ${this.escapeHtml(lastMsg.text)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            async openThread(visitorId) {
+                this.currentVisitorId = visitorId;
+
+                try {
+                    const response = await fetch(`/api/threads/${visitorId}/messages`);
+                    if (!response.ok) throw new Error('Failed to load messages');
+
+                    const data = await response.json();
+                    this.renderConversation(visitorId, data.messages);
+
+                    // Show conversation screen
+                    document.getElementById('thread-list-screen').classList.add('hidden');
+                    document.getElementById('conversation-screen').classList.remove('hidden');
+
+                } catch (error) {
+                    alert('Error loading conversation: ' + error.message);
+                }
+            },
+
+            renderConversation(visitorId, messages) {
+                document.getElementById('conv-title').textContent = `Visitor ${visitorId.substring(0, 16)}...`;
+
+                const meta = messages.length > 0
+                    ? `First seen: ${new Date(messages[0].ts).toLocaleString()}`
+                    : 'No messages';
+                document.getElementById('conv-meta').textContent = meta;
+
+                const container = document.getElementById('messages-container');
+                container.innerHTML = messages.map(m => `
+                    <div class="message ${m.from}">
+                        <div class="author">${m.from === 'david' ? 'You' : 'Visitor'}</div>
+                        <div class="text">${this.escapeHtml(m.text)}</div>
+                        <div class="time">${this.formatTime(m.ts)}</div>
+                    </div>
+                `).join('');
+
+                // Scroll to bottom
+                setTimeout(() => container.scrollTop = container.scrollHeight, 100);
+            },
+
+            async sendReply() {
+                const textarea = document.getElementById('reply-text');
+                const text = textarea.value.trim();
+
+                if (!text || !this.currentVisitorId) return;
+                if (!this.password) {
+                    alert('Please log in again.');
+                    this.showLogin();
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/admin/threads/${this.currentVisitorId}/reply`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.password}`
+                        },
+                        body: JSON.stringify({ text })
+                    });
+
+                    if (!response.ok) throw new Error('Failed to send reply');
+
+                    // Show success
+                    const successEl = document.getElementById('reply-success');
+                    successEl.classList.remove('hidden');
+                    setTimeout(() => successEl.classList.add('hidden'), 3000);
+
+                    // Clear textarea
+                    textarea.value = '';
+
+                    // Reload conversation
+                    this.openThread(this.currentVisitorId);
+
+                } catch (error) {
+                    alert('Error sending reply: ' + error.message);
+                }
+            },
+
+            async deleteThread(visitorId) {
+                if (!confirm('Are you sure you want to delete this thread? This cannot be undone.')) {
+                    return;
+                }
+
+                if (!this.password) {
+                    alert('Please log in again.');
+                    this.showLogin();
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/admin/threads/${visitorId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${this.password}`
+                        }
+                    });
+
+                    if (!response.ok) throw new Error('Failed to delete thread');
+
+                    // If we're viewing this thread, go back to list
+                    if (this.currentVisitorId === visitorId) {
+                        this.showThreadList();
+                    } else {
+                        // Just reload the thread list
+                        this.loadThreads();
+                    }
+
+                } catch (error) {
+                    alert('Error deleting thread: ' + error.message);
+                }
+            },
+
+            showThreadList() {
+                document.getElementById('conversation-screen').classList.add('hidden');
+                document.getElementById('thread-list-screen').classList.remove('hidden');
+                this.loadThreads();
+            },
+
+            showLogin() {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('thread-list-screen').classList.add('hidden');
+                document.getElementById('conversation-screen').classList.add('hidden');
+            },
+
+            refresh() {
+                this.loadThreads();
+            },
+
+            showError(message) {
+                const errorEl = document.getElementById('login-error');
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            formatTime(ts) {
+                const date = new Date(ts);
+                const now = new Date();
+                const diff = now - date;
+
+                if (diff < 60000) return 'just now';
+                if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+                if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+                if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+                return date.toLocaleString();
+            },
+
+            async setupPushNotifications() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                if (!vapidKeyLoaded || !window.vapidPublicKey) return;
+                if (!this.password) return;
+
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    let subscription = await registration.pushManager.getSubscription();
+
+                    if (!subscription) {
+                        const permission = await Notification.requestPermission();
+                        if (permission !== 'granted') return;
+
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: this.urlBase64ToUint8Array(window.vapidPublicKey)
+                        });
+                    }
+
+                    // Always send subscription to server (survives server restarts)
+                    const registerResponse = await fetch('/api/admin/push-subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.password}`
+                        },
+                        body: JSON.stringify(subscription)
+                    });
+
+                    if (registerResponse.status === 401) {
+                        console.warn('Push subscription registration failed: invalid password');
+                        await authStore.clearPassword();
+                        this.password = null;
+                        if (this.eventSource) {
+                            this.eventSource.close();
+                            this.eventSource = null;
+                        }
+                        this.setConnectionStatus('disconnected', 'Login required');
+                        this.showLogin();
+                        return;
+                    }
+
+                    if (!registerResponse.ok) {
+                        throw new Error(`Push subscription registration failed (${registerResponse.status})`);
+                    }
+                } catch (error) {
+                    console.error('Push notification setup failed:', error);
+                }
+            },
+
+            urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            },
+
+            updateBadge(count) {
+                if ('setAppBadge' in navigator) {
+                    if (count > 0) {
+                        navigator.setAppBadge(count);
+                    } else {
+                        navigator.clearAppBadge();
+                    }
+                }
+            },
+
+            setConnectionStatus(status, message) {
+                this.connectionStatus = status;
+                console.info('[connection-status]', status, message || '');
+                const statusEl = document.getElementById('connection-status');
+                const textEl = document.getElementById('connection-text');
+
+                // Remove all status classes
+                statusEl.classList.remove('connected', 'connecting', 'disconnected');
+
+                if (status === 'connected') {
+                    statusEl.classList.add('connected', 'show');
+                    textEl.textContent = message || '●  Connected';
+                    // Hide after 2 seconds
+                    setTimeout(() => statusEl.classList.remove('show'), 2000);
+                } else if (status === 'connecting') {
+                    statusEl.classList.add('connecting', 'show');
+                    textEl.textContent = message || '●  Connecting...';
+                } else if (status === 'disconnected') {
+                    statusEl.classList.add('disconnected', 'show');
+                    textEl.textContent = message || '●  Disconnected';
+                }
+            }
+        };
+
+        app.logEventSourceState = function(context, event) {
+            const source = this.eventSource;
+            const state = source ? source.readyState : null;
+            const stateName = state === 0 ? 'CONNECTING' : state === 1 ? 'OPEN' : state === 2 ? 'CLOSED' : 'UNKNOWN';
+            const payload = { context, state: stateName, readyState: state, connectionStatus: this.connectionStatus };
+            if (event) {
+                payload.eventType = event.type;
+            }
+            console.debug('[sse]', payload);
+        };
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .catch(err => console.error('Service Worker registration failed:', err));
+
+            // Listen for messages from service worker (e.g., notification clicks)
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'open-thread' && event.data.visitorId) {
+                    app.openThread(event.data.visitorId);
+                }
+            });
+        }
+
+        // Restore password if available
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Clean up legacy storage if it exists
+            try {
+                localStorage.removeItem('__admin_pwd');
+            } catch (err) {
+                // Ignore if localStorage is unavailable (e.g., private mode)
+            }
+
+            // Clear old token storage from previous auth system and migrate
+            try {
+                const db = await authStore.getDB();
+
+                // Check if we have an old token (base64-like string longer than typical password)
+                const storedValue = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('session', 'readonly');
+                    const request = tx.objectStore('session').get('password');
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+
+                // If stored value looks like an old token (long base64), clear it
+                if (storedValue && storedValue.length > 40 && /^[A-Za-z0-9_-]+$/.test(storedValue)) {
+                    console.log('Detected old session token, clearing...');
+                    await authStore.clearPassword();
+                }
+
+                // Also clear any leftover 'token' key
+                await new Promise((resolve) => {
+                    try {
+                        const tx = db.transaction('session', 'readwrite');
+                        tx.objectStore('session').delete('token');
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => resolve(); // Ignore errors
+                    } catch {
+                        resolve();
+                    }
+                });
+            } catch (err) {
+                console.log('Migration check failed:', err);
+            }
+
+            authStore.getPassword().then((password) => {
+                if (password) {
+                    app.password = password;
+                    app.loadThreads();
+                }
+            });
+
+            // Add Enter key handler for reply textarea
+            const replyTextarea = document.getElementById('reply-text');
+            if (replyTextarea) {
+                replyTextarea.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        app.sendReply();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

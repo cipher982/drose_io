@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache</title>
+</head>
+<body>
+    <h1>Clearing all cached data...</h1>
+    <div id="status"></div>
+    <script>
+        const log = (msg) => {
+            document.getElementById('status').innerHTML += `<div>${msg}</div>`;
+            console.log(msg);
+        };
+
+        (async () => {
+            // 1. Unregister ALL service workers
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+                await reg.unregister();
+                log(`✅ Unregistered service worker: ${reg.scope}`);
+            }
+
+            // 2. Clear all caches
+            const cacheKeys = await caches.keys();
+            for (const key of cacheKeys) {
+                await caches.delete(key);
+                log(`✅ Deleted cache: ${key}`);
+            }
+
+            // 3. Clear localStorage
+            localStorage.clear();
+            log('✅ Cleared localStorage');
+
+            // 4. Clear cookies
+            document.cookie.split(';').forEach(cookie => {
+                const [name] = cookie.split('=');
+                document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            });
+            log('✅ Cleared cookies');
+
+            log('');
+            log('🎉 All clear! Redirecting to homepage...');
+
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        })();
+    </script>
+</body>
+</html>
