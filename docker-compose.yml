@@ -1,6 +1,10 @@
 services:
-  web:
+  drose-web:
     build: .
+    expose:
+      - "3000"
+    networks:
+      - coolify
     environment:
       - PORT=3000
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
@@ -14,6 +18,11 @@ services:
     volumes:
       # Persist thread data only
       - threads-data:/app/data
+
+networks:
+  coolify:
+    name: coolify
+    external: true
 
 volumes:
   threads-data:
