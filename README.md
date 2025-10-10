@@ -233,9 +233,9 @@ ITERATIONS=10 DELAY_MS=500 bun test/conversation-loop.ts
 
 ## Roadmap
 
-- [ ] Move to Coolify for proper deployment
-- [ ] Add SSL certificate via Let's Encrypt
-- [ ] Point drose.io DNS to clifford
+- [x] Move to Coolify for proper deployment
+- [x] Add SSL certificate via Let's Encrypt
+- [x] Point drose.io DNS to clifford
 - [ ] Enable Twilio when toll-free verification completes
 - [ ] Add advanced fingerprinting (optional)
 - [ ] Add email notification option
