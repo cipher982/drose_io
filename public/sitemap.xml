@@ -6,9 +6,21 @@
         <lastmod>2025-10-11</lastmod>
     </sitemap>
 
-    <!-- AI Tools Directory (sub-application with 535+ tools) -->
+    <!-- AI Tools Directory sitemaps (flattened to avoid nested indexing) -->
     <sitemap>
-        <loc>https://drose.io/aitools/sitemap.xml</loc>
+        <loc>https://drose.io/aitools/sitemaps/sitemap-static.xml</loc>
+        <lastmod>2025-10-11</lastmod>
+    </sitemap>
+    <sitemap>
+        <loc>https://drose.io/aitools/sitemaps/sitemap-tools.xml</loc>
+        <lastmod>2025-10-11</lastmod>
+    </sitemap>
+    <sitemap>
+        <loc>https://drose.io/aitools/sitemaps/sitemap-categories.xml</loc>
+        <lastmod>2025-10-11</lastmod>
+    </sitemap>
+    <sitemap>
+        <loc>https://drose.io/aitools/sitemaps/sitemap-comparisons.xml</loc>
         <lastmod>2025-10-11</lastmod>
     </sitemap>
 
