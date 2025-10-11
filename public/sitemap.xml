@@ -1,50 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <!-- Portfolio pages (landing pages, main site) -->
+    <sitemap>
+        <loc>https://drose.io/portfolio-sitemap.xml</loc>
+        <lastmod>2025-10-11</lastmod>
+    </sitemap>
 
-    <!-- Main portfolio page -->
-    <url>
-        <loc>https://drose.io/</loc>
-        <lastmod>2025-10-10</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>1.0</priority>
-        <image:image>
-            <image:loc>https://drose.io/assets/images/david-computer-small.webp</image:loc>
-            <image:caption>David Rose - AI Agent Engineer and Agentic Systems Expert</image:caption>
-            <image:title>David Rose Portrait</image:title>
-        </image:image>
-    </url>
+    <!-- AI Tools Directory (sub-application with 535+ tools) -->
+    <sitemap>
+        <loc>https://drose.io/aitools/sitemap.xml</loc>
+        <lastmod>2025-10-11</lastmod>
+    </sitemap>
 
-    <!-- AI Tools Directory -->
-    <url>
-        <loc>https://drose.io/aitools</loc>
-        <lastmod>2025-10-10</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
-    </url>
-
-    <!-- FloodMap USA -->
-    <url>
-        <loc>https://drose.io/floodmap</loc>
-        <lastmod>2025-10-10</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
-    </url>
-
-    <!-- Browser Fingerprinting Collector -->
-    <url>
-        <loc>https://drose.io/collector</loc>
-        <lastmod>2025-10-10</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
-    </url>
-
-    <!-- WebLLM Agent Playground -->
-    <url>
-        <loc>https://drose.io/agent-zoom</loc>
-        <lastmod>2025-10-10</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
-    </url>
-
-</urlset>
+    <!-- Add future projects here as they get their own sitemaps -->
+</sitemapindex>
