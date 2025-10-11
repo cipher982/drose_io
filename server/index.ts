@@ -37,6 +37,29 @@ app.get('/api/health', (c) => c.json({
   connections: connectionManager.getStats(),
 }));
 
+// Fix HEAD requests for XML files (Hono serveStatic bug workaround)
+// Google Search Console uses HEAD requests to check sitemaps before fetching
+// Without this, serveStatic returns content-length: 0 for HEAD requests
+app.use('*', async (c, next) => {
+  if (c.req.method === 'HEAD' && c.req.path.endsWith('.xml')) {
+    const filePath = `./public${c.req.path}`;
+    const file = Bun.file(filePath);
+
+    if (await file.exists()) {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml',
+          'Content-Length': file.size.toString(),
+          'Cache-Control': c.req.path.includes('sitemap') ? 'public, max-age=3600' : 'public, max-age=86400',
+        },
+      });
+    }
+  }
+
+  await next();
+});
+
 // Serve static files (HTML, CSS, JS, images)
 app.use('/*', serveStatic({ root: './public' }));
 
