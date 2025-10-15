@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Layered exposure concept for HDR -->
+  <defs>
+    <linearGradient id="darkLayer" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4a4a4a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="midLayer" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#666666;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#999999;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="brightLayer" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#cccccc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Three stacked rectangles representing exposure layers -->
+  <rect x="15" y="60" width="70" height="15" rx="3" fill="url(#darkLayer)" stroke="#000" stroke-width="1.5"/>
+  <rect x="15" y="40" width="70" height="15" rx="3" fill="url(#midLayer)" stroke="#333" stroke-width="1.5"/>
+  <rect x="15" y="20" width="70" height="15" rx="3" fill="url(#brightLayer)" stroke="#666" stroke-width="1.5"/>
+
+  <!-- Sparkle/pop effect -->
+  <g fill="#FFD700" opacity="0.9">
+    <circle cx="30" cy="27" r="2" />
+    <circle cx="70" cy="27" r="2" />
+    <circle cx="50" cy="47" r="2" />
+  </g>
+</svg>
