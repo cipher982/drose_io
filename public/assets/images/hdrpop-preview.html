@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDR Pop Icon Preview</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f5f5f5;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            margin-bottom: 30px;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+        }
+        .icon-box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .icon-box.dark {
+            background: #2d3748;
+        }
+        .icon-box img {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+        }
+        .icon-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        .icon-box.dark h3,
+        .icon-box.dark .filename {
+            color: white;
+        }
+        .filename {
+            font-family: monospace;
+            font-size: 12px;
+            color: #666;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .badge.current {
+            background: #48bb78;
+            color: white;
+        }
+        .badge.future {
+            background: #4299e1;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>HDR Pop Icon Options</h1>
+
+    <div class="preview-grid">
+        <div class="icon-box dark">
+            <img src="hdrpop-icon.svg" alt="Monochrome photo icon">
+            <h3>Current Style (White/Monochrome)</h3>
+            <p class="filename">hdrpop-icon.svg</p>
+            <span class="badge current">READY TO USE</span>
+        </div>
+
+        <div class="icon-box">
+            <img src="hdrpop-icon-photo-colored.svg" alt="Colored photo icon">
+            <h3>Future Style (Colored)</h3>
+            <p class="filename">hdrpop-icon-photo-colored.svg</p>
+            <span class="badge future">FOR LATER</span>
+        </div>
+
+        <div class="icon-box">
+            <img src="hdrpop-icon-sun.svg" alt="Sun icon">
+            <h3>Alt: Sun/Brightness (Colored)</h3>
+            <p class="filename">hdrpop-icon-sun.svg</p>
+            <span class="badge future">BACKUP OPTION</span>
+        </div>
+
+        <div class="icon-box">
+            <img src="hdrpop-icon-layers.svg" alt="Layers icon">
+            <h3>Alt: Exposure Layers (Colored)</h3>
+            <p class="filename">hdrpop-icon-layers.svg</p>
+            <span class="badge future">BACKUP OPTION</span>
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-radius: 8px; max-width: 600px;">
+        <strong>Note:</strong> The dark background preview shows how the white icon will look on your site.
+        All colored versions are preserved for when you transition to colored icons!
+    </div>
+</body>
+</html>

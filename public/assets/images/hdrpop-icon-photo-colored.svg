@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Photo frame with HDR effect -->
+  <defs>
+    <linearGradient id="photoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Photo frame -->
+  <rect x="15" y="20" width="70" height="60" rx="4" fill="url(#photoGradient)" stroke="#333" stroke-width="2"/>
+
+  <!-- Mountain landscape -->
+  <path d="M 25 65 L 40 45 L 55 55 L 75 35 L 75 70 L 25 70 Z" fill="#2d3748" opacity="0.7"/>
+
+  <!-- Sun/moon -->
+  <circle cx="65" cy="35" r="8" fill="#FFD700"/>
+
+  <!-- Sparkle effects (HDR glow) -->
+  <g stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.8">
+    <line x1="30" y1="30" x2="35" y2="30" />
+    <line x1="32.5" y1="27.5" x2="32.5" y2="32.5" />
+    <line x1="70" y1="60" x2="75" y2="60" />
+    <line x1="72.5" y1="57.5" x2="72.5" y2="62.5" />
+  </g>
+</svg>
