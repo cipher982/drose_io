@@ -96,11 +96,44 @@ export function getMessages(visitorId: string, sinceId?: string): Message[] {
 }
 
 /**
- * Get unread count for visitor (messages from david since lastSeenId)
+ * Get unread count for visitor (admin messages not yet read by visitor)
+ * Now tracks actual read status instead of relying on position
  */
 export function getUnreadCount(visitorId: string, lastSeenId?: string): number {
   const messages = getMessages(visitorId, lastSeenId);
-  return messages.filter(m => m.from === 'david').length;
+  // Count unread messages from admin (david) - those without read flag set to true
+  return messages.filter(m => m.from === 'david' && m.read !== true).length;
+}
+
+/**
+ * Mark all admin messages in a thread as read by the admin
+ * This clears the unread badge when admin views a thread
+ */
+export function markThreadAsRead(visitorId: string): void {
+  const messages = getMessages(visitorId);
+
+  // Check if any messages need to be marked as read
+  const hasUnread = messages.some(m => m.from === 'david' && m.read !== true);
+  if (!hasUnread) {
+    return; // Nothing to update
+  }
+
+  // Mark all admin messages as read
+  const updatedMessages = messages.map(m => ({
+    ...m,
+    read: m.from === 'david' ? true : (m.read ?? false)
+  }));
+
+  // Rewrite the thread file with updated messages
+  const threadPath = join(THREADS_DIR, `${visitorId}.jsonl`);
+  const lines = updatedMessages.map(m => JSON.stringify(m)).join('\n') + '\n';
+
+  try {
+    Bun.write(threadPath, lines);
+    console.log('✅ Thread marked as read:', visitorId);
+  } catch (error) {
+    console.error('Error marking thread as read:', error);
+  }
 }
 
 /**
