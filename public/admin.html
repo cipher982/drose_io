@@ -709,8 +709,7 @@
                     document.getElementById('thread-list-screen').classList.add('hidden');
                     document.getElementById('conversation-screen').classList.remove('hidden');
 
-                    // Mark thread as read on server and refresh badge
-                    await this.markThreadAsRead(visitorId);
+                    // Sync badge when viewing thread
                     this.syncBadgeCount();
 
                 } catch (error) {
@@ -935,23 +934,6 @@
                     this.updateBadge(totalUnread);
                 } catch (error) {
                     console.error('Error syncing badge count:', error);
-                }
-            },
-
-            async markThreadAsRead(visitorId) {
-                // Mark the current thread as read on the server
-                try {
-                    const response = await fetch(`/api/admin/threads/${visitorId}/mark-read`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${this.password}`
-                        }
-                    });
-                    if (response.ok) {
-                        console.log('[read-tracking] Thread marked as read:', visitorId);
-                    }
-                } catch (error) {
-                    console.error('Error marking thread as read:', error);
                 }
             },
 
