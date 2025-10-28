@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { getMessages, getUnreadCount, appendMessage, generateMessageId, listThreads, getVisitorMetadata, deleteThread } from '../storage/threads';
+import { getMessages, getUnreadCount, appendMessage, generateMessageId, listThreads, getVisitorMetadata, deleteThread, markThreadAsRead } from '../storage/threads';
 import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 /**
@@ -141,6 +141,28 @@ export async function deleteThreadById(c: Context) {
     return c.json({ success: true });
   } catch (error) {
     console.error('Error deleting thread:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+}
+
+/**
+ * Mark a thread as read (admin only)
+ * POST /api/admin/threads/:visitorId/mark-read
+ */
+export async function markThreadReadById(c: Context) {
+  try {
+    const password = extractAuthPassword(c);
+    if (!isValidAdminPassword(password)) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { visitorId } = c.req.param();
+
+    markThreadAsRead(visitorId);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error marking thread as read:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 }
