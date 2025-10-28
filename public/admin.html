@@ -709,6 +709,9 @@
                     document.getElementById('thread-list-screen').classList.add('hidden');
                     document.getElementById('conversation-screen').classList.remove('hidden');
 
+                    // Mark thread as viewed - refresh badge immediately
+                    this.syncBadgeCount();
+
                 } catch (error) {
                     alert('Error loading conversation: ' + error.message);
                 }
@@ -766,8 +769,9 @@
                     // Clear textarea
                     textarea.value = '';
 
-                    // Reload conversation
+                    // Reload conversation and sync badge
                     this.openThread(this.currentVisitorId);
+                    await this.loadThreads(); // Refresh badge count
 
                 } catch (error) {
                     alert('Error sending reply: ' + error.message);
@@ -913,6 +917,26 @@
                 return outputArray;
             },
 
+            async syncBadgeCount() {
+                // Re-fetch thread list to get current unread count and update badge
+                // This is useful when viewing a thread or switching app focus
+                try {
+                    const response = await fetch('/api/admin/threads', {
+                        headers: {
+                            'Authorization': `Bearer ${this.password}`
+                        }
+                    });
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    const threads = data.threads || [];
+                    const totalUnread = threads.reduce((sum, t) => sum + (t.unreadFromVisitor || 0), 0);
+                    this.updateBadge(totalUnread);
+                } catch (error) {
+                    console.error('Error syncing badge count:', error);
+                }
+            },
+
             updateBadge(count) {
                 if ('setAppBadge' in navigator) {
                     if (count > 0) {
@@ -1029,6 +1053,29 @@
                         app.sendReply();
                     }
                 });
+            }
+
+            // Add window focus listener to sync badge when app comes to foreground
+            window.addEventListener('focus', () => {
+                app.syncBadgeCount();
+                console.log('[badge-sync] App focused, syncing badge count');
+            });
+
+            // Monitor notification permission changes
+            if ('permissions' in navigator && 'query' in navigator.permissions) {
+                navigator.permissions.query({ name: 'notifications' })
+                    .then((result) => {
+                        if (result.addEventListener) {
+                            result.addEventListener('change', () => {
+                                const status = Notification.permission;
+                                console.log('[notification-permission] Permission changed to:', status);
+                                if (status === 'granted') {
+                                    app.setupPushNotifications();
+                                }
+                            });
+                        }
+                    })
+                    .catch(err => console.warn('[notification-permission] Permission query failed:', err));
             }
         });
     </script>
