@@ -119,21 +119,35 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notification
+// Push notification with rich media and preview
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
 
   const options = {
     body: data.message || 'New message from visitor',
     icon: '/assets/icons/icon-192.png',
-    badge: '/assets/icons/badge-72.png',
+    badge: data.badge || '/assets/icons/badge-72.png',
     tag: data.visitorId || 'admin-notification',
     data: {
       url: '/admin.html',
-      visitorId: data.visitorId
+      visitorId: data.visitorId,
+      preview: data.preview || data.message
     },
-    vibrate: [200, 100, 200],
-    requireInteraction: true
+    vibrate: data.vibrate || [200, 100, 200],
+    requireInteraction: true,
+    // Rich notification features (supported on modern browsers)
+    actions: [
+      {
+        action: 'open',
+        title: 'Open',
+        icon: '/assets/icons/icon-192.png'
+      },
+      {
+        action: 'close',
+        title: 'Dismiss',
+        icon: '/assets/icons/icon-192.png'
+      }
+    ]
   };
 
   event.waitUntil(
@@ -203,8 +217,17 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// Notification click - focus existing window or open new one
+// Notification click and action handlers
 self.addEventListener('notificationclick', (event) => {
+  const action = event.action;
+
+  // Handle dismiss action
+  if (action === 'close') {
+    event.notification.close();
+    return;
+  }
+
+  // Default behavior or 'open' action
   event.notification.close();
 
   event.waitUntil(
@@ -224,7 +247,7 @@ self.addEventListener('notificationclick', (event) => {
         // Focus existing window
         await adminClient.focus();
 
-        // Optionally send message to open specific thread
+        // Send message to open specific thread
         if (event.notification.data?.visitorId) {
           adminClient.postMessage({
             type: 'open-thread',
@@ -237,4 +260,10 @@ self.addEventListener('notificationclick', (event) => {
       }
     })()
   );
+});
+
+// Notification close handler (for tracking dismissals)
+self.addEventListener('notificationclose', (event) => {
+  // Log dismissals for analytics if needed
+  console.log('[notification] User dismissed notification:', event.notification.data?.visitorId);
 });

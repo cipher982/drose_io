@@ -54,16 +54,22 @@ export async function getVapidPublicKey(c: Context) {
 /**
  * Send push notification to all subscribers
  */
-export async function sendPushNotification(title: string, message: string, visitorId: string) {
+export async function sendPushNotification(title: string, message: string, visitorId: string, options?: { preview?: string; badge?: string; vibrate?: number[] }) {
   if (!vapidPublicKey || !vapidPrivateKey) {
     console.log('⚠️  VAPID keys not configured, skipping push notification');
     return;
   }
 
+  // Truncate message to 100 chars for notification body
+  const truncatedMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
+
   const payload = JSON.stringify({
     title,
-    message,
+    message: truncatedMessage,
+    preview: options?.preview || message,
     visitorId,
+    badge: options?.badge,
+    vibrate: options?.vibrate || [200, 100, 200],
   });
 
   const subscriptions = getAllSubscriptions();
