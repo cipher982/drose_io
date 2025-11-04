@@ -36,7 +36,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: min(1200px, 92vw);
             margin: 0 auto;
             width: 100%;
             flex: 1;
@@ -257,7 +257,7 @@
             margin-bottom: 12px;
         }
 
-        #login-screen, #thread-list-screen, #conversation-screen {
+        #login-screen, #thread-list-screen, #conversation-screen, #blog-screen {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -323,7 +323,254 @@
             background: #f44336;
             color: white;
         }
+
+        .admin-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 12px 16px;
+        }
+
+        .admin-tab-button {
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.15);
+            background: white;
+            font-weight: 600;
+            cursor: pointer;
+            color: #333;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+
+        .admin-tab-button.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0055aa;
+        }
+
+        #blog-screen {
+            padding: 0 24px 32px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .blog-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            min-height: 0;
+            overflow: visible;
+        }
+
+        .blog-sidebar, .blog-editor {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.08);
+            min-height: 0;
+        }
+
+        .blog-sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .blog-sidebar-header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .blog-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .blog-stats span {
+            background: #f6f9ff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .blog-posts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        .blog-post-card {
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: #fafafa;
+        }
+
+        .blog-post-card h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .blog-post-card .meta {
+            font-size: 13px;
+            color: #777;
+        }
+
+        .blog-post-card .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .blog-post-card button {
+            flex: 0 0 auto;
+            padding: 8px 12px;
+        }
+
+        .blog-editor h2 {
+            margin-bottom: 12px;
+        }
+
+        .blog-editor-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .blog-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .blog-preview-wrapper {
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+            padding: 16px;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+
+        .blog-preview-header {
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        .blog-preview-body {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .blog-preview-empty {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .blog-preview-article h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .blog-preview-meta {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .blog-preview-summary {
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+
+        .blog-preview-body p {
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .blog-editor label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .blog-editor textarea {
+            font-family: 'Menlo', 'SFMono-Regular', monospace;
+            min-height: 260px;
+            line-height: 1.4;
+        }
+
+        .blog-editor small {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .blog-editor-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .blog-editor-actions button {
+            flex: 0 0 auto;
+        }
+
+        @media (min-width: 980px) {
+            .blog-layout {
+                flex-direction: row;
+                overflow: hidden;
+            }
+            .blog-sidebar {
+                flex: 0 0 360px;
+                max-width: 360px;
+            }
+            .blog-editor {
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            .blog-editor-grid {
+                flex-direction: row;
+                gap: 20px;
+                flex: 1;
+                min-height: 0;
+            }
+            .blog-form {
+                flex: 1;
+                min-height: 0;
+            }
+            .blog-preview-wrapper {
+                flex: 1;
+                max-height: none;
+                overflow-y: auto;
+            }
+        }
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/github-dark.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/common.min.js"></script>
 </head>
 <body>
     <!-- Connection Status Indicator -->
@@ -340,12 +587,95 @@
             <button onclick="app.login()">Login</button>
         </div>
 
+        <div id="admin-tabs" class="admin-tabs hidden">
+            <button id="tab-inbox" class="admin-tab-button active" onclick="app.switchTab('inbox')">Inbox</button>
+            <button id="tab-blog" class="admin-tab-button" onclick="app.switchTab('blog')">Blog</button>
+        </div>
+
         <!-- Thread List -->
         <div id="thread-list-screen" class="hidden">
             <div class="thread-list">
                 <h1>💬 Conversations</h1>
                 <button onclick="app.refresh()" class="secondary" style="margin-bottom: 16px;">Refresh</button>
                 <div id="threads-container" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Blog Publisher -->
+        <div id="blog-screen" class="hidden">
+            <div class="blog-layout">
+                <div class="blog-sidebar">
+                    <div class="blog-sidebar-header">
+                        <h1>📝 Blog Publisher</h1>
+                        <div style="display:flex; gap:8px;">
+                            <button class="secondary" onclick="app.loadBlogPosts(true)">Refresh</button>
+                            <button onclick="app.newBlogPost()">New Post</button>
+                        </div>
+                    </div>
+                    <div id="blog-stats" class="blog-stats">
+                        <span>Total posts: 0</span>
+                        <span>Total words: 0</span>
+                    </div>
+                    <div id="blog-posts-list" class="blog-posts-list">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+                <div class="blog-editor">
+                    <h2 id="blog-editor-title">Create Post</h2>
+                    <div id="blog-editor-status" class="success hidden"></div>
+                    <div id="blog-editor-error" class="error hidden"></div>
+                    <div class="blog-editor-grid">
+                        <form id="blog-form" class="blog-form" onsubmit="app.submitBlogForm(event)">
+                            <div>
+                                <label for="blog-title">Title</label>
+                                <input type="text" id="blog-title" placeholder="Post title" required />
+                            </div>
+                            <div>
+                                <label for="blog-slug">Slug</label>
+                                <input type="text" id="blog-slug" placeholder="auto-generated if left blank" />
+                                <small>Lowercase, hyphenated (e.g. agent-benchmark-notes)</small>
+                            </div>
+                            <div>
+                                <label for="blog-summary">Summary</label>
+                                <textarea id="blog-summary" rows="3" placeholder="Optional teaser shown on /blog"></textarea>
+                            </div>
+                            <div>
+                                <label for="blog-tags">Tags</label>
+                                <input type="text" id="blog-tags" placeholder="Comma-separated tags (e.g. agents,infra)" />
+                            </div>
+                            <div>
+                                <label for="blog-hero-image">Hero Image URL</label>
+                                <input type="text" id="blog-hero-image" placeholder="Optional hero image URL" />
+                            </div>
+                            <div>
+                                <label for="blog-status">Status</label>
+                                <select id="blog-status">
+                                    <option value="draft">Draft</option>
+                                    <option value="published">Published</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="blog-published-at">Published At</label>
+                                <input type="datetime-local" id="blog-published-at" />
+                                <small>Defaults to now when publishing. Adjust to backdate posts.</small>
+                            </div>
+                            <div>
+                                <label for="blog-content">Markdown Content</label>
+                                <textarea id="blog-content" placeholder="# Hello World&#10;&#10;Write Markdown or paste it here." required></textarea>
+                            </div>
+                            <div class="blog-editor-actions">
+                                <button type="submit">Save Post</button>
+                                <button type="button" class="secondary" onclick="app.resetBlogForm()">Clear</button>
+                            </div>
+                        </form>
+                        <div class="blog-preview-wrapper">
+                            <div class="blog-preview-header">Live Preview</div>
+                            <div id="blog-preview" class="blog-preview-body">
+                                <p class="blog-preview-empty">Start typing to see the live preview.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -541,9 +871,20 @@
                     const data = await response.json();
                     this.renderThreads(data.threads);
 
-                    // Hide login, show thread list
-                    document.getElementById('login-screen').classList.add('hidden');
-                    document.getElementById('thread-list-screen').classList.remove('hidden');
+                    this.showAppShell();
+
+                    const threadListEl = document.getElementById('thread-list-screen');
+                    const convoEl = document.getElementById('conversation-screen');
+
+                    if (this.activeTab === 'inbox' && convoEl.classList.contains('hidden')) {
+                        threadListEl.classList.remove('hidden');
+                    } else {
+                        threadListEl.classList.add('hidden');
+                    }
+
+                    if (this.activeTab === 'blog') {
+                        document.getElementById('blog-screen').classList.remove('hidden');
+                    }
 
                     // Start SSE for live updates
                     this.startSSE();
@@ -814,18 +1155,23 @@
 
             showThreadList() {
                 document.getElementById('conversation-screen').classList.add('hidden');
-                document.getElementById('thread-list-screen').classList.remove('hidden');
-                this.loadThreads();
+                this.switchTab('inbox', { skipFetch: false });
             },
 
             showLogin() {
                 document.getElementById('login-screen').classList.remove('hidden');
                 document.getElementById('thread-list-screen').classList.add('hidden');
                 document.getElementById('conversation-screen').classList.add('hidden');
+                document.getElementById('blog-screen').classList.add('hidden');
+                document.getElementById('admin-tabs').classList.add('hidden');
             },
 
             refresh() {
-                this.loadThreads();
+                if (this.activeTab === 'blog') {
+                    this.loadBlogPosts(true);
+                } else {
+                    this.loadThreads();
+                }
             },
 
             showError(message) {
@@ -968,7 +1314,578 @@
                     statusEl.classList.add('disconnected', 'show');
                     textEl.textContent = message || '●  Disconnected';
                 }
+        }
+    };
+
+        app.activeTab = 'inbox';
+        app.blogPosts = [];
+        app.currentBlogSlug = null;
+        app.blogDraftKey = 'blog-editor-draft-v1';
+        app.blogAutosaveTimer = null;
+        app.previewMarkedConfigured = false;
+
+        app.showAppShell = function() {
+            const login = document.getElementById('login-screen');
+            const tabs = document.getElementById('admin-tabs');
+            if (login) login.classList.add('hidden');
+            if (tabs) tabs.classList.remove('hidden');
+            this.updateTabButtons();
+        };
+
+        app.updateTabButtons = function() {
+            const inboxBtn = document.getElementById('tab-inbox');
+            const blogBtn = document.getElementById('tab-blog');
+            if (!inboxBtn || !blogBtn) return;
+            inboxBtn.classList.toggle('active', this.activeTab === 'inbox');
+            blogBtn.classList.toggle('active', this.activeTab === 'blog');
+        };
+
+        app.switchTab = function(tab, options = {}) {
+            if (!this.password) {
+                this.showLogin();
+                return;
             }
+
+            const { skipFetch = false, keepConversation = false } = options;
+            this.activeTab = tab;
+            this.showAppShell();
+            this.updateTabButtons();
+
+            const threadList = document.getElementById('thread-list-screen');
+            const conversation = document.getElementById('conversation-screen');
+            const blogScreen = document.getElementById('blog-screen');
+
+            if (tab === 'inbox') {
+                if (blogScreen) blogScreen.classList.add('hidden');
+                if (!keepConversation) {
+                    if (conversation) conversation.classList.add('hidden');
+                    if (threadList) threadList.classList.remove('hidden');
+                }
+                if (!skipFetch) {
+                    this.loadThreads();
+                }
+            } else if (tab === 'blog') {
+                if (threadList) threadList.classList.add('hidden');
+                if (conversation) conversation.classList.add('hidden');
+                if (blogScreen) blogScreen.classList.remove('hidden');
+                if (!skipFetch) {
+                    this.loadBlogPosts();
+                }
+                this.renderBlogPreview();
+            }
+        };
+
+        app.loadBlogPosts = async function(force = false) {
+            if (!this.password) {
+                this.showLogin();
+                return;
+            }
+
+            const listEl = document.getElementById('blog-posts-list');
+            if (!listEl) return;
+
+            if (!force && this.blogPosts.length > 0) {
+                this.renderBlogPosts();
+                return;
+            }
+
+            listEl.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const response = await fetch('/api/admin/blog/posts', {
+                    headers: {
+                        'Authorization': `Bearer ${this.password}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    await authStore.clearPassword();
+                    this.password = null;
+                    this.showLogin();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to load posts');
+                }
+
+                const data = await response.json();
+                this.blogPosts = data.posts || [];
+                if (data.stats) {
+                    this.setBlogStats(data.stats);
+                }
+                this.renderBlogPosts();
+            } catch (error) {
+                console.error('Failed to load blog posts:', error);
+                listEl.innerHTML = `<div class="error">Unable to load posts. ${error instanceof Error ? error.message : error}</div>`;
+            }
+        };
+
+        app.setBlogStats = function(stats) {
+            const statsEl = document.getElementById('blog-stats');
+            if (!statsEl) return;
+            const totalPosts = stats?.totalPosts ?? this.blogPosts.length;
+            const totalWords = stats?.totalWords ?? this.blogPosts.reduce((sum, post) => sum + (post.wordCount || 0), 0);
+            statsEl.innerHTML = `
+                <span>Total posts: ${totalPosts}</span>
+                <span>Total words: ${totalWords}</span>
+            `;
+        };
+
+        app.renderBlogPosts = function() {
+            const listEl = document.getElementById('blog-posts-list');
+            if (!listEl) return;
+
+            if (!this.blogPosts.length) {
+                listEl.innerHTML = '<p style="color:#666;">No posts yet — start by creating one.</p>';
+                return;
+            }
+
+            listEl.innerHTML = this.blogPosts.map(post => {
+                const updated = new Date(post.updatedAt || post.publishedAt).toLocaleString();
+                const published = new Date(post.publishedAt).toLocaleDateString();
+                const statusLabel = post.status === 'published' ? 'Published' : 'Draft';
+                const statusColor = post.status === 'published' ? '#2e7d32' : '#ff6f00';
+                return `
+                    <div class="blog-post-card">
+                        <h3>${this.escapeHtml(post.title)}</h3>
+                        <div class="meta">
+                            <strong style="color:${statusColor};">${statusLabel}</strong> • ${published}
+                        </div>
+                        <div class="meta">
+                            Slug: <code>${this.escapeHtml(post.slug)}</code> • ${post.wordCount || 0} words • Updated ${this.escapeHtml(updated)}
+                        </div>
+                        <div class="actions">
+                            <button onclick="app.editBlogPost('${post.slug}')">Edit</button>
+                            <button class="secondary" onclick="app.deleteBlogPost('${post.slug}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        app.configurePreviewMarked = function() {
+            if (this.previewMarkedConfigured) return;
+            if (typeof window === 'undefined' || !window.marked) return;
+
+            const renderer = new window.marked.Renderer();
+            const defaultLink = renderer.link ? renderer.link.bind(renderer) : null;
+            renderer.link = function(href, title, text) {
+                if (!defaultLink) {
+                    return `<a href="${href || '#'}">${text}</a>`;
+                }
+                const html = defaultLink(href, title, text);
+                if (!href) return html;
+                const isExternal = /^https?:\/\//i.test(href) && !href.startsWith(window.location.origin);
+                if (!isExternal) return html;
+                return html.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
+            };
+
+            window.marked.use({ mangle: false, headerIds: true, renderer });
+            if (window.hljs && typeof window.hljs.highlight === 'function') {
+                window.marked.setOptions({
+                    highlight(code, lang) {
+                        try {
+                            const valid = lang && window.hljs.getLanguage(lang) ? lang : 'plaintext';
+                            return window.hljs.highlight(code, { language: valid }).value;
+                        } catch {
+                            return window.hljs.highlight(code, { language: 'plaintext' }).value;
+                        }
+                    }
+                });
+            }
+            this.previewMarkedConfigured = true;
+        };
+
+        app.renderBlogPreview = function() {
+            const previewEl = document.getElementById('blog-preview');
+            if (!previewEl) return;
+
+            this.configurePreviewMarked();
+
+            const raw = this.getBlogFormRawValues();
+            const title = raw.title.trim() || 'Untitled post';
+            const summary = raw.summary.trim();
+            const status = (raw.status || 'draft').toLowerCase();
+            const statusLabel = status === 'published' ? 'Published' : 'Draft';
+            const publishedAt = raw.publishedAt ? new Date(raw.publishedAt) : null;
+            const publishedLabel = publishedAt && !Number.isNaN(publishedAt.valueOf())
+                ? publishedAt.toLocaleString()
+                : 'Not scheduled';
+            const tagsList = raw.tags
+                ? raw.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+                : [];
+
+            if (!raw.content.trim()) {
+                previewEl.innerHTML = `<p class="blog-preview-empty">Start typing to see the live preview.</p>`;
+                return;
+            }
+
+            let renderedBody = '';
+            if (window.marked) {
+                renderedBody = window.marked.parse(raw.content);
+            } else {
+                renderedBody = `<pre>${this.escapeHtml(raw.content)}</pre>`;
+            }
+
+            const metaParts = [statusLabel];
+            if (publishedAt) {
+                metaParts.push(publishedLabel);
+            }
+            if (tagsList.length) {
+                metaParts.push(tagsList.map(tag => `#${this.escapeHtml(tag)}`).join(' '));
+            }
+
+            previewEl.innerHTML = `
+                <article class="blog-preview-article">
+                    <h1>${this.escapeHtml(title)}</h1>
+                    <p class="blog-preview-meta">${metaParts.join(' • ')}</p>
+                    ${summary ? `<p class="blog-preview-summary">${this.escapeHtml(summary)}</p>` : ''}
+                    ${renderedBody}
+                </article>
+            `;
+
+            if (window.hljs && typeof window.hljs.highlightElement === 'function') {
+                previewEl.querySelectorAll('pre code').forEach(block => {
+                    window.hljs.highlightElement(block);
+                });
+            }
+        };
+
+        app.clearBlogStatus = function() {
+            const successEl = document.getElementById('blog-editor-status');
+            const errorEl = document.getElementById('blog-editor-error');
+            if (successEl) successEl.classList.add('hidden');
+            if (errorEl) errorEl.classList.add('hidden');
+        };
+
+        app.setBlogFormStatus = function(kind, message) {
+            const successEl = document.getElementById('blog-editor-status');
+            const errorEl = document.getElementById('blog-editor-error');
+            if (!successEl || !errorEl) return;
+
+            successEl.classList.add('hidden');
+            errorEl.classList.add('hidden');
+
+            if (!kind || !message) return;
+
+            if (kind === 'success') {
+                successEl.textContent = message;
+                successEl.classList.remove('hidden');
+                setTimeout(() => successEl.classList.add('hidden'), 4000);
+            } else {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            }
+        };
+
+        app.getBlogFormRawValues = function() {
+            return {
+                title: document.getElementById('blog-title')?.value || '',
+                slug: document.getElementById('blog-slug')?.value || '',
+                summary: document.getElementById('blog-summary')?.value || '',
+                tags: document.getElementById('blog-tags')?.value || '',
+                heroImage: document.getElementById('blog-hero-image')?.value || '',
+                status: document.getElementById('blog-status')?.value || 'draft',
+                publishedAt: document.getElementById('blog-published-at')?.value || '',
+                content: document.getElementById('blog-content')?.value || '',
+            };
+        };
+
+        app.populateBlogForm = function(values) {
+            const { title, slug, summary, tags, heroImage, status, publishedAt, content } = values;
+            document.getElementById('blog-title').value = title || '';
+            document.getElementById('blog-slug').value = slug || '';
+            document.getElementById('blog-summary').value = summary || '';
+            document.getElementById('blog-tags').value = Array.isArray(tags) ? tags.join(', ') : (tags || '');
+            document.getElementById('blog-hero-image').value = heroImage || '';
+            document.getElementById('blog-status').value = status || 'draft';
+            document.getElementById('blog-published-at').value = publishedAt || '';
+            document.getElementById('blog-content').value = content || '';
+            this.renderBlogPreview();
+        };
+
+        app.resetBlogForm = function(clearDraft = true) {
+            this.currentBlogSlug = null;
+            this.setBlogFormStatus();
+            this.populateBlogForm({
+                title: '',
+                slug: '',
+                summary: '',
+                tags: '',
+                heroImage: '',
+                status: 'draft',
+                publishedAt: '',
+                content: ''
+            });
+            document.getElementById('blog-editor-title').textContent = 'Create Post';
+            if (clearDraft) {
+                this.clearBlogDraft();
+            }
+        };
+
+        app.collectBlogFormValues = function() {
+            const raw = this.getBlogFormRawValues();
+            const tags = raw.tags
+                ? raw.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+                : [];
+            const publishedAtIso = raw.publishedAt ? this.toIsoString(raw.publishedAt) : null;
+            return {
+                title: raw.title.trim(),
+                slug: raw.slug.trim(),
+                summary: raw.summary.trim(),
+                tags,
+                heroImage: raw.heroImage.trim(),
+                status: raw.status || 'draft',
+                publishedAt: publishedAtIso,
+                content: raw.content,
+                publishedAtLocal: raw.publishedAt
+            };
+        };
+
+        app.newBlogPost = function() {
+            this.resetBlogForm(false);
+            this.restoreBlogDraft();
+            this.renderBlogPreview();
+        };
+
+        app.editBlogPost = async function(slug) {
+            if (!this.password) {
+                this.showLogin();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/blog/posts/${slug}`, {
+                    headers: {
+                        'Authorization': `Bearer ${this.password}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    await authStore.clearPassword();
+                    this.password = null;
+                    this.showLogin();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to load post');
+                }
+
+                const data = await response.json();
+                const post = data.post;
+                this.currentBlogSlug = post.slug;
+                document.getElementById('blog-editor-title').textContent = `Editing ${post.slug}`;
+                this.setBlogFormStatus();
+                this.populateBlogForm({
+                    title: post.title,
+                    slug: post.slug,
+                    summary: post.summary,
+                    tags: post.tags,
+                    heroImage: post.heroImage,
+                    status: post.status,
+                    publishedAt: this.toDatetimeLocal(post.publishedAt),
+                    content: post.content
+                });
+                this.clearBlogDraft();
+            } catch (error) {
+                console.error('Failed to load post:', error);
+                this.setBlogFormStatus('error', error instanceof Error ? error.message : 'Unknown error');
+            }
+        };
+
+        app.submitBlogForm = async function(event) {
+            event.preventDefault();
+            if (!this.password) {
+                this.showLogin();
+                return;
+            }
+
+            const values = this.collectBlogFormValues();
+            if (!values.title) {
+                this.setBlogFormStatus('error', 'Title is required');
+                return;
+            }
+            if (!values.content || !values.content.trim()) {
+                this.setBlogFormStatus('error', 'Content is required');
+                return;
+            }
+
+            const isEditing = Boolean(this.currentBlogSlug);
+            const endpoint = isEditing
+                ? `/api/admin/blog/posts/${this.currentBlogSlug}`
+                : '/api/admin/blog/posts';
+            const method = isEditing ? 'PATCH' : 'POST';
+
+            const payload = {
+                title: values.title,
+                content: values.content,
+                summary: values.summary || undefined,
+                tags: values.tags,
+                status: values.status,
+                heroImage: values.heroImage || undefined,
+                publishedAt: values.publishedAt || undefined,
+            };
+
+            if (values.slug) {
+                payload.slug = values.slug;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.password}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 401) {
+                    await authStore.clearPassword();
+                    this.password = null;
+                    this.showLogin();
+                    return;
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to save post');
+                }
+
+                this.setBlogFormStatus('success', isEditing ? 'Post updated' : 'Post created');
+                this.currentBlogSlug = data.post.slug;
+                document.getElementById('blog-editor-title').textContent = `Editing ${data.post.slug}`;
+                document.getElementById('blog-slug').value = data.post.slug;
+                this.clearBlogDraft();
+                this.renderBlogPreview();
+                this.loadBlogPosts(true);
+            } catch (error) {
+                console.error('Failed to save post:', error);
+                this.setBlogFormStatus('error', error instanceof Error ? error.message : 'Unknown error');
+            }
+        };
+
+        app.deleteBlogPost = async function(slug) {
+            if (!this.password) {
+                this.showLogin();
+                return;
+            }
+            if (!confirm('Delete this post permanently?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/blog/posts/${slug}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${this.password}`
+                    }
+                });
+
+                if (response.status === 401) {
+                    await authStore.clearPassword();
+                    this.password = null;
+                    this.showLogin();
+                    return;
+                }
+
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Failed to delete post');
+                }
+
+                if (this.currentBlogSlug === slug) {
+                    this.resetBlogForm();
+                }
+
+                this.loadBlogPosts(true);
+            } catch (error) {
+                console.error('Failed to delete post:', error);
+                this.setBlogFormStatus('error', error instanceof Error ? error.message : 'Unknown error');
+            }
+        };
+
+        app.saveBlogDraft = function() {
+            if (this.currentBlogSlug) return;
+            try {
+                const raw = this.getBlogFormRawValues();
+                localStorage.setItem(this.blogDraftKey, JSON.stringify(raw));
+            } catch (error) {
+                console.warn('Unable to save blog draft:', error);
+            }
+        };
+
+        app.restoreBlogDraft = function() {
+            try {
+                const raw = localStorage.getItem(this.blogDraftKey);
+                if (!raw) return;
+                const draft = JSON.parse(raw);
+                this.populateBlogForm(draft);
+            } catch (error) {
+                console.warn('Unable to restore blog draft:', error);
+            }
+        };
+
+        app.clearBlogDraft = function() {
+            try {
+                localStorage.removeItem(this.blogDraftKey);
+            } catch (error) {
+                console.warn('Unable to clear blog draft:', error);
+            }
+        };
+
+        app.scheduleBlogAutosave = function() {
+            if (this.blogAutosaveTimer) {
+                clearTimeout(this.blogAutosaveTimer);
+            }
+            this.blogAutosaveTimer = setTimeout(() => {
+                this.saveBlogDraft();
+            }, 600);
+        };
+
+        app.setupBlogAutosave = function() {
+            const fields = [
+                'blog-title',
+                'blog-slug',
+                'blog-summary',
+                'blog-tags',
+                'blog-hero-image',
+                'blog-status',
+                'blog-published-at',
+                'blog-content'
+            ];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => {
+                        this.scheduleBlogAutosave();
+                        this.renderBlogPreview();
+                    });
+                    el.addEventListener('change', () => {
+                        this.scheduleBlogAutosave();
+                        this.renderBlogPreview();
+                    });
+                }
+            });
+            this.restoreBlogDraft();
+            this.renderBlogPreview();
+        };
+
+        app.toDatetimeLocal = function(iso) {
+            if (!iso) return '';
+            const date = new Date(iso);
+            if (Number.isNaN(date.getTime())) return '';
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        };
+
+        app.toIsoString = function(datetimeLocal) {
+            if (!datetimeLocal) return '';
+            const date = new Date(datetimeLocal);
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toISOString();
         };
 
         app.logEventSourceState = function(context, event) {
@@ -1060,6 +1977,8 @@
                 app.syncBadgeCount();
                 console.log('[badge-sync] App focused, syncing badge count');
             });
+
+            app.setupBlogAutosave();
 
             // Monitor notification permission changes
             if ('permissions' in navigator && 'query' in navigator.permissions) {

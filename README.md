@@ -89,6 +89,8 @@ drose_io/
 │   └── assets/js/
 │       ├── scripts.js            # Site animations
 │       └── feedback-widget-v2.js # Feedback widget with SSE
+├── content/
+│   └── blog/                     # Markdown posts with frontmatter
 ├── data/
 │   ├── threads/                  # JSONL conversation files
 │   └── blocked/                  # Blocked visitor IDs
@@ -136,7 +138,17 @@ TWILIO_TO_PHONE=+1234567890
 
 # Server
 PORT=3000
+
+# Blog GitHub sync (optional, enables admin publish → git)
+BLOG_GITHUB_REPO=owner/repo
+BLOG_GITHUB_TOKEN=ghp_your_pat
+BLOG_GITHUB_BRANCH=main
+BLOG_GITHUB_COMMIT_NAME="David Rose"
+BLOG_GITHUB_COMMIT_EMAIL=david@drose.io
 ```
+
+- `BLOG_GITHUB_TOKEN` must have `repo` scope to create commits via the GitHub contents API.
+- If the variables are unset, admin publishing stays local-only (no remote sync).
 
 ## Admin Usage
 

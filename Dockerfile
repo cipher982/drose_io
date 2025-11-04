@@ -10,6 +10,7 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY server ./server
 COPY public ./public
+COPY content ./content
 
 # Expose port
 EXPOSE 3000

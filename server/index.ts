@@ -6,6 +6,9 @@ import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, 
 import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
 import { subscribeToPush, getVapidPublicKey } from './api/push';
+import { createBlogPost, deleteBlogPostHandler, getAdminBlogPost, listAdminBlogPosts, updateBlogPost } from './api/blog';
+import { listPublicBlogPosts } from './api/blog-public';
+import { renderBlogIndex, renderBlogPost } from './routes/blog-public';
 
 const app = new Hono();
 
@@ -27,8 +30,22 @@ app.delete('/api/admin/threads/:visitorId', deleteThreadById);
 app.get('/api/admin/stream', streamAdminUpdates);
 app.post('/api/admin/push-subscribe', subscribeToPush);
 
+// Admin blog routes
+app.get('/api/admin/blog/posts', listAdminBlogPosts);
+app.get('/api/admin/blog/posts/:slug', getAdminBlogPost);
+app.post('/api/admin/blog/posts', createBlogPost);
+app.patch('/api/admin/blog/posts/:slug', updateBlogPost);
+app.delete('/api/admin/blog/posts/:slug', deleteBlogPostHandler);
+
+// Public blog API
+app.get('/api/blog/posts', listPublicBlogPosts);
+
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);
+
+// Public blog routes
+app.get('/blog', renderBlogIndex);
+app.get('/blog/:slug', renderBlogPost);
 
 // Health check
 app.get('/api/health', (c) => c.json({
