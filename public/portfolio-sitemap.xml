@@ -39,10 +39,10 @@
         <priority>0.8</priority>
     </url>
 
-    <!-- WebLLM Agent Playground -->
+    <!-- The Storyteller's Quill -->
     <url>
-        <loc>https://drose.io/agent-zoom</loc>
-        <lastmod>2025-10-10</lastmod>
+        <loc>https://drose.io/storyteller</loc>
+        <lastmod>2025-11-21</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.8</priority>
     </url>
