@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Swarmlet icon">
+  <defs>
+    <style>
+      .stroke { fill: none; stroke: #000; stroke-width: 3; stroke-linecap: square; stroke-linejoin: miter; }
+      .fill { fill: #000; }
+    </style>
+  </defs>
+
+  <!-- Central node -->
+  <rect x="28" y="28" width="8" height="8" class="fill" />
+
+  <!-- Four orbiting nodes (Win98 pixel-ish squares) -->
+  <rect x="10" y="10" width="8" height="8" class="fill" />
+  <rect x="46" y="10" width="8" height="8" class="fill" />
+  <rect x="10" y="46" width="8" height="8" class="fill" />
+  <rect x="46" y="46" width="8" height="8" class="fill" />
+
+  <!-- Connections -->
+  <path d="M14 18 L28 32" class="stroke" />
+  <path d="M50 18 L36 32" class="stroke" />
+  <path d="M14 46 L28 36" class="stroke" />
+  <path d="M50 46 L36 36" class="stroke" />
+
+  <!-- Simple 'swarm' ring (dotted) -->
+  <path d="M32 12 L32 12" class="stroke" />
+  <path d="M46 16 L46 16" class="stroke" />
+  <path d="M52 32 L52 32" class="stroke" />
+  <path d="M46 48 L46 48" class="stroke" />
+  <path d="M32 52 L32 52" class="stroke" />
+  <path d="M18 48 L18 48" class="stroke" />
+  <path d="M12 32 L12 32" class="stroke" />
+  <path d="M18 16 L18 16" class="stroke" />
+</svg>
