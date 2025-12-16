@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { marked, Renderer } from 'marked';
 import hljs from 'highlight.js';
 import { listPosts, loadPost, type BlogPost } from '../storage/blog';
+import { buildUmamiScript } from '../umami';
 
 const renderer = new Renderer();
 const originalLink = renderer.link.bind(renderer);
@@ -29,7 +30,6 @@ marked.setOptions({
   },
 });
 
-const UMAMI_SCRIPT = '<script defer src="https://analytics.drose.io/script.js" data-website-id="33e9b5a0-5fbf-474c-9d60-9bee34d577bd"></script>';
 
 const BLOG_STYLES = `
   body {
@@ -294,7 +294,7 @@ function renderPage({ title, description, content }: { title: string; descriptio
       <meta name="description" content="${escapeHtml(description)}">
       <link rel="stylesheet" href="/assets/css/win98-theme.css">
       <link rel="stylesheet" href="/assets/css/styles.css">
-      ${UMAMI_SCRIPT}
+      ${buildUmamiScript()}
       <style>${BLOG_STYLES}</style>
     </head>
     <body>
