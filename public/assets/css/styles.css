@@ -1,25 +1,29 @@
-/* Project Link Windows */
+/* Project Link Windows - Glass Cards with Glow */
 .link {
     vertical-align: top;
-    padding: var(--spacing-xs);
+    padding: var(--spacing-sm);
     cursor: pointer;
 }
 
 .link h2 {
-    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
-    font-size: var(--font-size-sm);
-    color: var(--win98-black);
+    margin: 0;
+    font-size: var(--font-size-md);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .link a {
     text-decoration: none;
-    color: inherit;
+    color: var(--color-text-secondary);
     display: block;
-    padding: var(--spacing-md);
+    padding: var(--spacing-lg);
 }
 
 .link:hover .window-panel {
-    background-color: var(--win98-light);
+    background-color: var(--color-glass-elevated);
+    border-color: var(--color-neon-indigo);
+    box-shadow: var(--shadow-glow-indigo);
+    transform: translateY(-2px);
 }
 
 .window-panel {
@@ -95,13 +99,21 @@
 
 footer {
     text-align: center;
-    padding: var(--spacing-md);
-    margin: var(--spacing-sm) 0;
+    padding: var(--spacing-3xl);
+    margin: var(--spacing-3xl) 0;
+    border-top: 1px solid var(--color-glass-border);
 }
 
 footer a {
-    margin: 0 var(--spacing-md);
+    margin: 0 var(--spacing-lg);
     display: inline-block;
+    color: var(--color-neon-cyan);
+    transition: all 150ms ease;
+}
+
+footer a:hover {
+    color: var(--color-neon-indigo);
+    text-shadow: var(--shadow-glow-indigo);
 }
 
 .no-visual {
@@ -125,14 +137,22 @@ footer a {
 
 header {
     text-align: center;
-    margin: var(--spacing-sm) 0;
+    margin: var(--spacing-3xl) 0;
+}
+
+header p {
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    max-width: 700px;
+    margin: var(--spacing-2xl) auto;
 }
 
 header img {
-    width: min(180px, 90vw);
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    margin: var(--spacing-md) 0;
+    width: min(200px, 90vw);
+    border: 2px solid var(--color-glass-border);
+    border-radius: var(--border-radius-lg);
+    margin: var(--spacing-3xl) 0;
+    box-shadow: var(--shadow-glass-card);
 }
 
 /* Soft-hidden AI context: occupies ~1px, color matches background */

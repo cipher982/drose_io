@@ -21,55 +21,72 @@
     --win98-desktop: var(--color-win98-desktop);
 }
 
-/* Pixel-Perfect Rendering */
+/* Modern Rendering for Glass UI */
 html {
-    image-rendering: pixelated;
-    -webkit-font-smoothing: none;
-    font-smooth: never;
-    -moz-osx-font-smoothing: unset;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography System */
+/* Typography System - Glass/Future Theme */
 body {
-    font-family: var(--font-win98);
+    font-family: var(--font-system);
     font-size: var(--font-size-base);
-    background-color: var(--win98-desktop);
-    color: var(--win98-black);
+    background-color: var(--color-void);
+    color: var(--color-text-primary);
     margin: 0;
     padding: 0;
     min-height: 100vh;
 }
 
-/* Main Content Container */
-.main-container {
-    max-width: var(--max-width-content);
-    margin: var(--spacing-md) auto;
-    background-color: var(--win98-face);
-    min-height: calc(100vh - var(--spacing-xl));
-    padding: var(--spacing-md);
-    box-sizing: border-box;
-    /* Classic Windows desktop window border */
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    /* Simple drop shadow like Windows desktop windows */
-    box-shadow: var(--shadow-win98-window);
+/* Subtle noise texture overlay */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
 }
 
-/* Core Window Chrome - 3D Beveled Effects */
+/* Main Content Container - Glass Effect */
+.main-container {
+    max-width: var(--max-width-content);
+    margin: var(--spacing-3xl) auto;
+    background-color: var(--color-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    min-height: calc(100vh - var(--spacing-6xl));
+    padding: var(--spacing-4xl);
+    box-sizing: border-box;
+    border: 1px solid var(--color-glass-border);
+    border-radius: var(--border-radius-xl);
+    box-shadow: var(--shadow-glass-card);
+    position: relative;
+    z-index: 1;
+}
+
+/* Glass Card Components */
 .window,
 .window-panel,
 .metric-card {
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    background-color: var(--win98-face);
+    background-color: var(--color-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--color-glass-border);
+    border-radius: var(--border-radius-lg);
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sunken Effect for Inputs/Content Areas */
+/* Content Areas - Glass Style */
 .sunken,
 .content-area {
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    background-color: var(--win98-face);
+    background-color: transparent;
+    border: none;
+    color: var(--color-text-secondary);
 }
 
 /* Task Manager Style for Code Viewer */
@@ -89,78 +106,91 @@ body {
     line-height: var(--line-height-tight);
 }
 
-/* Title Bar Styles */
+/* Title Bar Styles - Glass with Glow */
 .title-bar {
-    background: linear-gradient(90deg, var(--win98-accent) 0%, #1084d0 100%);
-    color: var(--win98-white);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-weight: var(--font-weight-bold);
+    background: linear-gradient(90deg, var(--color-neon-indigo) 0%, var(--color-neon-cyan) 100%);
+    color: var(--color-text-primary);
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-weight: var(--font-weight-semibold);
     font-size: var(--font-size-sm);
-    border-bottom: var(--border-width-thin) solid var(--win98-shadow);
+    border-bottom: 1px solid var(--color-glass-border);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    box-shadow: var(--shadow-glow-indigo);
 }
 
 .title-bar.inactive {
-    background: linear-gradient(90deg, var(--win98-inactive-title) 0%, #9e9e9e 100%);
+    background: var(--color-glass-elevated);
+    box-shadow: none;
 }
 
-/* Section Headers */
+/* Section Headers - Glass Style */
 .section-header {
-    background-color: var(--win98-face);
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-weight: var(--font-weight-bold);
-    margin-bottom: var(--spacing-sm);
+    background-color: var(--color-glass-elevated);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--color-glass-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-primary);
 }
 
-/* Button Styles */
+/* Button Styles - Glass with Glow */
 .win98-button,
 button {
-    background-color: var(--win98-button-face);
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    color: var(--win98-black);
-    padding: var(--spacing-sm) var(--spacing-xl);
-    font-family: inherit;
+    background-color: var(--color-glass-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--color-glass-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-primary);
+    padding: var(--spacing-md) var(--spacing-2xl);
+    font-family: var(--font-system);
     font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
-    margin: var(--spacing-xs);
+    margin: var(--spacing-sm);
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .win98-button:hover,
 button:hover {
-    background-color: var(--win98-light);
+    background-color: var(--color-glass-elevated);
+    border-color: var(--color-neon-indigo);
+    box-shadow: var(--shadow-glow-indigo);
+    transform: translateY(-1px);
 }
 
 .win98-button:active,
 button:active {
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    background-color: #A9A9A9;
-    padding: 5px 15px 3px 17px; /* Simulate button press */
+    background-color: var(--color-glass-bg);
+    transform: translateY(0);
 }
 
-/* Typography Hierarchy */
+/* Typography Hierarchy - Modern Glass Style */
 h1 {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-5xl);
     font-weight: var(--font-weight-bold);
-    margin: var(--spacing-md) 0;
-    color: var(--win98-white);
+    margin: var(--spacing-3xl) 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
 }
 
 h2 {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    margin: var(--spacing-md) 0;
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: var(--spacing-sm);
-    background-color: var(--win98-face);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    margin: var(--spacing-2xl) 0 var(--spacing-lg) 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
 }
 
 h3 {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-bold);
-    margin: var(--spacing-sm) 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    margin: var(--spacing-lg) 0;
+    color: var(--color-text-primary);
 }
 
 /* Status Indicators */
@@ -233,18 +263,20 @@ h3 {
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
 }
 
-/* Link Styling */
+/* Link Styling - Modern */
 a {
-    color: var(--color-link-default);
-    text-decoration: underline;
+    color: var(--color-neon-cyan);
+    text-decoration: none;
+    transition: color 150ms ease;
 }
 
 a:visited {
-    color: var(--color-link-visited);
+    color: var(--color-neon-indigo);
 }
 
 a:hover {
-    color: var(--color-link-hover);
+    color: var(--color-neon-pink);
+    text-decoration: underline;
 }
 
 /* Focus States */
