@@ -1,6 +1,10 @@
-/* Windows 98/2000 Retro Theme */
+/* Zerg/Swarmlet Glass Theme */
+/* Portfolio Homepage Styling */
 
-/* Legacy variable mappings for backward compatibility */
+/* ========================================
+   LEGACY VARIABLE MAPPINGS
+   ======================================== */
+
 :root {
     --win98-face: var(--color-win98-face);
     --win98-shadow: var(--color-win98-shadow);
@@ -21,13 +25,15 @@
     --win98-desktop: var(--color-win98-desktop);
 }
 
-/* Modern Rendering for Glass UI */
+/* ========================================
+   BASE STYLES - VOID THEME
+   ======================================== */
+
 html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography System - Glass/Future Theme */
 body {
     font-family: var(--font-system);
     font-size: var(--font-size-base);
@@ -36,9 +42,14 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100vh;
+    position: relative;
 }
 
-/* Subtle noise texture overlay */
+/* ========================================
+   LAYERED BACKGROUND SYSTEM
+   ======================================== */
+
+/* Layer 1: Grid Pattern */
 body::before {
     content: "";
     position: fixed;
@@ -46,45 +57,93 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    background-image:
+        linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 0%, transparent 70%);
     pointer-events: none;
-    z-index: var(--z-index-overlay);
-    opacity: 0.4;
+    z-index: 0;
+    opacity: 0.6;
 }
 
-/* Main Content Container - Glass Effect */
+/* Layer 2: Nebula Glow */
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(ellipse at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.7;
+}
+
+/* ========================================
+   MAIN CONTAINER - GLASS PANEL
+   ======================================== */
+
 .main-container {
     max-width: var(--max-width-content);
-    margin: var(--spacing-3xl) auto;
-    background-color: var(--color-glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    min-height: calc(100vh - var(--spacing-6xl));
+    margin: var(--spacing-4xl) auto;
+    background: linear-gradient(135deg,
+        rgba(20, 20, 32, 0.85) 0%,
+        rgba(15, 15, 25, 0.9) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    min-height: calc(100vh - var(--spacing-6xl) - var(--spacing-6xl));
     padding: var(--spacing-4xl);
     box-sizing: border-box;
     border: 1px solid var(--color-glass-border);
-    border-radius: var(--border-radius-xl);
-    box-shadow: var(--shadow-glass-card);
+    border-radius: var(--border-radius-2xl);
+    box-shadow:
+        var(--shadow-glass-card),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     position: relative;
     z-index: 1;
 }
 
-/* Glass Card Components */
+/* ========================================
+   GLASS CARD COMPONENTS
+   ======================================== */
+
 .window,
 .window-panel,
 .metric-card {
-    background-color: var(--color-glass-bg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.02) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--color-glass-border);
     border-radius: var(--border-radius-lg);
-    transition: background-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                border-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                transform var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-card-inset);
+    transition:
+        background-color var(--duration-fast) var(--timing-standard),
+        border-color var(--duration-fast) var(--timing-standard),
+        box-shadow var(--duration-fast) var(--timing-standard),
+        transform var(--duration-fast) var(--timing-standard);
 }
 
-/* Content Areas - Glass Style */
+.window-panel:hover,
+.metric-card:hover {
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 100%);
+    border-color: var(--color-glass-border-bright);
+    box-shadow:
+        var(--shadow-card-inset),
+        var(--shadow-glow-indigo-subtle);
+    transform: translateY(-2px);
+}
+
+/* Content Areas */
 .sunken,
 .content-area {
     background-color: transparent;
@@ -92,57 +151,79 @@ body::before {
     color: var(--color-text-secondary);
 }
 
-/* Task Manager Style for Code Viewer */
-.taskman-style {
-    background-color: var(--taskman-bg) !important;
-    color: var(--taskman-green) !important;
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-}
+/* ========================================
+   SECTION HEADERS - GLASS STYLE
+   ======================================== */
 
-.taskman-style pre,
-.taskman-style code {
-    background-color: var(--taskman-bg) !important;
-    color: var(--taskman-green) !important;
-    font-family: var(--font-monospace);
-    font-size: var(--font-size-xs);
-    line-height: var(--line-height-tight);
-}
-
-/* Title Bar Styles - Glass with Glow */
-.title-bar {
-    background: linear-gradient(90deg, var(--color-neon-indigo) 0%, var(--color-neon-cyan) 100%);
-    color: var(--color-text-primary);
-    padding: var(--spacing-md) var(--spacing-lg);
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-sm);
-    border-bottom: 1px solid var(--color-glass-border);
-    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
-    box-shadow: var(--shadow-glow-indigo);
-}
-
-.title-bar.inactive {
-    background: var(--color-glass-elevated);
-    box-shadow: none;
-}
-
-/* Section Headers - Glass Style */
 .section-header {
-    background-color: var(--color-glass-elevated);
+    background: linear-gradient(135deg,
+        rgba(99, 102, 241, 0.12) 0%,
+        rgba(6, 182, 212, 0.08) 100%);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--color-glass-border);
     border-radius: var(--border-radius-md);
     padding: var(--spacing-md) var(--spacing-lg);
     font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
     margin-bottom: var(--spacing-md);
     color: var(--color-text-primary);
+    letter-spacing: 0.01em;
 }
 
-/* Button Styles - Glass with Glow */
+/* ========================================
+   TITLE BAR - GRADIENT ACCENT
+   ======================================== */
+
+.title-bar {
+    background: linear-gradient(90deg,
+        var(--color-neon-indigo) 0%,
+        var(--color-neon-cyan) 100%);
+    color: var(--color-text-primary);
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.25);
+    letter-spacing: 0.02em;
+}
+
+.title-bar.inactive {
+    background: var(--color-surface-elevated);
+    box-shadow: none;
+}
+
+/* ========================================
+   TASK MANAGER CODE VIEWER
+   ======================================== */
+
+.taskman-style {
+    background-color: #0a0a12 !important;
+    color: var(--color-neon-cyan) !important;
+    border: 1px solid var(--color-glass-border);
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+}
+
+.taskman-style pre,
+.taskman-style code {
+    background-color: transparent !important;
+    color: var(--color-neon-cyan) !important;
+    font-family: var(--font-monospace);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+/* ========================================
+   BUTTON STYLES - GLASS WITH GLOW
+   ======================================== */
+
 .win98-button,
 button {
-    background-color: var(--color-glass-bg);
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 100%);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--color-glass-border);
@@ -151,30 +232,50 @@ button {
     padding: var(--spacing-md) var(--spacing-2xl);
     font-family: var(--font-system);
     font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-semibold);
     cursor: pointer;
     margin: var(--spacing-sm);
-    transition: background-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                border-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
-                transform var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        all var(--duration-fast) var(--timing-standard);
 }
 
 .win98-button:hover,
 button:hover {
-    background-color: var(--color-glass-elevated);
+    background: linear-gradient(135deg,
+        rgba(99, 102, 241, 0.2) 0%,
+        rgba(99, 102, 241, 0.1) 100%);
     border-color: var(--color-neon-indigo);
     box-shadow: var(--shadow-glow-indigo);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
 }
 
 .win98-button:active,
 button:active {
-    background-color: var(--color-glass-bg);
     transform: translateY(0);
+    box-shadow: var(--shadow-glow-indigo-subtle);
 }
 
-/* Typography Hierarchy - Modern Glass Style */
+/* Primary Button Variant */
+button.primary,
+.win98-button.primary {
+    background: linear-gradient(135deg,
+        var(--color-neon-indigo) 0%,
+        var(--color-neon-indigo-hover) 100%);
+    border-color: transparent;
+}
+
+button.primary:hover,
+.win98-button.primary:hover {
+    background: linear-gradient(135deg,
+        var(--color-neon-indigo-hover) 0%,
+        #4338ca 100%);
+    box-shadow: var(--shadow-glow-indigo-strong);
+}
+
+/* ========================================
+   TYPOGRAPHY HIERARCHY
+   ======================================== */
+
 h1 {
     font-size: var(--font-size-5xl);
     font-weight: var(--font-weight-bold);
@@ -199,29 +300,97 @@ h3 {
     color: var(--color-text-primary);
 }
 
-/* Status Indicators */
+/* ========================================
+   LINK STYLING - NEON ACCENTS
+   ======================================== */
+
+a {
+    color: var(--color-neon-cyan);
+    text-decoration: none;
+    transition:
+        color var(--duration-fast) var(--timing-standard),
+        text-shadow var(--duration-fast) var(--timing-standard);
+}
+
+a:visited {
+    color: var(--color-neon-purple);
+}
+
+a:hover {
+    color: var(--color-neon-pink);
+    text-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+}
+
+/* ========================================
+   FOCUS STATES
+   ======================================== */
+
+*:focus-visible {
+    outline: 2px solid var(--color-neon-cyan);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+/* ========================================
+   SCROLLBAR STYLING
+   ======================================== */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--color-void-light);
+    border-radius: var(--border-radius-pill);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg,
+        var(--color-surface-elevated) 0%,
+        var(--color-surface-card) 100%);
+    border-radius: var(--border-radius-pill);
+    border: 2px solid var(--color-void-light);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg,
+        var(--color-neon-indigo-muted) 0%,
+        var(--color-surface-elevated) 100%);
+}
+
+/* ========================================
+   STATUS INDICATORS
+   ======================================== */
+
 .status-indicator {
     width: var(--size-icon-sm);
     height: var(--size-icon-sm);
-    border: var(--border-width-thin) solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    border-radius: var(--border-radius-pill);
     display: inline-block;
     margin-right: var(--spacing-sm);
+    box-shadow: 0 0 8px currentColor;
 }
 
 .status-good {
     background-color: var(--color-status-good);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
 }
 
 .status-warning {
     background-color: var(--color-status-warning);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
 }
 
 .status-error {
     background-color: var(--color-status-error);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
 }
 
-/* Layout Utilities */
+/* ========================================
+   LAYOUT UTILITIES
+   ======================================== */
+
 .two-col {
     display: table;
     width: 100%;
@@ -246,90 +415,33 @@ h3 {
     vertical-align: top;
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: var(--size-scrollbar);
-    height: var(--size-scrollbar);
-}
+/* ========================================
+   DISABLED STATES
+   ======================================== */
 
-::-webkit-scrollbar-track {
-    background-color: var(--win98-face);
-    border: var(--border-width-thin) solid var(--win98-shadow);
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: var(--win98-scrollbar);
-    border: var(--border-width-thin) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-}
-
-::-webkit-scrollbar-button {
-    background-color: var(--win98-scrollbar);
-    border: var(--border-width-thin) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-}
-
-/* Link Styling - Modern */
-a {
-    color: var(--color-neon-cyan);
-    text-decoration: none;
-    transition: color var(--duration-fast) ease;
-}
-
-a:visited {
-    color: var(--color-neon-indigo);
-}
-
-a:hover {
-    color: var(--color-neon-pink);
-    text-decoration: underline;
-}
-
-/* Focus States */
-*:focus-visible {
-    outline: var(--border-width-default) solid var(--color-neon-cyan);
-    outline-offset: 2px;
-    border-radius: var(--border-radius-sm);
-}
-
-/* Menu/Dialog Styles */
-.menu {
-    background-color: var(--win98-face);
-    border: var(--border-width-default) solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: var(--spacing-xs);
-}
-
-.menu-item {
-    padding: var(--spacing-sm) var(--spacing-md);
-    cursor: pointer;
-}
-
-.menu-item:hover {
-    background-color: var(--win98-menu-highlight);
-    color: var(--win98-white);
-}
-
-/* Disabled States */
 .disabled,
 :disabled {
-    color: var(--win98-shadow);
-    cursor: default;
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
-.disabled .win98-button,
 button:disabled {
-    color: var(--win98-shadow);
-    background-color: var(--win98-face);
-    cursor: default;
+    background: var(--color-surface-card);
+    border-color: var(--color-glass-border);
+    box-shadow: none;
+    transform: none;
 }
 
-/* Fallback for browsers without backdrop-filter support */
+/* ========================================
+   FALLBACK FOR NO BACKDROP-FILTER
+   ======================================== */
+
 @supports not (backdrop-filter: blur(1px)) {
     .main-container,
     .window,
     .window-panel,
     .metric-card {
-        background-color: rgba(10, 10, 18, 0.95);
+        background-color: rgba(15, 15, 25, 0.98);
     }
 }

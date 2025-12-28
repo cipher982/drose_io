@@ -1,15 +1,87 @@
-/* Project Link Windows - Glass Cards with Glow */
-.link {
-    vertical-align: top;
-    padding: var(--spacing-sm);
-    cursor: pointer;
+/* Homepage Specific Styles */
+/* Zerg/Swarmlet Design System */
+
+/* ========================================
+   HERO SECTION
+   ======================================== */
+
+header {
+    text-align: center;
+    padding: var(--spacing-4xl) var(--spacing-xl);
+    margin-bottom: var(--spacing-3xl);
 }
 
-.link h2 {
-    margin: 0;
+header h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    background: linear-gradient(135deg,
+        var(--color-text-primary) 0%,
+        var(--color-neon-cyan) 50%,
+        var(--color-neon-indigo) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: var(--spacing-xl);
+}
+
+header p {
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    max-width: 650px;
+    margin: 0 auto var(--spacing-3xl);
     font-size: var(--font-size-md);
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-semibold);
+}
+
+/* Profile Photo */
+header img {
+    width: min(280px, 70vw);
+    height: auto;
+    border: 2px solid var(--color-glass-border-bright);
+    border-radius: var(--border-radius-xl);
+    box-shadow:
+        var(--shadow-glass-card),
+        0 0 40px rgba(99, 102, 241, 0.15);
+    transition:
+        transform var(--duration-normal) var(--timing-standard),
+        box-shadow var(--duration-normal) var(--timing-standard);
+}
+
+header img:hover {
+    transform: scale(1.02);
+    box-shadow:
+        var(--shadow-glass-card-hover),
+        0 0 60px rgba(99, 102, 241, 0.25);
+}
+
+/* Remove the title bar from header */
+header.window {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+header .title-bar {
+    display: none;
+}
+
+header .content-area {
+    padding: 0;
+}
+
+/* ========================================
+   PROJECT LINKS GRID
+   ======================================== */
+
+.links {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-4xl);
+}
+
+/* Link Card Container */
+.link {
+    padding: 0;
+    cursor: pointer;
 }
 
 .link a {
@@ -17,67 +89,121 @@
     color: var(--color-text-secondary);
     display: block;
     padding: var(--spacing-lg);
+    height: 100%;
 }
 
-.link:hover .window-panel {
-    background-color: var(--color-glass-elevated);
-    border-color: var(--color-neon-indigo);
-    box-shadow: var(--shadow-glow-indigo);
-    transform: translateY(-2px);
-}
-
+/* Window Panel Card */
 .window-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 140px;
+    min-height: 180px;
+    overflow: hidden;
 }
 
 .window-panel .section-header {
     flex-shrink: 0;
+    margin: 0;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
 }
 
 .window-panel a {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: center;
+    padding: var(--spacing-xl);
 }
 
 .window-panel a > div {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    flex: 1;
-}
-
-.window-panel p {
-    margin: var(--spacing-xs) 0;
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-    min-height: 2.6em;
-    display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
 }
 
+/* Card Icons */
 .link img {
-    width: var(--size-icon-md);
-    height: var(--size-icon-md);
+    width: 56px;
+    height: 56px;
     object-fit: contain;
     display: block;
-    margin: var(--spacing-md) auto;
+    margin: var(--spacing-lg) auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    transition:
+        transform var(--duration-fast) var(--timing-standard),
+        opacity var(--duration-fast) var(--timing-standard),
+        filter var(--duration-fast) var(--timing-standard);
+}
+
+.link:hover img {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+}
+
+/* Card Text */
+.window-panel p {
+    margin: var(--spacing-md) 0 0;
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--timing-standard);
+}
+
+.link:hover .window-panel p {
+    color: var(--color-text-secondary);
+}
+
+/* Enhanced Hover Effect for Cards */
+.link:hover .window-panel {
+    background: linear-gradient(135deg,
+        rgba(99, 102, 241, 0.1) 0%,
+        rgba(6, 182, 212, 0.05) 100%);
+    border-color: var(--color-neon-indigo);
+    box-shadow:
+        var(--shadow-card-inset),
+        var(--shadow-glow-indigo);
+    transform: translateY(-4px);
+}
+
+.link:hover .section-header {
+    background: linear-gradient(135deg,
+        rgba(99, 102, 241, 0.2) 0%,
+        rgba(6, 182, 212, 0.15) 100%);
+    border-color: transparent;
+}
+
+/* ========================================
+   CODE VIEWER SECTION
+   ======================================== */
+
+.code-container {
+    margin: var(--spacing-3xl) 0;
+    overflow: hidden;
+}
+
+.code-container .title-bar {
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+.code-container .taskman-style {
+    height: 180px;
+    min-height: 160px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .code-container pre,
 .code-container code {
     margin: 0;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-lg);
     display: block;
     font-family: var(--font-monospace);
     font-size: var(--font-size-xs);
-    line-height: var(--line-height-tight);
+    line-height: 1.4;
     background-color: transparent;
     color: inherit;
     box-sizing: border-box;
@@ -85,37 +211,54 @@
     overflow: hidden;
 }
 
-.code-container {
-    margin: var(--spacing-sm) 0;
-    height: var(--height-code-container);
-    overflow: hidden;
-}
-
-.code-container .taskman-style {
-    height: 100%;
-    min-height: var(--height-code-container-min);
-    box-sizing: border-box;
-}
+/* ========================================
+   FOOTER
+   ======================================== */
 
 footer {
     text-align: center;
-    padding: var(--spacing-3xl);
-    margin: var(--spacing-3xl) 0;
+    padding: var(--spacing-4xl) var(--spacing-xl);
+    margin-top: var(--spacing-4xl);
     border-top: 1px solid var(--color-glass-border);
+    background: transparent;
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-2xl);
+    flex-wrap: wrap;
 }
 
 footer a {
-    margin: 0 var(--spacing-lg);
-    display: inline-block;
-    color: var(--color-neon-cyan);
-    transition: color var(--duration-fast) ease,
-                text-shadow var(--duration-fast) ease;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    transition:
+        color var(--duration-fast) var(--timing-standard),
+        background-color var(--duration-fast) var(--timing-standard),
+        text-shadow var(--duration-fast) var(--timing-standard);
 }
 
 footer a:hover {
-    color: var(--color-neon-indigo);
-    text-shadow: var(--shadow-glow-indigo);
+    color: var(--color-neon-cyan);
+    background-color: var(--color-glass-light);
+    text-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
 }
+
+/* ========================================
+   AI EASTER EGG (HIDDEN)
+   ======================================== */
+
+.ai-easter {
+    color: var(--color-void);
+    max-height: 1px;
+    overflow: hidden;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* ========================================
+   ACCESSIBILITY - SCREEN READER ONLY
+   ======================================== */
 
 .no-visual {
     position: absolute;
@@ -129,37 +272,42 @@ footer a:hover {
     border: 0;
 }
 
-/* Homepage Specific Styles */
-.links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--spacing-sm);
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 768px) {
+    .main-container {
+        margin: var(--spacing-lg);
+        padding: var(--spacing-xl);
+        border-radius: var(--border-radius-xl);
+    }
+
+    .links {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+
+    header img {
+        width: min(220px, 80vw);
+    }
+
+    footer {
+        gap: var(--spacing-lg);
+    }
 }
 
-header {
-    text-align: center;
-    margin: var(--spacing-3xl) 0;
-}
+@media (max-width: 480px) {
+    .main-container {
+        margin: var(--spacing-sm);
+        padding: var(--spacing-lg);
+    }
 
-header p {
-    color: var(--color-text-secondary);
-    line-height: 1.6;
-    max-width: 700px;
-    margin: var(--spacing-2xl) auto;
-}
+    header h1 {
+        font-size: 1.75rem;
+    }
 
-header img {
-    width: min(200px, 90vw);
-    border: 2px solid var(--color-glass-border);
-    border-radius: var(--border-radius-lg);
-    margin: var(--spacing-3xl) 0;
-    box-shadow: var(--shadow-glass-card);
-}
-
-/* Soft-hidden AI context: occupies ~1px, color matches background */
-.ai-easter {
-    color: var(--color-void);
-    max-height: 1px;
-    overflow: hidden;
-    user-select: none;
+    header p {
+        font-size: var(--font-size-sm);
+    }
 }
