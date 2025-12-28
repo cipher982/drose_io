@@ -1,0 +1,232 @@
+/* Design Tokens - CSS Custom Properties */
+
+:root {
+  /* ========================================
+     COLOR TOKENS
+     ======================================== */
+
+  /* Win98 Core Palette */
+  --color-win98-face: #C3C3C3;
+  --color-win98-shadow: #818181;
+  --color-win98-darkshadow: #000000;
+  --color-win98-highlight: #FDFFFF;
+  --color-win98-light: #DFDFDF;
+  --color-win98-accent: #000080;
+  --color-win98-white: #FFFFFF;
+  --color-win98-black: #000000;
+  --color-win98-scrollbar: #C3C3C3;
+  --color-win98-button-face: #C3C3C3;
+  --color-win98-menu-highlight: #0000FF;
+  --color-win98-inactive-title: #7F7F7F;
+  --color-win98-inactive-border: #C3C3C3;
+  --color-win98-desktop: #008080;
+
+  /* Task Manager Style */
+  --color-taskman-bg: #000000;
+  --color-taskman-green: #00FF00;
+  --color-taskman-text: #00FF00;
+
+  /* Status Colors */
+  --color-status-good: #00FF00;
+  --color-status-warning: #FFFF00;
+  --color-status-error: #FF0000;
+
+  /* Link Colors */
+  --color-link-default: #000080;
+  --color-link-visited: #800080;
+  --color-link-hover: #FF0000;
+
+  /* Admin UI Colors */
+  --color-admin-bg: #f5f5f5;
+  --color-admin-text: #1d1d1f;
+  --color-admin-card-bg: #ffffff;
+  --color-admin-primary: #0066cc;
+  --color-admin-primary-hover: #0055aa;
+  --color-admin-secondary: #666;
+  --color-admin-border: #ddd;
+  --color-admin-error-bg: #ffebee;
+  --color-admin-error-text: #c62828;
+  --color-admin-success-bg: #e8f5e9;
+  --color-admin-success-text: #2e7d32;
+  --color-admin-delete: #ff4444;
+  --color-admin-delete-hover: #cc0000;
+  --color-admin-delete-active: #aa0000;
+  --color-admin-badge: #ff4444;
+  --color-admin-visitor-bg: #e8f4f8;
+  --color-admin-david-bg: #f0f0f0;
+  --color-admin-author: #0066cc;
+  --color-admin-meta: #666;
+  --color-admin-time: #999;
+  --color-admin-connection-connected: #4caf50;
+  --color-admin-connection-connecting: #ff9800;
+  --color-admin-connection-disconnected: #f44336;
+  --color-admin-tab-border: rgba(0, 0, 0, 0.15);
+  --color-admin-tab-shadow: rgba(0, 0, 0, 0.08);
+  --color-admin-tab-active-border: #0055aa;
+
+  /* Blog Colors */
+  --color-blog-bg: #f1f1f1;
+  --color-blog-text: #1d1d1f;
+  --color-blog-card-bg: #ffffff;
+  --color-blog-card-border: rgba(0, 0, 0, 0.08);
+  --color-blog-card-shadow: rgba(0, 0, 0, 0.05);
+  --color-blog-card-shadow-hover: rgba(0, 0, 0, 0.08);
+  --color-blog-meta: #666;
+  --color-blog-subtitle: #555;
+  --color-blog-body-text: #202124;
+  --color-blog-code-bg: #edf2ff;
+  --color-blog-code-block-bg: #0f172a;
+  --color-blog-code-block-text: #f8fafc;
+  --color-blog-tag-bg: #eef2ff;
+  --color-blog-tag-text: #3730a3;
+  --color-blog-blockquote-border: #6366f1;
+  --color-blog-blockquote-bg: #f5f7ff;
+  --color-blog-blockquote-text: #1f2937;
+  --color-blog-back-link: #555;
+  --color-blog-back-link-hover: #111;
+  --color-blog-editor-stats-bg: #f6f9ff;
+  --color-blog-editor-card-bg: #fafafa;
+  --color-blog-editor-preview-bg: #f8fafc;
+  --color-blog-editor-preview-header: #475569;
+  --color-blog-editor-preview-empty: #64748b;
+  --color-blog-status-published: #2e7d32;
+  --color-blog-status-draft: #ff6f00;
+
+  /* Syntax Highlighting Colors */
+  --color-hljs-comment: #94a3b8;
+  --color-hljs-keyword: #38bdf8;
+  --color-hljs-string: #22c55e;
+  --color-hljs-builtin: #facc15;
+
+  /* ========================================
+     SPACING TOKENS
+     ======================================== */
+
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+  --spacing-xl: 16px;
+  --spacing-2xl: 20px;
+  --spacing-3xl: 24px;
+  --spacing-4xl: 32px;
+  --spacing-5xl: 40px;
+  --spacing-6xl: 60px;
+
+  /* ========================================
+     TYPOGRAPHY TOKENS
+     ======================================== */
+
+  /* Font Families */
+  --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-win98: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+  --font-monospace: "Courier New", "MS Sans Serif", monospace;
+  --font-code: 'Menlo', 'Fira Code', monospace;
+  --font-code-editor: 'Menlo', 'SFMono-Regular', monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 26px;
+  --font-size-5xl: 28px;
+  --font-size-6xl: 30px;
+  --font-size-7xl: 32px;
+  --font-size-8xl: 52px;
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.3;
+  --line-height-relaxed: 1.4;
+  --line-height-comfortable: 1.55;
+  --line-height-loose: 1.6;
+  --line-height-spacious: 1.7;
+
+  /* ========================================
+     BORDER TOKENS
+     ======================================== */
+
+  /* Border Widths */
+  --border-width-thin: 1px;
+  --border-width-default: 2px;
+  --border-width-thick: 4px;
+
+  /* Border Radius */
+  --border-radius-none: 0;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --border-radius-xl: 12px;
+  --border-radius-pill: 999px;
+
+  /* ========================================
+     SHADOW TOKENS
+     ======================================== */
+
+  --shadow-win98-window: 4px 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-admin-card: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-admin-card-elevated: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-admin-tab: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-blog-card: 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-blog-card-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-blog-post: 0 4px 24px rgba(0, 0, 0, 0.08);
+
+  /* ========================================
+     MOTION TOKENS
+     ======================================== */
+
+  /* Transition Durations */
+  --duration-instant: 100ms;
+  --duration-fast: 120ms;
+  --duration-normal: 300ms;
+  --duration-slow: 600ms;
+
+  /* Transition Timings */
+  --timing-ease: ease;
+  --timing-ease-in: ease-in;
+  --timing-ease-out: ease-out;
+  --timing-ease-in-out: ease-in-out;
+
+  /* ========================================
+     LAYOUT TOKENS
+     ======================================== */
+
+  /* Max Widths */
+  --max-width-content: 1000px;
+  --max-width-blog: 920px;
+  --max-width-admin: 1200px;
+  --max-width-blog-sidebar: 360px;
+
+  /* Z-Index Layers */
+  --z-index-base: 1;
+  --z-index-elevated: 10;
+  --z-index-overlay: 100;
+  --z-index-modal: 1000;
+
+  /* ========================================
+     SIZING TOKENS
+     ======================================== */
+
+  /* Icon Sizes */
+  --size-icon-sm: 10px;
+  --size-icon-md: 64px;
+
+  /* Scrollbar */
+  --size-scrollbar: 16px;
+
+  /* Heights */
+  --height-code-container: calc(10em + 24px);
+  --height-code-container-min: calc(10em + 20px);
+  --height-blog-posts-list-max: 320px;
+  --height-blog-preview-max: 480px;
+}
