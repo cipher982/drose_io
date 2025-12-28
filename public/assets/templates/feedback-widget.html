@@ -4,204 +4,190 @@
     bottom: 20px;
     right: 20px;
     z-index: 9999;
-    font-family: 'MS Sans Serif', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   #feedback-button {
     position: relative;
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 8px 16px;
+    background: linear-gradient(135deg,
+      rgba(99, 102, 241, 0.2) 0%,
+      rgba(6, 182, 212, 0.15) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    border-radius: 12px;
+    padding: 12px 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: bold;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    transition: all 0.1s;
+    font-weight: 600;
+    color: #fafafa;
+    box-shadow:
+      0 0 20px rgba(99, 102, 241, 0.3),
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.01em;
   }
 
   #feedback-button:hover {
-    filter: brightness(1.05);
+    background: linear-gradient(135deg,
+      rgba(99, 102, 241, 0.35) 0%,
+      rgba(6, 182, 212, 0.25) 100%);
+    border-color: rgba(6, 182, 212, 0.6);
+    box-shadow:
+      0 0 30px rgba(6, 182, 212, 0.4),
+      0 0 60px rgba(99, 102, 241, 0.2),
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    text-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
   }
 
   #feedback-button:active {
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    padding: 9px 15px 7px 17px;
+    transform: translateY(0);
+    box-shadow:
+      0 0 15px rgba(99, 102, 241, 0.25),
+      0 4px 16px rgba(0, 0, 0, 0.4);
   }
 
   #feedback-notification {
     text-align: center;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     animation: notificationPulse 2s ease-in-out infinite;
   }
 
   #feedback-notification .notification-text {
-    font-size: 11px;
-    font-weight: bold;
-    color: #000080;
-    text-shadow: 1px 1px 0 rgba(255,255,255,0.8);
+    font-size: 12px;
+    font-weight: 600;
+    color: #06b6d4;
+    text-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
+    background: linear-gradient(135deg,
+      rgba(6, 182, 212, 0.2) 0%,
+      rgba(99, 102, 241, 0.15) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    display: inline-block;
   }
 
   @keyframes notificationPulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    50% { opacity: 0.7; }
   }
 
-
   #feedback-toast {
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+    background: linear-gradient(135deg,
+      rgba(34, 197, 94, 0.2) 0%,
+      rgba(6, 182, 212, 0.15) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 8px;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    color: #fafafa;
+    font-size: 13px;
+    box-shadow:
+      0 0 20px rgba(34, 197, 94, 0.2),
+      0 8px 32px rgba(0, 0, 0, 0.4);
     animation: slideIn 0.3s ease-out;
   }
 
   #feedback-panel {
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    width: 340px;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    background: linear-gradient(180deg,
+      rgba(15, 15, 25, 0.85) 0%,
+      rgba(10, 10, 18, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 360px;
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.1),
+      0 25px 80px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
     animation: slideIn 0.3s ease-out;
     margin-bottom: 8px;
+    overflow: hidden;
   }
 
   #feedback-panel .title-bar {
-    background: linear-gradient(90deg, #000080, #1084d0);
-    color: white;
-    padding: 2px 4px;
-    font-weight: bold;
-    font-size: 11px;
+    background: linear-gradient(90deg,
+      #6366f1 0%,
+      #06b6d4 100%);
+    color: #fafafa;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 13px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.25);
+    letter-spacing: 0.02em;
   }
 
   #feedback-panel .close-btn {
-    background: var(--win98-face);
-    border: 1px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    width: 16px;
-    height: 14px;
-    font-size: 11px;
-    line-height: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    line-height: 22px;
     cursor: pointer;
     padding: 0;
+    color: #fafafa;
+    transition: all 0.15s ease;
+  }
+
+  #feedback-panel .close-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
   }
 
   #feedback-panel .content {
-    padding: 12px;
+    padding: 16px;
   }
 
   #feedback-panel h3 {
     margin: 0 0 8px 0;
-    font-size: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fafafa;
+    letter-spacing: -0.01em;
+  }
+
+  #feedback-panel p {
+    color: #a1a1aa;
+  }
+
+  .conversation-container {
+    margin-bottom: 12px;
   }
 
   .conversation {
-    max-height: 300px;
+    max-height: 280px;
     overflow-y: auto;
-    margin-bottom: 12px;
-    border: 2px solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    background: white;
-    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 12px;
   }
 
   .message {
     margin-bottom: 12px;
-    padding: 8px;
-    border-radius: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    animation: messageIn 0.3s ease-out;
   }
 
-  .message.visitor {
-    background: #e8f4f8;
-    margin-left: 20px;
-  }
-
-  .message.david {
-    background: #f0f0f0;
-    margin-right: 20px;
-  }
-
-  .message .author {
-    font-weight: bold;
-    font-size: 11px;
-    margin-bottom: 4px;
-    color: #000080;
-  }
-
-  .message .text {
-    font-size: 12px;
-    line-height: 1.4;
-    word-wrap: break-word;
-  }
-
-  .message .time {
-    font-size: 10px;
-    color: #666;
-    margin-top: 4px;
-  }
-
-  #feedback-panel textarea {
-    width: 100%;
-    height: 80px;
-    padding: 4px;
-    font-family: inherit;
-    font-size: 12px;
-    line-height: 1.4;
-    border: 2px solid;
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    background: white;
-    color: #000;
-    resize: none;
-    box-sizing: border-box;
-  }
-
-  #feedback-panel .char-count {
-    font-size: 11px;
-    color: #666;
-    margin-top: 4px;
-    text-align: right;
-  }
-
-  #feedback-panel button {
-    background: var(--win98-face);
-    border: 2px solid;
-    border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 6px 20px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: bold;
-    margin-top: 8px;
-    width: 100%;
-  }
-
-  #feedback-panel button:hover {
-    filter: brightness(1.05);
-  }
-
-  #feedback-panel button:active {
-    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
-    padding: 7px 19px 5px 21px;
-  }
-
-  #feedback-panel button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  #connection-status {
-    font-size: 8px;
-    margin-left: 4px;
-  }
-
-  @keyframes slideIn {
+  @keyframes messageIn {
     from {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -209,8 +195,164 @@
     }
   }
 
+  .message.visitor {
+    background: linear-gradient(135deg,
+      rgba(6, 182, 212, 0.15) 0%,
+      rgba(99, 102, 241, 0.1) 100%);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    margin-left: 24px;
+  }
+
+  .message.david {
+    background: linear-gradient(135deg,
+      rgba(236, 72, 153, 0.15) 0%,
+      rgba(168, 85, 247, 0.1) 100%);
+    border: 1px solid rgba(236, 72, 153, 0.2);
+    margin-right: 24px;
+  }
+
+  .message .author {
+    font-weight: 600;
+    font-size: 11px;
+    margin-bottom: 4px;
+    color: #06b6d4;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .message.david .author {
+    color: #ec4899;
+  }
+
+  .message .text {
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #fafafa;
+  }
+
+  .message .time {
+    font-size: 10px;
+    color: #71717a;
+    margin-top: 6px;
+  }
+
+  #feedback-panel textarea {
+    width: 100%;
+    height: 80px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fafafa;
+    resize: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+  }
+
+  #feedback-panel textarea::placeholder {
+    color: #71717a;
+  }
+
+  #feedback-panel textarea:focus {
+    outline: none;
+    border-color: rgba(6, 182, 212, 0.5);
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15);
+  }
+
+  #feedback-panel .char-count {
+    font-size: 11px;
+    color: #71717a;
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  #feedback-panel button#send-btn {
+    background: linear-gradient(135deg,
+      #6366f1 0%,
+      #4f46e5 100%);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fafafa;
+    margin-top: 12px;
+    width: 100%;
+    transition: all 0.2s ease;
+    box-shadow:
+      0 0 20px rgba(99, 102, 241, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  #feedback-panel button#send-btn:hover {
+    background: linear-gradient(135deg,
+      #4f46e5 0%,
+      #4338ca 100%);
+    box-shadow:
+      0 0 30px rgba(99, 102, 241, 0.4),
+      0 6px 20px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
+  }
+
+  #feedback-panel button#send-btn:active {
+    transform: translateY(0);
+  }
+
+  #feedback-panel button#send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  #connection-status {
+    font-size: 10px;
+    margin-left: 6px;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
   .hidden {
     display: none !important;
+  }
+
+  /* Custom scrollbar for conversation */
+  .conversation::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .conversation::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+
+  .conversation::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 3px;
+  }
+
+  .conversation::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6);
+  }
+
+  .empty-placeholder {
+    text-align: center;
+    color: #71717a !important;
+    font-size: 13px !important;
+    padding: 24px !important;
   }
 </style>
 
@@ -222,12 +364,12 @@
 
 <div id="feedback-panel" class="hidden">
   <div class="title-bar">
-    <span>📬 Send Message <span id="connection-status"></span></span>
+    <span>💬 Direct Message <span id="connection-status"></span></span>
     <button class="close-btn" onclick="window.feedbackWidget.closePanel()">×</button>
   </div>
   <div class="content">
     <h3>Text me directly. Right now.</h3>
-    <p style="font-size: 12px; margin-bottom: 12px;">Type anything and it goes straight to my phone. Really!</p>
+    <p style="font-size: 13px; margin-bottom: 16px;">Type anything and it goes straight to my phone. Really!</p>
     <div class="conversation-container"></div>
     <textarea id="feedback-text" placeholder="Say anything..." maxlength="280"></textarea>
     <div class="char-count"><span id="char-count">0</span>/280</div>
@@ -236,5 +378,5 @@
 </div>
 
 <button id="feedback-button" onclick="window.feedbackWidget.handleClick()">
-  👋 Are you real or AI? Click here!
+  👋 Are you human?
 </button>
