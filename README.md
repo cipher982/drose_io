@@ -1,258 +1,110 @@
-# drose.io - Magical Inbox Feedback System
+# drose.io - Personal Portfolio & Feedback System
 
-A real-time feedback widget with persistent per-device messaging. Visitors can send you messages, and you can reply - conversations persist across sessions with instant updates via Server-Sent Events.
+A real-time personal portfolio with a "Zerg Glass" aesthetic and integrated messaging system. Visitors can send direct messages that land on my phone instantly, and I can reply via a mobile-optimized admin interface.
+
+## 🌌 Zerg Glass Theme
+The site uses a modern glassmorphism design system ("Zerg Glass") featuring:
+- **Void Backgrounds**: Deep blacks (`#030305`) with layered grid and nebula effects.
+- **Glass Morphism**: High-blur backdrops for panels and cards.
+- **Neon Accents**: Indigo, cyan, pink, and purple glows.
+- **Animated Motion**: Grid pulses, nebula drifts, and dramatic hover transitions.
 
 ## Features
 
 ### For Visitors
-- 👋 **One-click interaction** - "I'm a real person" button to prove humanity
-- 💬 **Persistent conversations** - Messages persist across browser sessions
-- 🔴 **Live notifications** - See when David replies (Win98-styled notification)
-- ⚡ **Instant updates** - Server-Sent Events for real-time message delivery
-- 🔒 **Privacy-friendly** - Device ID via localStorage + cookie (no tracking)
-- 📱 **Mobile-optimized** - Works great on phones
+- 👋 **One-click interaction** - "I'm a real person" button to prove humanity.
+- 💬 **Direct Messaging** - Send messages that persist across browser sessions.
+- 🔴 **Live Replies** - See when I reply in real-time via Server-Sent Events (SSE).
+- ✍️ **Engineering Blog** - Read long-form thoughts on AI agents and agentic systems.
+- ⚡ **Instant Updates** - No refreshing needed for conversation updates.
 
 ### For Admin (You)
-- 📬 **Push notifications** - Get ntfy alerts on your phone instantly
-- 💻 **Mobile admin UI** - Reply from your phone at `/admin.html`
-- 🔐 **Password-protected** - Simple Bearer auth for admin endpoints
-- 📊 **Thread management** - See all conversations, message counts, page context
-- ⚡ **Live updates** - SSE keeps admin UI in sync
-- 🎨 **Win98 aesthetic** - Matches your site's retro vibe
+- 📬 **Dual Notifications** - Get ntfy push alerts AND optional Twilio SMS.
+- 💻 **Mobile Admin UI** - Reply, manage threads, and publish blog posts from `/admin.html`.
+- 🔐 **Secure Access** - Simple Bearer authentication for all admin operations.
+- 📝 **Blog Management** - Create, edit, and publish Markdown posts with ease.
+- 📊 **Real-time Monitoring** - Live connection stats and thread management.
 
 ## Quick Start
 
 ### Development
 ```bash
-make install    # Install dependencies
-make dev        # Start local server at http://localhost:3000
+bun install    # Install dependencies
+bun run dev    # Start development server with Umami injection
 ```
 
 ### Testing
 ```bash
 make test       # Quick API tests
 make test-full  # Full integration test
-bun test/conversation-loop.ts  # Simulate back-and-forth messages
+make test-e2e   # Playwright end-to-end tests
 ```
 
 ### Deployment
-```bash
-make deploy     # Deploy to clifford
-```
+Deployment is handled automatically by **Coolify** on `clifford` (prod VPS) upon pushing to the `main` branch.
 
 ## Architecture
 
 ### Tech Stack
-- **Runtime:** Bun (3x faster than Node)
-- **Framework:** Hono (12KB, blazing fast)
-- **Storage:** JSONL append-only files (simple, debuggable)
-- **Real-time:** Server-Sent Events (instant updates)
-- **Notifications:** ntfy.sh (push to phone)
-
-### Data Flow
-
-```
-Visitor sends message
-  ↓ (POST /api/feedback)
-Server stores in JSONL
-  ├→ Broadcasts via SSE to visitor's open tabs
-  └→ Sends ntfy push to your phone
-
-You reply from admin UI
-  ↓ (POST /api/admin/threads/{id}/reply)
-Server stores reply
-  └→ Broadcasts via SSE to visitor's open tabs
-    → Visitor sees it instantly (or badge if tab closed)
-```
+- **Runtime:** Bun (Blazing fast TS execution)
+- **Framework:** Hono (Lightweight and fast web framework)
+- **Frontend:** Static HTML + CSS Tokens + Build-time script injection
+- **Storage:** JSONL append-only files (Simple, transparent, no DB required)
+- **Real-time:** Server-Sent Events (Native, efficient live updates)
+- **Notifications:** ntfy.sh & Twilio SMS
 
 ### File Structure
 
 ```
 drose_io/
 ├── server/
-│   ├── index.ts                  # Main server
-│   ├── feedback.ts               # Feedback handler
-│   ├── api/
-│   │   ├── threads.ts            # Thread management API
-│   │   └── sse.ts                # SSE endpoints
-│   ├── storage/
-│   │   └── threads.ts            # JSONL storage layer
-│   ├── sse/
-│   │   └── connection-manager.ts # SSE connection tracking
-│   └── notifications/
-│       ├── notifier.ts           # Abstract interface
-│       ├── ntfy.ts               # ntfy.sh integration
-│       └── twilio.ts             # Twilio SMS (optional)
+│   ├── index.ts                  # Main entry point
+│   ├── api/                      # API endpoint handlers
+│   │   ├── blog.ts               # Blog management
+│   │   ├── threads.ts            # Messaging logic
+│   │   └── sse.ts                # Real-time streaming
+│   ├── storage/                  # Data persistence layer
+│   └── routes/                   # SSR routes (e.g., Blog)
 ├── public/
-│   ├── index.html                # Main site
-│   ├── admin.html                # Admin UI
-│   └── assets/js/
-│       ├── scripts.js            # Site animations
-│       └── feedback-widget-v2.js # Feedback widget with SSE
+│   ├── index.html                # Homepage
+│   ├── admin.html                # Admin Dashboard
+│   └── assets/
+│       ├── css/                  # Zerg Glass design system
+│       └── js/                   # Real-time widget logic
 ├── content/
-│   └── blog/                     # Markdown posts with frontmatter
+│   └── blog/                     # Markdown post storage
 ├── data/
-│   ├── threads/                  # JSONL conversation files
-│   └── blocked/                  # Blocked visitor IDs
-├── test/
-│   ├── run-tests.ts              # Quick API tests
-│   ├── integration-test.ts       # Full flow test
-│   └── conversation-loop.ts      # Stress test simulator
-├── Makefile                      # Task runner
-└── docker-compose.yml            # Production deployment
+│   ├── threads/                  # Conversation history
+│   └── blocked/                  # Visitor blocklist
+├── scripts/
+│   └── inject-umami.ts           # Build-time analytics injection
+└── Makefile                      # Task automation
 ```
 
 ## API Endpoints
 
-### Public Endpoints
-- `POST /api/feedback` - Send feedback (ping or message)
-- `GET /api/threads/:visitorId/messages` - Get conversation history
-- `GET /api/threads/:visitorId/stream` - SSE stream for live updates
-- `GET /api/threads/:visitorId/check` - Poll for new messages (fallback)
+### Public
+- `POST /api/feedback` - Send initial ping or message.
+- `GET /api/threads/:visitorId/messages` - Get history.
+- `GET /api/threads/:visitorId/stream` - Live message stream (SSE).
+- `GET /blog` - View all published posts.
+- `GET /blog/:slug` - Read a specific post.
 
-### Admin Endpoints (requires Bearer auth)
-- `POST /api/admin/threads/:visitorId/reply` - Reply to visitor
-- `GET /api/admin/threads` - List all conversations
-- `GET /api/admin/stream` - SSE stream for admin live updates
-
-### Utility
-- `GET /api/health` - Health check + connection stats
+### Admin (Requires Bearer Auth)
+- `GET /api/admin/threads` - List all active conversations.
+- `POST /api/admin/threads/:visitorId/reply` - Send reply to visitor.
+- `DELETE /api/admin/threads/:visitorId` - Archive/delete thread.
+- `GET /api/admin/blog/posts` - List all posts (including drafts).
+- `POST /api/admin/blog/posts` - Create new post.
+- `PATCH /api/admin/blog/posts/:slug` - Update post content/status.
 
 ## Configuration
 
 ### Environment Variables
-
-```bash
-# ntfy (push notifications to your phone)
-NTFY_SERVER=https://ntfy.sh
-NTFY_TOPIC=drose-io-feedback
-
-# Admin access
-ADMIN_PASSWORD=your_secure_password_here
-
-# Optional: Twilio (SMS)
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_MESSAGING_SID=...
-TWILIO_TO_PHONE=+1234567890
-
-# Server
-PORT=3000
-
-# Blog GitHub sync (optional, enables admin publish → git)
-BLOG_GITHUB_REPO=owner/repo
-BLOG_GITHUB_TOKEN=ghp_your_pat
-BLOG_GITHUB_BRANCH=main
-BLOG_GITHUB_COMMIT_NAME="David Rose"
-BLOG_GITHUB_COMMIT_EMAIL=david@drose.io
-```
-
-- `BLOG_GITHUB_TOKEN` must have `repo` scope to create commits via the GitHub contents API.
-- If the variables are unset, admin publishing stays local-only (no remote sync).
-
-## Admin Usage
-
-### Web UI (Recommended)
-1. Visit: `http://5.161.97.53:8080/admin.html`
-2. Login with `ADMIN_PASSWORD`
-3. See all conversations
-4. Click a thread → reply inline
-5. Live updates via SSE
-
-### CLI (Quick Replies)
-```bash
-# Reply to a visitor
-curl -X POST http://5.161.97.53:8080/api/admin/threads/{visitorId}/reply \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer ${ADMIN_PASSWORD}" \
-  -d '{"text":"Your reply here"}'
-
-# List all threads
-curl http://5.161.97.53:8080/api/admin/threads \
-  -H "Authorization: Bearer ${ADMIN_PASSWORD}" | jq
-
-# View a conversation
-curl http://5.161.97.53:8080/api/threads/{visitorId}/messages | jq
-```
-
-### Notification Flow
-1. Visitor sends message → ntfy notification on your phone
-2. Tap notification → Opens admin UI
-3. Reply → Visitor gets it instantly (SSE or notification box)
-
-## Storage
-
-### Thread Files
-- Location: `data/threads/{visitorId}.jsonl`
-- Format: One JSON object per line
-- Backup: Just copy the directory
-
-```bash
-# View a thread
-cat data/threads/{visitorId}.jsonl | jq
-
-# Backup threads
-tar -czf threads-backup.tar.gz data/threads/
-
-# Find threads by content
-grep -r "search term" data/threads/
-```
-
-### Blocking Visitors
-```bash
-# Block a visitor
-touch data/blocked/{visitorId}
-
-# API will return 403 Forbidden for blocked visitors
-```
-
-## Testing
-
-### Automated Test Suite
-```bash
-# Quick tests (4 tests, ~2 seconds)
-make test
-
-# Full integration test (8 tests, ~5 seconds)
-make test-full
-
-# Stress test (configurable iterations)
-ITERATIONS=10 DELAY_MS=500 bun test/conversation-loop.ts
-```
-
-### Manual Testing
-1. Open site: http://5.161.97.53:8080
-2. Click feedback button
-3. Send a message
-4. Open admin: http://5.161.97.53:8080/admin.html
-5. Reply to the message
-6. Check visitor's browser - should see reply instantly
-
-## Performance
-
-- **Latency:** <100ms for message delivery (SSE push)
-- **Storage:** ~200 bytes per message (JSONL)
-- **Connections:** Handles 100s of concurrent SSE streams
-- **Throughput:** Rate limited to 10 requests/hour per IP
-
-## Security
-
-- Admin password in environment variable
-- Rate limiting on feedback endpoint
-- Visitor blocking via filesystem
-- No PII collected (optional device ID only)
-- CORS enabled for API endpoints
-
-## Roadmap
-
-- [x] Move to Coolify for proper deployment
-- [x] Add SSL certificate via Let's Encrypt
-- [x] Point drose.io DNS to clifford
-- [ ] Enable Twilio when toll-free verification completes
-- [ ] Add advanced fingerprinting (optional)
-- [ ] Add email notification option
-- [ ] Create CLI tool for managing threads
+- `ADMIN_PASSWORD`: For admin dashboard access.
+- `NTFY_TOPIC`: For mobile push notifications.
+- `UMAMI_WEBSITE_ID`: For analytics injection.
+- `TWILIO_*`: (Optional) For SMS notification fallbacks.
 
 ## License
-
 MIT

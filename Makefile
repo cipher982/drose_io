@@ -73,7 +73,7 @@ deploy:
 	@git push origin main
 	@rsync -avz --exclude 'node_modules' --exclude '.git' --exclude 'data' --exclude '.env' ./ clifford:~/drose_io/
 	@ssh clifford "cd ~/drose_io && docker compose down && docker compose up --build -d"
-	@echo "Deployed! Check: http://5.161.97.53:8080"
+	@echo "Deployed! Check: https://drose.io"
 
 clean:
 	rm -rf node_modules
