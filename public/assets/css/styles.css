@@ -1,13 +1,13 @@
 /* Project Link Windows */
 .link {
     vertical-align: top;
-    padding: 2px;
+    padding: var(--spacing-xs);
     cursor: pointer;
 }
 
 .link h2 {
-    margin: 8px 0 4px 0;
-    font-size: 12px;
+    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-sm);
     color: var(--win98-black);
 }
 
@@ -15,7 +15,7 @@
     text-decoration: none;
     color: inherit;
     display: block;
-    padding: 8px;
+    padding: var(--spacing-md);
 }
 
 .link:hover .window-panel {
@@ -48,9 +48,9 @@
 }
 
 .window-panel p {
-    margin: 2px 0;
-    font-size: 12px;
-    line-height: 1.3;
+    margin: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
     min-height: 2.6em;
     display: flex;
     align-items: center;
@@ -59,21 +59,21 @@
 }
 
 .link img {
-    width: 64px;
-    height: 64px;
+    width: var(--size-icon-md);
+    height: var(--size-icon-md);
     object-fit: contain;
     display: block;
-    margin: 8px auto;
+    margin: var(--spacing-md) auto;
 }
 
 .code-container pre,
 .code-container code {
     margin: 0;
-    padding: 4px 8px;
+    padding: var(--spacing-sm) var(--spacing-md);
     display: block;
-    font-family: "Courier New", "MS Sans Serif", monospace;
-    font-size: 11px;
-    line-height: 1.2;
+    font-family: var(--font-monospace);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
     background-color: transparent;
     color: inherit;
     box-sizing: border-box;
@@ -82,25 +82,25 @@
 }
 
 .code-container {
-    margin: 4px 0;
-    height: calc(10em + 24px);
+    margin: var(--spacing-sm) 0;
+    height: var(--height-code-container);
     overflow: hidden;
 }
 
 .code-container .taskman-style {
     height: 100%;
-    min-height: calc(10em + 20px);
+    min-height: var(--height-code-container-min);
     box-sizing: border-box;
 }
 
 footer {
     text-align: center;
-    padding: 6px;
-    margin: 4px 0;
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm) 0;
 }
 
 footer a {
-    margin: 0 8px;
+    margin: 0 var(--spacing-md);
     display: inline-block;
 }
 
@@ -114,4 +114,31 @@ footer a {
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+/* Homepage Specific Styles */
+.links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+header {
+    text-align: center;
+    margin: var(--spacing-sm) 0;
+}
+
+header img {
+    width: min(180px, 90vw);
+    border: var(--border-width-default) solid;
+    border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    margin: var(--spacing-md) 0;
+}
+
+/* Soft-hidden AI context: occupies ~1px, color matches background */
+.ai-easter {
+    color: var(--win98-face);
+    max-height: 1px;
+    overflow: hidden;
+    user-select: none;
 }

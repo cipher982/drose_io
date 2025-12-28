@@ -1,24 +1,24 @@
 /* Windows 98/2000 Retro Theme */
 
-/* Core Windows 98 Color Palette */
+/* Legacy variable mappings for backward compatibility */
 :root {
-    --win98-face: #C3C3C3;
-    --win98-shadow: #818181;
-    --win98-darkshadow: #000000;
-    --win98-highlight: #FDFFFF;
-    --win98-light: #DFDFDF;
-    --win98-accent: #000080;
-    --win98-white: #FFFFFF;
-    --win98-black: #000000;
-    --win98-scrollbar: #C3C3C3;
-    --win98-button-face: #C3C3C3;
-    --win98-menu-highlight: #0000FF;
-    --win98-inactive-title: #7F7F7F;
-    --win98-inactive-border: #C3C3C3;
-    --taskman-bg: #000000;
-    --taskman-green: #00FF00;
-    --taskman-text: #00FF00;
-    --win98-desktop: #008080;
+    --win98-face: var(--color-win98-face);
+    --win98-shadow: var(--color-win98-shadow);
+    --win98-darkshadow: var(--color-win98-darkshadow);
+    --win98-highlight: var(--color-win98-highlight);
+    --win98-light: var(--color-win98-light);
+    --win98-accent: var(--color-win98-accent);
+    --win98-white: var(--color-win98-white);
+    --win98-black: var(--color-win98-black);
+    --win98-scrollbar: var(--color-win98-scrollbar);
+    --win98-button-face: var(--color-win98-button-face);
+    --win98-menu-highlight: var(--color-win98-menu-highlight);
+    --win98-inactive-title: var(--color-win98-inactive-title);
+    --win98-inactive-border: var(--color-win98-inactive-border);
+    --taskman-bg: var(--color-taskman-bg);
+    --taskman-green: var(--color-taskman-green);
+    --taskman-text: var(--color-taskman-text);
+    --win98-desktop: var(--color-win98-desktop);
 }
 
 /* Pixel-Perfect Rendering */
@@ -31,8 +31,8 @@ html {
 
 /* Typography System */
 body {
-    font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
-    font-size: 13px;
+    font-family: var(--font-win98);
+    font-size: var(--font-size-base);
     background-color: var(--win98-desktop);
     color: var(--win98-black);
     margin: 0;
@@ -42,24 +42,24 @@ body {
 
 /* Main Content Container */
 .main-container {
-    max-width: 1000px;
-    margin: 8px auto;
+    max-width: var(--max-width-content);
+    margin: var(--spacing-md) auto;
     background-color: var(--win98-face);
-    min-height: calc(100vh - 16px);
-    padding: 8px;
+    min-height: calc(100vh - var(--spacing-xl));
+    padding: var(--spacing-md);
     box-sizing: border-box;
     /* Classic Windows desktop window border */
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
     /* Simple drop shadow like Windows desktop windows */
-    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-win98-window);
 }
 
 /* Core Window Chrome - 3D Beveled Effects */
 .window,
 .window-panel,
 .metric-card {
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
     background-color: var(--win98-face);
 }
@@ -67,7 +67,7 @@ body {
 /* Sunken Effect for Inputs/Content Areas */
 .sunken,
 .content-area {
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
     background-color: var(--win98-face);
 }
@@ -76,7 +76,7 @@ body {
 .taskman-style {
     background-color: var(--taskman-bg) !important;
     color: var(--taskman-green) !important;
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
 }
 
@@ -84,19 +84,19 @@ body {
 .taskman-style code {
     background-color: var(--taskman-bg) !important;
     color: var(--taskman-green) !important;
-    font-family: "Courier New", "MS Sans Serif", monospace;
-    font-size: 11px;
-    line-height: 1.2;
+    font-family: var(--font-monospace);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-tight);
 }
 
 /* Title Bar Styles */
 .title-bar {
     background: linear-gradient(90deg, var(--win98-accent) 0%, #1084d0 100%);
     color: var(--win98-white);
-    padding: 2px 4px;
-    font-weight: bold;
-    font-size: 12px;
-    border-bottom: 1px solid var(--win98-shadow);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-sm);
+    border-bottom: var(--border-width-thin) solid var(--win98-shadow);
 }
 
 .title-bar.inactive {
@@ -106,25 +106,25 @@ body {
 /* Section Headers */
 .section-header {
     background-color: var(--win98-face);
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 4px 8px;
-    font-weight: bold;
-    margin-bottom: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--spacing-sm);
 }
 
 /* Button Styles */
 .win98-button,
 button {
     background-color: var(--win98-button-face);
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
     color: var(--win98-black);
-    padding: 4px 16px;
+    padding: var(--spacing-sm) var(--spacing-xl);
     font-family: inherit;
-    font-size: 12px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
-    margin: 2px;
+    margin: var(--spacing-xs);
 }
 
 .win98-button:hover,
@@ -141,55 +141,55 @@ button:active {
 
 /* Typography Hierarchy */
 h1 {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 8px 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    margin: var(--spacing-md) 0;
     color: var(--win98-white);
 }
 
 h2 {
-    font-size: 16px;
-    font-weight: bold;
-    margin: 6px 0;
-    border: 2px solid;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    margin: var(--spacing-md) 0;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 4px;
+    padding: var(--spacing-sm);
     background-color: var(--win98-face);
 }
 
 h3 {
-    font-size: 14px;
-    font-weight: bold;
-    margin: 4px 0;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    margin: var(--spacing-sm) 0;
 }
 
 /* Status Indicators */
 .status-indicator {
-    width: 10px;
-    height: 10px;
-    border: 1px solid;
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+    border: var(--border-width-thin) solid;
     border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
     display: inline-block;
-    margin-right: 4px;
+    margin-right: var(--spacing-sm);
 }
 
 .status-good {
-    background-color: #00FF00;
+    background-color: var(--color-status-good);
 }
 
 .status-warning {
-    background-color: #FFFF00;
+    background-color: var(--color-status-warning);
 }
 
 .status-error {
-    background-color: #FF0000;
+    background-color: var(--color-status-error);
 }
 
 /* Layout Utilities */
 .two-col {
     display: table;
     width: 100%;
-    border-spacing: 8px 0;
+    border-spacing: var(--spacing-md) 0;
 }
 
 .two-col > * {
@@ -201,7 +201,7 @@ h3 {
 .three-col {
     display: table;
     width: 100%;
-    border-spacing: 8px 0;
+    border-spacing: var(--spacing-md) 0;
 }
 
 .three-col > * {
@@ -212,57 +212,57 @@ h3 {
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 16px;
-    height: 16px;
+    width: var(--size-scrollbar);
+    height: var(--size-scrollbar);
 }
 
 ::-webkit-scrollbar-track {
     background-color: var(--win98-face);
-    border: 1px solid var(--win98-shadow);
+    border: var(--border-width-thin) solid var(--win98-shadow);
 }
 
 ::-webkit-scrollbar-thumb {
     background-color: var(--win98-scrollbar);
-    border: 1px solid;
+    border: var(--border-width-thin) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
 }
 
 ::-webkit-scrollbar-button {
     background-color: var(--win98-scrollbar);
-    border: 1px solid;
+    border: var(--border-width-thin) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
 }
 
 /* Link Styling */
 a {
-    color: var(--win98-accent);
+    color: var(--color-link-default);
     text-decoration: underline;
 }
 
 a:visited {
-    color: #800080;
+    color: var(--color-link-visited);
 }
 
 a:hover {
-    color: #FF0000;
+    color: var(--color-link-hover);
 }
 
 /* Focus States */
 *:focus {
-    outline: 1px dotted var(--win98-black);
+    outline: var(--border-width-thin) dotted var(--win98-black);
     outline-offset: -1px;
 }
 
 /* Menu/Dialog Styles */
 .menu {
     background-color: var(--win98-face);
-    border: 2px solid;
+    border: var(--border-width-default) solid;
     border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
-    padding: 2px;
+    padding: var(--spacing-xs);
 }
 
 .menu-item {
-    padding: 4px 8px;
+    padding: var(--spacing-sm) var(--spacing-md);
     cursor: pointer;
 }
 
