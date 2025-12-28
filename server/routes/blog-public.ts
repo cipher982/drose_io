@@ -34,105 +34,105 @@ marked.setOptions({
 const BLOG_STYLES = `
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f1f1f1;
-    color: #1d1d1f;
+    font-family: var(--font-system);
+    background: var(--color-blog-bg);
+    color: var(--color-blog-text);
   }
   .blog-shell {
-    max-width: 920px;
+    max-width: var(--max-width-blog);
     margin: 0 auto;
-    padding: 24px 16px 60px;
+    padding: var(--spacing-3xl) var(--spacing-xl) var(--spacing-6xl);
   }
   .blog-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: var(--spacing-4xl);
   }
   .blog-header h1 {
-    font-size: clamp(32px, 6vw, 48px);
-    margin-bottom: 8px;
+    font-size: clamp(var(--font-size-7xl), 6vw, 48px);
+    margin-bottom: var(--spacing-md);
   }
   .blog-header p {
-    color: #555;
-    font-size: 18px;
+    color: var(--color-blog-subtitle);
+    font-size: var(--font-size-2xl);
   }
   .blog-card {
-    background: white;
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-    transition: transform 120ms ease, box-shadow 120ms ease;
+    background: var(--color-blog-card-bg);
+    border-radius: var(--border-radius-xl);
+    padding: var(--spacing-3xl);
+    border: var(--border-width-thin) solid var(--color-blog-card-border);
+    box-shadow: var(--shadow-blog-card);
+    margin-bottom: var(--spacing-2xl);
+    transition: transform var(--duration-fast) var(--timing-ease), box-shadow var(--duration-fast) var(--timing-ease);
   }
   .blog-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-blog-card-hover);
   }
   .blog-card h2 {
-    font-size: 26px;
-    margin: 0 0 12px;
+    font-size: var(--font-size-4xl);
+    margin: 0 0 var(--spacing-lg);
   }
   .blog-card a {
     color: inherit;
     text-decoration: none;
   }
   .blog-card .meta {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 12px;
+    font-size: var(--font-size-md);
+    color: var(--color-blog-meta);
+    margin-bottom: var(--spacing-lg);
   }
   .blog-card .summary {
-    font-size: 17px;
-    line-height: 1.55;
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-comfortable);
   }
   .blog-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 16px;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
   }
   .blog-tag {
-    background: #eef2ff;
-    color: #3730a3;
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 13px;
+    background: var(--color-blog-tag-bg);
+    color: var(--color-blog-tag-text);
+    border-radius: var(--border-radius-pill);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-base);
     letter-spacing: 0.02em;
   }
   article.blog-post {
-    background: white;
-    border-radius: 12px;
-    padding: clamp(20px, 5vw, 40px);
-    border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    background: var(--color-blog-card-bg);
+    border-radius: var(--border-radius-xl);
+    padding: clamp(var(--spacing-2xl), 5vw, var(--spacing-5xl));
+    border: var(--border-width-thin) solid var(--color-blog-card-border);
+    box-shadow: var(--shadow-blog-post);
   }
   article.blog-post h1 {
-    font-size: clamp(32px, 6vw, 52px);
-    margin-bottom: 4px;
+    font-size: clamp(var(--font-size-7xl), 6vw, var(--font-size-8xl));
+    margin-bottom: var(--spacing-sm);
   }
   article.blog-post .meta {
-    color: #666;
-    margin-bottom: 32px;
-    font-size: 16px;
+    color: var(--color-blog-meta);
+    margin-bottom: var(--spacing-4xl);
+    font-size: var(--font-size-xl);
   }
   article.blog-post img {
     max-width: 100%;
-    border-radius: 8px;
-    margin: 24px auto;
+    border-radius: var(--border-radius-lg);
+    margin: var(--spacing-3xl) auto;
     display: block;
   }
   article.blog-post pre {
-    background: #0f172a;
-    color: #f8fafc;
-    padding: 18px;
+    background: var(--color-blog-code-block-bg);
+    color: var(--color-blog-code-block-text);
+    padding: var(--spacing-2xl);
     overflow: auto;
-    border-radius: 8px;
-    font-size: 15px;
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-lg);
   }
   article.blog-post code {
-    background: #edf2ff;
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: var(--color-blog-code-bg);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--border-radius-sm);
   }
   article.blog-post pre code {
     background: transparent;
@@ -143,7 +143,7 @@ const BLOG_STYLES = `
     overflow-x: auto;
   }
   article.blog-post code:not(.hljs) {
-    font-family: 'Menlo', 'Fira Code', monospace;
+    font-family: var(--font-code);
   }
   .hljs {
     background: transparent;
@@ -151,7 +151,7 @@ const BLOG_STYLES = `
   }
   .hljs-comment,
   .hljs-quote {
-    color: #94a3b8;
+    color: var(--color-hljs-comment);
     font-style: italic;
   }
   .hljs-keyword,
@@ -159,61 +159,61 @@ const BLOG_STYLES = `
   .hljs-literal,
   .hljs-title,
   .hljs-section {
-    color: #38bdf8;
+    color: var(--color-hljs-keyword);
   }
   .hljs-string,
   .hljs-doctag,
   .hljs-name,
   .hljs-attr {
-    color: #22c55e;
+    color: var(--color-hljs-string);
   }
   .hljs-built_in,
   .hljs-bullet,
   .hljs-code {
-    color: #facc15;
+    color: var(--color-hljs-builtin);
   }
   article.blog-post h2 {
     margin-top: 36px;
-    font-size: 30px;
+    font-size: var(--font-size-6xl);
   }
   article.blog-post h3 {
     margin-top: 28px;
-    font-size: 24px;
+    font-size: var(--font-size-3xl);
   }
   article.blog-post p, article.blog-post li {
-    font-size: 18px;
-    line-height: 1.7;
-    color: #202124;
+    font-size: var(--font-size-2xl);
+    line-height: var(--line-height-spacious);
+    color: var(--color-blog-body-text);
   }
   article.blog-post blockquote {
-    margin: 24px 0;
-    padding: 12px 20px;
-    border-left: 4px solid #6366f1;
-    background: #f5f7ff;
-    color: #1f2937;
+    margin: var(--spacing-3xl) 0;
+    padding: var(--spacing-lg) var(--spacing-2xl);
+    border-left: var(--border-width-thick) solid var(--color-blog-blockquote-border);
+    background: var(--color-blog-blockquote-bg);
+    color: var(--color-blog-blockquote-text);
   }
   .back-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: #555;
+    gap: var(--spacing-md);
+    color: var(--color-blog-back-link);
     text-decoration: none;
-    margin-bottom: 24px;
-    font-weight: 600;
+    margin-bottom: var(--spacing-3xl);
+    font-weight: var(--font-weight-semibold);
   }
   .back-link:hover {
-    color: #111;
+    color: var(--color-blog-back-link-hover);
   }
   @media (max-width: 640px) {
     .blog-card {
-      padding: 20px;
+      padding: var(--spacing-2xl);
     }
     article.blog-post {
-      padding: 20px 16px;
-      border-radius: 0;
+      padding: var(--spacing-2xl) var(--spacing-xl);
+      border-radius: var(--border-radius-none);
     }
     .blog-shell {
-      padding: 12px 12px 40px;
+      padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-5xl);
     }
   }
 `;
@@ -292,6 +292,7 @@ function renderPage({ title, description, content }: { title: string; descriptio
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>${escapeHtml(title)}</title>
       <meta name="description" content="${escapeHtml(description)}">
+      <link rel="stylesheet" href="/assets/css/tokens.css">
       <link rel="stylesheet" href="/assets/css/win98-theme.css">
       <link rel="stylesheet" href="/assets/css/styles.css">
       ${buildUmamiScript()}
