@@ -7,49 +7,69 @@
 
 header {
     text-align: center;
-    padding: var(--spacing-4xl) var(--spacing-xl);
-    margin-bottom: var(--spacing-3xl);
+    padding: var(--spacing-5xl) var(--spacing-xl);
+    margin-bottom: var(--spacing-4xl);
 }
 
 header h1 {
-    font-size: clamp(2rem, 5vw, 3rem);
-    background: linear-gradient(135deg,
-        var(--color-text-primary) 0%,
-        var(--color-neon-cyan) 50%,
-        var(--color-neon-indigo) 100%);
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    font-weight: 800;
+    background: linear-gradient(
+        135deg,
+        #fff 0%,
+        #06b6d4 25%,
+        #6366f1 50%,
+        #ec4899 75%,
+        #fff 100%
+    );
+    background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: var(--spacing-xl);
+    animation: gradient-shift 6s ease infinite;
+    margin-bottom: var(--spacing-2xl);
+    text-shadow: 0 0 60px rgba(99, 102, 241, 0.5);
+    letter-spacing: -0.03em;
+}
+
+@keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
 
 header p {
     color: var(--color-text-secondary);
-    line-height: 1.7;
-    max-width: 650px;
-    margin: 0 auto var(--spacing-3xl);
-    font-size: var(--font-size-md);
+    line-height: 1.8;
+    max-width: 600px;
+    margin: 0 auto var(--spacing-4xl);
+    font-size: var(--font-size-lg);
 }
 
-/* Profile Photo */
+/* Profile Photo - Dramatic glow */
 header img {
-    width: min(280px, 70vw);
+    width: min(300px, 75vw);
     height: auto;
-    border: 2px solid var(--color-glass-border-bright);
+    border: 2px solid rgba(99, 102, 241, 0.4);
     border-radius: var(--border-radius-xl);
     box-shadow:
-        var(--shadow-glass-card),
-        0 0 40px rgba(99, 102, 241, 0.15);
+        0 0 0 1px rgba(6, 182, 212, 0.2),
+        0 20px 50px rgba(0, 0, 0, 0.5),
+        0 0 80px rgba(99, 102, 241, 0.25),
+        0 0 120px rgba(6, 182, 212, 0.15);
     transition:
         transform var(--duration-normal) var(--timing-standard),
-        box-shadow var(--duration-normal) var(--timing-standard);
+        box-shadow var(--duration-normal) var(--timing-standard),
+        border-color var(--duration-normal) var(--timing-standard);
 }
 
 header img:hover {
-    transform: scale(1.02);
+    transform: scale(1.03) translateY(-4px);
+    border-color: rgba(6, 182, 212, 0.6);
     box-shadow:
-        var(--shadow-glass-card-hover),
-        0 0 60px rgba(99, 102, 241, 0.25);
+        0 0 0 1px rgba(6, 182, 212, 0.4),
+        0 30px 60px rgba(0, 0, 0, 0.6),
+        0 0 100px rgba(99, 102, 241, 0.35),
+        0 0 150px rgba(6, 182, 212, 0.25);
 }
 
 /* Remove the title bar from header */
@@ -92,19 +112,47 @@ header .content-area {
     height: 100%;
 }
 
-/* Window Panel Card */
+/* Window Panel Card - Glass with accent */
 .window-panel {
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 180px;
+    min-height: 200px;
     overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Glowing left accent bar */
+.window-panel::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--color-neon-cyan), var(--color-neon-indigo));
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--timing-standard);
+}
+
+.link:hover .window-panel::before {
+    opacity: 1;
+    box-shadow: 0 0 15px var(--color-neon-cyan);
 }
 
 .window-panel .section-header {
     flex-shrink: 0;
     margin: 0;
     border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    background: linear-gradient(90deg,
+        rgba(99, 102, 241, 0.15) 0%,
+        rgba(6, 182, 212, 0.1) 100%);
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .window-panel a {
@@ -123,15 +171,15 @@ header .content-area {
     text-align: center;
 }
 
-/* Card Icons */
+/* Card Icons - Larger, with glow */
 .link img {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
     object-fit: contain;
     display: block;
     margin: var(--spacing-lg) auto;
     filter: brightness(0) invert(1);
-    opacity: 0.85;
+    opacity: 0.7;
     transition:
         transform var(--duration-fast) var(--timing-standard),
         opacity var(--duration-fast) var(--timing-standard),
@@ -140,8 +188,8 @@ header .content-area {
 
 .link:hover img {
     opacity: 1;
-    transform: scale(1.1);
-    filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+    transform: scale(1.15) translateY(-2px);
+    filter: brightness(0) invert(1) drop-shadow(0 0 12px rgba(6, 182, 212, 0.6));
 }
 
 /* Card Text */
@@ -160,20 +208,51 @@ header .content-area {
 /* Enhanced Hover Effect for Cards */
 .link:hover .window-panel {
     background: linear-gradient(135deg,
-        rgba(99, 102, 241, 0.1) 0%,
-        rgba(6, 182, 212, 0.05) 100%);
-    border-color: var(--color-neon-indigo);
+        rgba(99, 102, 241, 0.12) 0%,
+        rgba(6, 182, 212, 0.06) 100%);
+    border-color: rgba(99, 102, 241, 0.4);
     box-shadow:
-        var(--shadow-card-inset),
-        var(--shadow-glow-indigo);
-    transform: translateY(-4px);
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 30px rgba(99, 102, 241, 0.2),
+        0 20px 40px rgba(0, 0, 0, 0.3);
+    transform: translateY(-6px);
 }
 
 .link:hover .section-header {
-    background: linear-gradient(135deg,
-        rgba(99, 102, 241, 0.2) 0%,
-        rgba(6, 182, 212, 0.15) 100%);
-    border-color: transparent;
+    background: linear-gradient(90deg,
+        rgba(99, 102, 241, 0.25) 0%,
+        rgba(6, 182, 212, 0.18) 100%);
+}
+
+/* Different accent colors for variety */
+.link:nth-child(3n+1) .window-panel::before {
+    background: linear-gradient(180deg, #06b6d4, #6366f1);
+}
+.link:nth-child(3n+1):hover .window-panel::before {
+    box-shadow: 0 0 20px #06b6d4;
+}
+.link:nth-child(3n+1):hover img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 12px rgba(6, 182, 212, 0.7));
+}
+
+.link:nth-child(3n+2) .window-panel::before {
+    background: linear-gradient(180deg, #ec4899, #6366f1);
+}
+.link:nth-child(3n+2):hover .window-panel::before {
+    box-shadow: 0 0 20px #ec4899;
+}
+.link:nth-child(3n+2):hover img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 12px rgba(236, 72, 153, 0.7));
+}
+
+.link:nth-child(3n) .window-panel::before {
+    background: linear-gradient(180deg, #a855f7, #6366f1);
+}
+.link:nth-child(3n):hover .window-panel::before {
+    box-shadow: 0 0 20px #a855f7;
+}
+.link:nth-child(3n):hover img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 12px rgba(168, 85, 247, 0.7));
 }
 
 /* ========================================
