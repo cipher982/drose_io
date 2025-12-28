@@ -48,7 +48,7 @@ body::before {
     height: 100%;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
     pointer-events: none;
-    z-index: 9999;
+    z-index: var(--z-index-overlay);
     opacity: 0.4;
 }
 
@@ -74,11 +74,14 @@ body::before {
 .window-panel,
 .metric-card {
     background-color: var(--color-glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--color-glass-border);
     border-radius: var(--border-radius-lg);
-    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                border-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                transform var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Content Areas - Glass Style */
@@ -151,7 +154,10 @@ button {
     font-weight: var(--font-weight-medium);
     cursor: pointer;
     margin: var(--spacing-sm);
-    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                border-color var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1),
+                transform var(--duration-fast) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .win98-button:hover,
@@ -267,7 +273,7 @@ h3 {
 a {
     color: var(--color-neon-cyan);
     text-decoration: none;
-    transition: color 150ms ease;
+    transition: color var(--duration-fast) ease;
 }
 
 a:visited {
@@ -280,9 +286,10 @@ a:hover {
 }
 
 /* Focus States */
-*:focus {
-    outline: var(--border-width-thin) dotted var(--win98-black);
-    outline-offset: -1px;
+*:focus-visible {
+    outline: var(--border-width-default) solid var(--color-neon-cyan);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
 }
 
 /* Menu/Dialog Styles */
@@ -315,4 +322,14 @@ button:disabled {
     color: var(--win98-shadow);
     background-color: var(--win98-face);
     cursor: default;
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not (backdrop-filter: blur(1px)) {
+    .main-container,
+    .window,
+    .window-panel,
+    .metric-card {
+        background-color: rgba(10, 10, 18, 0.95);
+    }
 }
