@@ -13,9 +13,6 @@ data/
 
 # Project-specific instructions
 CLAUDE.md
-# Creature system local docs
-docs/creature-*.md
-docs/sprite-processing.md
 .playwright-mcp/
 
 # Sprite processing debug output
