@@ -16,3 +16,4 @@ CLAUDE.md
 # Creature system local docs
 docs/creature-*.md
 docs/sprite-processing.md
+.playwright-mcp/

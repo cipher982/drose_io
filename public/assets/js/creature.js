@@ -95,6 +95,12 @@
     lastY: null,
     lastViewportHeight: null,
     lastSpriteHeight: null,
+
+    // Interaction tracking
+    interactions: {
+      clicks: 0,
+      fled: 0,
+    },
   };
 
   // ============================================================
@@ -103,6 +109,108 @@
 
   let container = null;
   let spriteEl = null;
+
+  // ============================================================
+  // Visitor Tracking
+  // ============================================================
+
+  // In-memory fallback for when localStorage is unavailable (Safari private, etc.)
+  const memoryStorage = { vid: null, visits: 0 };
+
+  function generateUUID() {
+    // Fallback for environments without crypto.randomUUID
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Simple fallback UUID generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function getVisitorId() {
+    try {
+      let vid = localStorage.getItem('__vid');
+      if (!vid) {
+        vid = generateUUID();
+        localStorage.setItem('__vid', vid);
+      }
+      return vid;
+    } catch {
+      // localStorage unavailable (Safari private mode, etc.)
+      if (!memoryStorage.vid) {
+        memoryStorage.vid = generateUUID();
+      }
+      return memoryStorage.vid;
+    }
+  }
+
+  function getVisitCount() {
+    try {
+      const stored = parseInt(localStorage.getItem('__visit_count') || '0', 10);
+      const count = (Number.isFinite(stored) ? stored : 0) + 1;
+      localStorage.setItem('__visit_count', String(count));
+      return count;
+    } catch {
+      // localStorage unavailable
+      memoryStorage.visits++;
+      return memoryStorage.visits;
+    }
+  }
+
+  // ============================================================
+  // Instant Greeting Engine
+  // ============================================================
+
+  function getInstantGreeting(ctx) {
+    // Returning visitor (priority)
+    if (ctx.visits > 1) {
+      if (ctx.visits > 5) return 'you again! *excited spin* basically friends now';
+      if (ctx.visits === 2) return 'hey, you came back! *wag wag*';
+      return 'visit #' + ctx.visits + '! *happy wag*';
+    }
+
+    // Referrer-based (external only)
+    if (ctx.referrer) {
+      const ref = ctx.referrer.toLowerCase();
+      if (ref.includes('linkedin')) return 'from linkedin? *sniff* recruiter maybe?';
+      if (ref.includes('github')) return 'github visitor! *sniff* checking the code?';
+      if (ref.includes('twitter') || ref.includes('x.com')) {
+        return 'from twitter! *curious tilt*';
+      }
+      if (ref.includes('google')) return 'google sent you! *sniff sniff* what were you searching?';
+    }
+
+    // Time-based
+    if (ctx.hour >= 22 || ctx.hour < 5) return 'late night browsing? *yawn* me too';
+    if (ctx.hour >= 5 && ctx.hour < 9) return 'early bird! *stretches* good morning';
+
+    // Default
+    return 'new visitor! *sniff sniff* welcome!';
+  }
+
+  function getGreetingContext() {
+    // Filter out same-origin referrers (internal navigation)
+    let referrer = document.referrer || null;
+    if (referrer) {
+      try {
+        const refHost = new URL(referrer).hostname;
+        if (refHost === window.location.hostname) {
+          referrer = null;
+        }
+      } catch {
+        referrer = null;
+      }
+    }
+
+    return {
+      referrer: referrer,
+      hour: new Date().getHours(),
+      visits: getVisitCount(),
+    };
+  }
 
   // ============================================================
   // Initialization
@@ -118,12 +226,26 @@
     createCreatureDOM();
     bindEvents();
     startAnimationLoop();
-    scheduleNextWander();
 
+    // Start at right edge
     const bounds = getViewportBounds();
-    state.x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+    state.x = bounds.maxX;
     state.y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+
+    // Target cursor or center (clamped to bounds)
+    state.targetX = Math.max(bounds.minX, Math.min(bounds.maxX, window.innerWidth / 2));
+    state.targetY = Math.max(bounds.minY, Math.min(bounds.maxY, window.innerHeight / 2));
+
+    // Start walking toward target
+    setState('wander');
+
     updatePosition();
+
+    // Show instant greeting after brief delay
+    const greetingCtx = getGreetingContext();
+    setTimeout(() => {
+      showThought(getInstantGreeting(greetingCtx));
+    }, 500);
 
     fetchCreatureState();
     setInterval(fetchCreatureState, CONFIG.stateCheckInterval);
@@ -227,6 +349,7 @@
   }
 
   function onCreatureClick() {
+    state.interactions.clicks++;
     showThought(getRandomThought());
 
     if (state.currentState !== 'flee') {
@@ -339,6 +462,7 @@
   }
 
   function setFleeTarget() {
+    state.interactions.fled++;
     const creatureScreenPos = getCreatureScreenPosition();
 
     const angle = Math.atan2(
