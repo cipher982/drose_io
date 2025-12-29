@@ -1,75 +1,117 @@
-// Remove console.log and defer animation
 document.addEventListener("DOMContentLoaded", () => {
     const codeElement = document.getElementById("codeSnippet");
     if (!codeElement) return;
 
-    // Defer heavy work until the code container is actually in view
+    // Defer + pause work: only animate while in/near view and tab is visible.
     const container = codeElement.parentElement;
-    let started = false;
+    let running = false;
+    let inView = false;
+    let rafId = 0;
 
-    function startAnimation() {
-        if (started) return;
-        started = true;
+    const MAX_CHARS = 4000;
+    const lineLimit = 8;
+    const targetFps = 30;
+    const charsPerTick = 6;
 
-        // Use a capped slice of the DOM to reduce work
-        const MAX_CHARS = 4000;
+    let codeContent = null;
+
+    function ensureContent() {
+        if (codeContent !== null) return;
         const fullHTML = document.documentElement.outerHTML;
-        const codeContent = fullHTML.slice(0, Math.min(MAX_CHARS, fullHTML.length));
+        codeContent = fullHTML.slice(0, Math.min(MAX_CHARS, fullHTML.length));
+    }
 
-        let index = 0;
-        let buffer = "";
-        const lineLimit = 8; // Reduced to fit container better
-        let currentLines = 0;
+    let index = 0;
+    let currentLine = "";
+    let lines = [];
+    let lastFrame = 0;
 
-        const CHARS_PER_FRAME = 2;
-        const FRAME_DELAY = 6;
+    function render() {
+        const view = lines.slice(-lineLimit);
+        const text = [...view, currentLine].join("\n");
+        codeElement.textContent = text;
+    }
 
-        function typeCode() {
-            for (let i = 0; i < CHARS_PER_FRAME && index < codeContent.length; i++) {
-                const char = codeContent.charAt(index);
-                if (char === "\n") currentLines++;
-                buffer += char;
-                index++;
+    function reset() {
+        index = 0;
+        currentLine = "";
+        lines = [];
+        render();
+    }
+
+    function tick(now) {
+        if (!running) return;
+
+        if (now - lastFrame < 1000 / targetFps) {
+            rafId = requestAnimationFrame(tick);
+            return;
+        }
+        lastFrame = now;
+
+        if (codeContent === null) {
+            ensureContent();
+            if (codeContent === null) return;
+        }
+
+        for (let i = 0; i < charsPerTick; i++) {
+            if (index >= codeContent.length) {
+                reset();
+                break;
             }
 
-            // Keep only the last N lines to ensure typing stays visible
-            if (currentLines > lineLimit) {
-                const lines = buffer.split('\n');
-                buffer = lines.slice(-lineLimit).join('\n');
-                currentLines = lineLimit;
-            }
-
-            codeElement.textContent = buffer;
-
-            if (index < codeContent.length) {
-                setTimeout(() => requestAnimationFrame(typeCode), FRAME_DELAY);
+            const char = codeContent.charAt(index++);
+            if (char === "\n") {
+                lines.push(currentLine);
+                currentLine = "";
+                if (lines.length > lineLimit * 3) {
+                    // avoid unbounded growth while still allowing a rolling buffer
+                    lines = lines.slice(-lineLimit * 2);
+                }
             } else {
-                // Reset and loop immediately
-                index = 0;
-                buffer = "";
-                currentLines = 0;
-                codeElement.textContent = "";
-                setTimeout(() => requestAnimationFrame(typeCode), FRAME_DELAY);
+                currentLine += char;
             }
         }
 
-        // small delay to avoid competing with initial paint
-        setTimeout(() => requestAnimationFrame(typeCode), 120);
+        render();
+        rafId = requestAnimationFrame(tick);
     }
+
+    function start() {
+        if (running) return;
+        ensureContent();
+        running = true;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(tick);
+    }
+
+    function stop() {
+        running = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = 0;
+    }
+
+    function updateRunning(shouldRun) {
+        inView = shouldRun;
+        if (shouldRun && document.visibilityState === "visible") start();
+        else stop();
+    }
+
+    const onVisibility = () => updateRunning(inView);
+    document.addEventListener("visibilitychange", onVisibility, { passive: true });
 
     if ("IntersectionObserver" in window) {
         const io = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    startAnimation();
-                    io.disconnect();
-                }
-            });
-        }, { rootMargin: "100px" });
+            const entry = entries[0];
+            updateRunning(Boolean(entry && entry.isIntersecting));
+        }, { rootMargin: "200px" });
         io.observe(container);
     } else {
-        // Fallback: start after user interaction to avoid impacting initial load
-        const startOnce = () => { startAnimation(); document.removeEventListener("scroll", startOnce); document.removeEventListener("click", startOnce); };
+        // Fallback: run after user interaction, then pause when tab is hidden
+        const startOnce = () => {
+            updateRunning(true);
+            document.removeEventListener("scroll", startOnce);
+            document.removeEventListener("click", startOnce);
+        };
         document.addEventListener("scroll", startOnce, { passive: true });
         document.addEventListener("click", startOnce, { passive: true });
     }
