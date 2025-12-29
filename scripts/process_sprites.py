@@ -22,11 +22,11 @@ GRID_ROWS = 4
 CELL_WIDTH = 300
 CELL_HEIGHT = 224
 
-# Magenta background color range (min, max for each channel)
-# Includes anti-aliased edge pixels that blend toward darker
-BG_R_RANGE = (170, 200)
-BG_G_RANGE = (55, 80)
-BG_B_RANGE = (145, 175)
+# Background detection using HSV hue (more robust for anti-aliased edges)
+# Magenta hue is around 300-320 degrees (or 0.83-0.89 normalized)
+BG_HUE_MIN = 0.80  # ~288 degrees
+BG_HUE_MAX = 0.92  # ~331 degrees
+BG_SAT_MIN = 0.20  # Minimum saturation (avoid grays)
 
 # Target frame width for final output
 TARGET_FRAME_WIDTH = 100
@@ -53,12 +53,40 @@ ANIMATION_SCALE = {
 }
 
 
+def rgb_to_hsv(r, g, b):
+    """Convert RGB (0-255) to HSV (0-1 normalized)."""
+    r, g, b = r / 255.0, g / 255.0, b / 255.0
+    max_c = max(r, g, b)
+    min_c = min(r, g, b)
+    diff = max_c - min_c
+
+    # Hue
+    if diff == 0:
+        h = 0
+    elif max_c == r:
+        h = (60 * ((g - b) / diff) + 360) % 360
+    elif max_c == g:
+        h = (60 * ((b - r) / diff) + 120) % 360
+    else:
+        h = (60 * ((r - g) / diff) + 240) % 360
+    h = h / 360.0  # Normalize to 0-1
+
+    # Saturation
+    s = 0 if max_c == 0 else diff / max_c
+
+    # Value
+    v = max_c
+
+    return h, s, v
+
+
 def is_background(pixel):
-    """Check if pixel is within the background color range."""
+    """Check if pixel is magenta-ish using HSV hue detection."""
     r, g, b = pixel[:3]
-    return (BG_R_RANGE[0] <= r <= BG_R_RANGE[1] and
-            BG_G_RANGE[0] <= g <= BG_G_RANGE[1] and
-            BG_B_RANGE[0] <= b <= BG_B_RANGE[1])
+    h, s, v = rgb_to_hsv(r, g, b)
+
+    # Check if hue is in magenta range AND saturation is high enough
+    return (BG_HUE_MIN <= h <= BG_HUE_MAX and s >= BG_SAT_MIN)
 
 
 def remove_background(img):

@@ -12,17 +12,17 @@
   // Sprite Configuration
   // ============================================================
 
-  const SPRITE_SHEET = '/assets/images/pepper_spritesheet_v2.png?v=3';
+  const SPRITE_SHEET = '/assets/images/pepper_spritesheet_v2.png?v=4';
 
   // Frame data: y-offset, frame height, frame count
   const SPRITES = {
-    idle:  { y: 0,   h: 83,  frames: 3, speed: 400 },
-    walk:  { y: 83,  h: 74,  frames: 4, speed: 150 },
-    run:   { y: 157, h: 74,  frames: 4, speed: 80  },
-    sit:   { y: 231, h: 83,  frames: 2, speed: 600 },
-    lie:   { y: 314, h: 67,  frames: 2, speed: 800 },
-    face:  { y: 381, h: 70,  frames: 2, speed: 500 },
-    alert: { y: 451, h: 74,  frames: 1, speed: 0   },
+    idle:  { y: 0,   h: 86,  frames: 3, speed: 400 },
+    walk:  { y: 86,  h: 73,  frames: 4, speed: 150 },
+    run:   { y: 159, h: 73,  frames: 4, speed: 80  },
+    sit:   { y: 232, h: 86,  frames: 2, speed: 600 },
+    lie:   { y: 318, h: 66,  frames: 2, speed: 800 },
+    face:  { y: 384, h: 71,  frames: 2, speed: 500 },
+    alert: { y: 455, h: 73,  frames: 1, speed: 0   },
   };
 
   const FRAME_WIDTH = 100;
@@ -101,6 +101,9 @@
       clicks: 0,
       fled: 0,
     },
+
+    // LLM thought cooldown
+    lastLLMRequest: 0,
   };
 
   // ============================================================
@@ -213,6 +216,50 @@
   }
 
   // ============================================================
+  // LLM Thought Requests
+  // ============================================================
+
+  const LLM_COOLDOWN = 10000; // 10s between requests
+
+  async function requestLLMThought(trigger) {
+    // Cooldown check
+    const now = Date.now();
+    if (now - state.lastLLMRequest < LLM_COOLDOWN) return;
+    state.lastLLMRequest = now;
+
+    try {
+      const response = await fetch('/api/creature/think', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vid: getVisitorId(),
+          trigger,
+          context: {
+            currentPage: window.location.pathname,
+            timeOnPage: Math.floor(performance.now() / 1000),
+            hour: new Date().getHours(),
+          },
+        }),
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      if (data.thought) {
+        showThought(data.thought);
+      }
+
+      if (data.mood) {
+        state.mood = data.mood;
+        container.setAttribute('data-mood', data.mood);
+      }
+    } catch {
+      // LLM failed, instant greeting already shown
+    }
+  }
+
+  // ============================================================
   // Initialization
   // ============================================================
 
@@ -246,6 +293,11 @@
     setTimeout(() => {
       showThought(getInstantGreeting(greetingCtx));
     }, 500);
+
+    // Request LLM thought (will replace instant greeting when ready)
+    setTimeout(() => {
+      requestLLMThought('page_load');
+    }, 800);
 
     // Record visit (fire and forget, don't block page load)
     recordVisit();
@@ -333,6 +385,26 @@
     container.addEventListener('click', onCreatureClick);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
+    // Track idle time (30s of no interaction)
+    let lastInteraction = Date.now();
+    document.addEventListener('mousemove', () => { lastInteraction = Date.now(); }, { passive: true });
+    document.addEventListener('keydown', () => { lastInteraction = Date.now(); }, { passive: true });
+    document.addEventListener('scroll', () => { lastInteraction = Date.now(); }, { passive: true });
+
+    setInterval(() => {
+      if (Date.now() - lastInteraction > 30000) {
+        requestLLMThought('idle');
+        lastInteraction = Date.now(); // Reset to avoid spam
+      }
+    }, 30000);
+
+    // Exit intent detection (mouse leaving viewport at top)
+    document.addEventListener('mouseout', (e) => {
+      if (e.clientY < 10 && e.relatedTarget === null) {
+        requestLLMThought('leaving');
+      }
+    });
+
     // Send final interaction counts on page exit (use sendBeacon for reliability)
     window.addEventListener('beforeunload', () => {
       const data = JSON.stringify({
@@ -378,6 +450,9 @@
   function onCreatureClick() {
     state.interactions.clicks++;
     showThought(getRandomThought());
+
+    // Request LLM thought for click interaction
+    requestLLMThought('click');
 
     if (state.currentState !== 'flee') {
       setState('happy');
