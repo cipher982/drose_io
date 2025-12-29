@@ -16,6 +16,9 @@ COPY scripts ./scripts
 # Run build-time tasks (like Umami injection)
 RUN bun run build
 
+# Create data directories for persistence
+RUN mkdir -p /app/data/visitors
+
 # Expose port
 EXPOSE 3000
 

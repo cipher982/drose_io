@@ -10,6 +10,7 @@ import { createBlogPost, deleteBlogPostHandler, getAdminBlogPost, listAdminBlogP
 import { listPublicBlogPosts } from './api/blog-public';
 import { renderBlogIndex, renderBlogPost } from './routes/blog-public';
 import { getCreatureState } from './api/creature';
+import creatureVisit from './api/creature-visit';
 
 const app = new Hono();
 
@@ -43,6 +44,7 @@ app.get('/api/blog/posts', listPublicBlogPosts);
 
 // Creature API
 app.get('/api/creature/state', getCreatureState);
+app.route('/api/creature', creatureVisit);
 
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);

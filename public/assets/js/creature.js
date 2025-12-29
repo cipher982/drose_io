@@ -247,6 +247,9 @@
       showThought(getInstantGreeting(greetingCtx));
     }, 500);
 
+    // Record visit (fire and forget, don't block page load)
+    recordVisit();
+
     fetchCreatureState();
     setInterval(fetchCreatureState, CONFIG.stateCheckInterval);
   }
@@ -329,6 +332,30 @@
     document.addEventListener('mousemove', onMouseMove, { passive: true });
     container.addEventListener('click', onCreatureClick);
     document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Send final interaction counts on page exit (use sendBeacon for reliability)
+    window.addEventListener('beforeunload', () => {
+      const data = JSON.stringify({
+        vid: getVisitorId(),
+        event: 'end',
+        timeOnPage: Math.floor(performance.now() / 1000),
+        interactions: state.interactions,
+      });
+
+      // Try sendBeacon first (most reliable), fall back to fetch
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/api/creature/visit', new Blob([data], { type: 'application/json' }));
+      } else {
+        fetch('/api/creature/visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: data,
+          keepalive: true,
+        }).catch(() => {
+          // Failed to send, not critical
+        });
+      }
+    });
   }
 
   function onMouseMove(e) {
@@ -607,6 +634,23 @@
   // ============================================================
   // Data Integration
   // ============================================================
+
+  async function recordVisit() {
+    try {
+      await fetch('/api/creature/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vid: getVisitorId(),
+          event: 'start',
+          referrer: document.referrer || null,
+          page: window.location.pathname,
+        }),
+      });
+    } catch {
+      // Server tracking failed, not critical
+    }
+  }
 
   async function fetchCreatureState() {
     try {
