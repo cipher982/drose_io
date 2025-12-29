@@ -1,0 +1,194 @@
+/* Creature System Styles - Pepper Sprite Edition */
+
+.creature-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9998;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.creature-container.interactive {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Sprite element */
+.creature-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Glow effect - neon indigo to match site theme */
+.creature-sprite {
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+}
+
+/* State-based effects on the sprite container */
+
+/* Idle: subtle float */
+.creature-container[data-state="idle"] .creature-sprite {
+  animation: idle-bob 3s ease-in-out infinite;
+}
+.creature-container[data-state="idle"].facing-left .creature-sprite {
+  animation: idle-bob-flip 3s ease-in-out infinite;
+}
+
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes idle-bob-flip {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50% { transform: scaleX(-1) translateY(-2px); }
+}
+
+/* Wander: bob while walking */
+.creature-container[data-state="wander"] .creature-sprite {
+  animation: walk-bob 0.3s ease-in-out infinite;
+}
+.creature-container[data-state="wander"].facing-left .creature-sprite {
+  animation: walk-bob-flip 0.3s ease-in-out infinite;
+}
+
+@keyframes walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes walk-bob-flip {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50% { transform: scaleX(-1) translateY(-3px); }
+}
+
+/* Flee: stretch effect */
+.creature-container[data-state="flee"] .creature-sprite {
+  animation: flee-stretch 0.15s ease-out infinite;
+}
+.creature-container[data-state="flee"].facing-left .creature-sprite {
+  animation: flee-stretch-flip 0.15s ease-out infinite;
+}
+
+@keyframes flee-stretch {
+  0%, 100% { transform: scaleX(1) scaleY(1); }
+  50% { transform: scaleX(1.1) scaleY(0.9); }
+}
+@keyframes flee-stretch-flip {
+  0%, 100% { transform: scaleX(-1) scaleY(1); }
+  50% { transform: scaleX(-1.1) scaleY(0.9); }
+}
+
+/* Curious: tilt toward mouse */
+.creature-container[data-state="curious"] .creature-sprite {
+  animation: curious-tilt 1.5s ease-in-out infinite;
+}
+.creature-container[data-state="curious"].facing-left .creature-sprite {
+  animation: curious-tilt-flip 1.5s ease-in-out infinite;
+}
+
+@keyframes curious-tilt {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(5deg); }
+}
+@keyframes curious-tilt-flip {
+  0%, 100% { transform: scaleX(-1) rotate(0deg); }
+  50% { transform: scaleX(-1) rotate(-5deg); }
+}
+
+/* Sleep: gentle breathing */
+.creature-container[data-state="sleep"] .creature-sprite {
+  animation: sleep-breathe 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.2));
+}
+.creature-container[data-state="sleep"].facing-left .creature-sprite {
+  animation: sleep-breathe-flip 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.2));
+}
+
+@keyframes sleep-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.03); }
+}
+@keyframes sleep-breathe-flip {
+  0%, 100% { transform: scaleX(-1) scaleY(1); }
+  50% { transform: scaleX(-1) scaleY(1.03); }
+}
+
+/* Happy: bounce */
+.creature-container[data-state="happy"] .creature-sprite {
+  animation: happy-bounce 0.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.7));
+}
+.creature-container[data-state="happy"].facing-left .creature-sprite {
+  animation: happy-bounce-flip 0.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.7));
+}
+
+@keyframes happy-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+}
+@keyframes happy-bounce-flip {
+  0%, 100% { transform: scaleX(-1) scaleY(1) translateY(0); }
+  50% { transform: scaleX(-1.05) scaleY(1.05) translateY(-10px); }
+}
+
+/* Mood-based glow intensity */
+.creature-container[data-mood="happy"] .creature-sprite {
+  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.6))
+          drop-shadow(0 0 20px rgba(6, 182, 212, 0.3));
+}
+
+.creature-container[data-mood="tired"] .creature-sprite {
+  filter: drop-shadow(0 0 4px rgba(107, 114, 128, 0.3));
+  opacity: 0.85;
+}
+
+.creature-container[data-mood="stressed"] .creature-sprite {
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));
+}
+
+/* Thought bubble */
+.creature-thought {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: rgba(15, 15, 20, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.creature-thought::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(99, 102, 241, 0.3);
+}
+
+.creature-container.thinking .creature-thought {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+/* Responsive: hide on very small screens */
+@media (max-width: 600px) {
+  .creature-container {
+    display: none;
+  }
+}

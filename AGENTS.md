@@ -77,6 +77,38 @@ box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
 .element:hover::before { opacity: 1; }
 ```
 
+## Creature System (Pepper)
+
+An ambient AI pet that wanders the page, reacts to mouse movements, and reflects real-world state.
+
+### Files
+| File | Purpose |
+|------|---------|
+| `public/assets/js/creature.js` | Main logic: state machine, sprite animation, mouse tracking |
+| `public/assets/css/creature.css` | Styles and CSS animations for each state |
+| `public/assets/images/pepper_spritesheet.png` | Sprite sheet (400x610px, 7 animations) |
+| `public/assets/images/pepper_spritesheet.json` | Sprite metadata |
+| `server/api/creature.ts` | `/api/creature/state` endpoint (stub, ready for Life Hub) |
+| `docs/creature-spec.md` | Full specification document |
+
+### States
+- **idle**: Standing, gentle bob animation
+- **wander**: Walking to random positions (5-15s intervals)
+- **flee**: Running away when mouse is close (<120px)
+- **curious**: Alert pose when mouse is nearby (120-300px)
+- **sleep**: Lying down (triggered by low energy + night)
+- **happy**: Face animation with bounce (on click)
+
+### Data Integration (Future)
+The `/api/creature/state` endpoint is stubbed. To enable real data:
+1. Uncomment Life Hub API calls in `server/api/creature.ts`
+2. Creature will reflect Whoop recovery, server health, location, git activity
+
+### Modifying Sprites
+- Sprite sheet is 100px wide per frame, rows stacked vertically
+- Update `SPRITES` config in `creature.js` if frame dimensions change
+- Use nearest-neighbor scaling to preserve pixel art crispness
+
 ## Local Development
 
 ```bash

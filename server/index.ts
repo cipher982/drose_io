@@ -9,6 +9,7 @@ import { subscribeToPush, getVapidPublicKey } from './api/push';
 import { createBlogPost, deleteBlogPostHandler, getAdminBlogPost, listAdminBlogPosts, updateBlogPost } from './api/blog';
 import { listPublicBlogPosts } from './api/blog-public';
 import { renderBlogIndex, renderBlogPost } from './routes/blog-public';
+import { getCreatureState } from './api/creature';
 
 const app = new Hono();
 
@@ -39,6 +40,9 @@ app.delete('/api/admin/blog/posts/:slug', deleteBlogPostHandler);
 
 // Public blog API
 app.get('/api/blog/posts', listPublicBlogPosts);
+
+// Creature API
+app.get('/api/creature/state', getCreatureState);
 
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);
