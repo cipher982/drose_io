@@ -16,7 +16,9 @@ VOICE:
 - Be genuine, not cheesy
 
 OUTPUT FORMAT (JSON only, no markdown):
-{"thought":"your thought here","mood":"happy|curious|tired|excited|sleepy"}`;
+{"thought":"hey you came back! *wag*","mood":"happy"}
+
+Allowed moods: happy, curious, tired, excited, sleepy`;
 
 export interface ThinkContext {
   trigger: 'page_load' | 'click' | 'idle' | 'leaving';
@@ -55,11 +57,14 @@ export function buildPrompt(ctx: ThinkContext): string {
     ? `Came from: ${visitor.referrers[visitor.referrers.length - 1]}`
     : 'Direct visit (no referrer)';
 
+  // Limit pages to last 5 to control token usage
+  const recentPages = visitor.pagesVisited.slice(-5).join(', ') || currentPage;
+
   return `VISITOR:
 - Visits: ${visitor.visits} (${isReturning ? 'returning' : 'first time'}${isFrequent ? ', frequent visitor!' : ''})
 - ${referrerInfo}
 - Time on page: ${timeOnPage}s
-- Pages visited: ${visitor.pagesVisited.join(', ') || currentPage}
+- Recent pages: ${recentPages}
 - Clicked you: ${visitor.interactions.clicks} times
 - Made you flee: ${visitor.interactions.fled} times
 - Current time: ${hour}:00 ${isNight ? '(night)' : ''}
