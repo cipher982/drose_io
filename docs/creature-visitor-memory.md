@@ -137,33 +137,30 @@ curl -X POST http://localhost:3001/api/creature/visit \
 curl http://localhost:3001/api/creature/visitor/test-visitor-12345
 ```
 
-## Phase 3: Next Steps
+## Phase 3: LLM Integration (Done)
 
-Future enhancements using visitor memory:
-1. **Personalized greetings** based on visit history
-2. **Memory-based thoughts** (references to past visits)
-3. **Loyalty states** (visitor becomes more friendly over time)
-4. **Page-specific behavior** (remembers which pages visitor likes)
-5. **Admin dashboard** to view visitor stats
+**Implemented Dec 2025** - See [pepper-v2-implementation-report.md](./pepper-v2-implementation-report.md)
 
-### Example Phase 3 Greeting Logic
-```javascript
-async function getGreeting(vid) {
-  const response = await fetch(`/api/creature/visitor/${vid}`);
-  const visitor = await response.json();
+Visitor memory now powers LLM-generated thoughts:
+1. ~~**Personalized greetings** based on visit history~~ → LLM uses visit count
+2. ~~**Memory-based thoughts** (references to past visits)~~ → LLM sees referrers, pages
+3. **Loyalty states** (visitor becomes more friendly over time) → Future
+4. **Page-specific behavior** (remembers which pages visitor likes) → Future
+5. **Admin dashboard** to view visitor stats → Future
 
-  if (visitor.visits > 10) {
-    return "old friend! *excited bounce*";
-  }
-  if (visitor.visits > 5) {
-    return "regular visitor! *happy wag*";
-  }
-  if (visitor.visits === 2) {
-    return "you came back! *curious sniff*";
-  }
-  return "new visitor! *sniff sniff* welcome!";
+### Current Implementation
+```typescript
+// server/lib/pepper-prompt.ts
+if (visitor.visits > 1) {
+  lines.push(`Returning visitor, visit #${visitor.visits}`);
+} else {
+  lines.push('New visitor');
 }
 ```
+
+LLM generates contextual thoughts like:
+- "you're back! visit #3 *wag*"
+- "from linkedin again? *curious sniff*"
 
 ## Deployment
 

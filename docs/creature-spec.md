@@ -2,6 +2,9 @@
 
 An ambient creature ("Pepper" the maltipom) that lives on drose.io, reflecting real-world state from Life Hub.
 
+> **Note:** Pepper v2 is now live with LLM-powered thoughts and visitor memory.
+> See [pepper-v2-implementation-report.md](./pepper-v2-implementation-report.md) for current implementation details.
+
 ## Overview
 
 A pixel art dog sprite that:
@@ -221,10 +224,10 @@ const CONFIG = {
 
 ## Future Enhancements
 
-- [ ] Life Hub data integration (currently stubbed)
-- [ ] Higher quality sprites
-- [ ] More thought bubble variety (data-driven)
+- [ ] Life Hub data integration (endpoint stubbed, awaiting integration)
+- [x] ~~Higher quality sprites~~ → v2 spritesheet (Dec 2025)
+- [x] ~~More thought bubble variety (data-driven)~~ → LLM thoughts (Dec 2025)
 - [ ] Sound effects (optional, muted by default)
 - [ ] Accessories based on state (hard hat during commits, backpack when traveling)
 - [ ] Admin controls (summon, change mood)
-- [ ] Visitor persistence (remember returning visitors)
+- [x] ~~Visitor persistence (remember returning visitors)~~ → Phase 2 (Dec 2025)
