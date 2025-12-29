@@ -17,3 +17,5 @@ CLAUDE.md
 
 # Sprite processing debug output
 public/assets/images/sprites_processed/
+.server.log
+.server.pid
