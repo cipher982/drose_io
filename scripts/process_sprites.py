@@ -22,9 +22,11 @@ GRID_ROWS = 4
 CELL_WIDTH = 300
 CELL_HEIGHT = 224
 
-# Magenta background (RGB) - actual color from AI generator
-MAGENTA = (192, 64, 161)  # Dusty magenta, not pure
-MAGENTA_TOLERANCE = 40
+# Magenta background color range (min, max for each channel)
+# Includes anti-aliased edge pixels that blend toward darker
+BG_R_RANGE = (170, 200)
+BG_G_RANGE = (55, 80)
+BG_B_RANGE = (145, 175)
 
 # Target frame width for final output
 TARGET_FRAME_WIDTH = 100
@@ -51,25 +53,23 @@ ANIMATION_SCALE = {
 }
 
 
-def color_distance(c1, c2):
-    """Euclidean distance between two RGB colors."""
-    return sum((a - b) ** 2 for a, b in zip(c1[:3], c2[:3])) ** 0.5
+def is_background(pixel):
+    """Check if pixel is within the background color range."""
+    r, g, b = pixel[:3]
+    return (BG_R_RANGE[0] <= r <= BG_R_RANGE[1] and
+            BG_G_RANGE[0] <= g <= BG_G_RANGE[1] and
+            BG_B_RANGE[0] <= b <= BG_B_RANGE[1])
 
 
-def is_magenta(pixel, tolerance=MAGENTA_TOLERANCE):
-    """Check if pixel is close to magenta."""
-    return color_distance(pixel[:3], MAGENTA) < tolerance
-
-
-def remove_magenta_background(img):
-    """Replace magenta pixels with transparency."""
+def remove_background(img):
+    """Replace background pixels with transparency."""
     img = img.convert("RGBA")
     pixels = img.load()
     w, h = img.size
 
     for y in range(h):
         for x in range(w):
-            if is_magenta(pixels[x, y]):
+            if is_background(pixels[x, y]):
                 pixels[x, y] = (0, 0, 0, 0)
 
     return img
@@ -150,8 +150,8 @@ def process_sprites():
             # Extract cell
             cell = extract_cell(source, col, row)
 
-            # Remove magenta
-            cell = remove_magenta_background(cell)
+            # Remove background
+            cell = remove_background(cell)
 
             # Trim to content
             cell = trim_to_content(cell)
