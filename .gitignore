@@ -17,3 +17,6 @@ CLAUDE.md
 docs/creature-*.md
 docs/sprite-processing.md
 .playwright-mcp/
+
+# Sprite processing debug output
+public/assets/images/sprites_processed/

@@ -86,10 +86,12 @@ An ambient AI pet that wanders the page, reacts to mouse movements, and reflects
 |------|---------|
 | `public/assets/js/creature.js` | Main logic: state machine, sprite animation, mouse tracking |
 | `public/assets/css/creature.css` | Styles and CSS animations for each state |
-| `public/assets/images/pepper_spritesheet.png` | Sprite sheet (400x610px, 7 animations) |
-| `public/assets/images/pepper_spritesheet.json` | Sprite metadata |
+| `public/assets/images/pepper_spritesheet_v2.png` | Current sprite sheet (400xNpx, 7 animations) |
+| `public/assets/images/pepper_spritesheet_v2.json` | Sprite metadata |
+| `scripts/process_sprites.py` | Sprite extraction from AI-generated sheets |
 | `server/api/creature.ts` | `/api/creature/state` endpoint (stub, ready for Life Hub) |
-| `docs/creature-spec.md` | Full specification document |
+| `docs/sprite-processing.md` | **Full sprite processing guide** |
+| `docs/creature-spec.md` | Creature behavior specification |
 
 ### States
 - **idle**: Standing, gentle bob animation
@@ -104,10 +106,25 @@ The `/api/creature/state` endpoint is stubbed. To enable real data:
 1. Uncomment Life Hub API calls in `server/api/creature.ts`
 2. Creature will reflect Whoop recovery, server health, location, git activity
 
-### Modifying Sprites
-- Sprite sheet is 100px wide per frame, rows stacked vertically
-- Update `SPRITES` config in `creature.js` if frame dimensions change
-- Use nearest-neighbor scaling to preserve pixel art crispness
+### Updating Sprites
+
+**See `docs/sprite-processing.md` for full guide.**
+
+Quick workflow for new AI-generated sprite sheets:
+```bash
+# 1. Copy new sheet and run processor
+cp ~/Downloads/new_sprites.png public/assets/images/pepper_spritesheet_v2_raw.png
+uv run --with pillow python scripts/process_sprites.py
+
+# 2. Update creature.js with printed config, bump ?v=N
+
+# 3. Hard refresh to test
+```
+
+Common issues:
+- **Magenta outline**: Widen HSV hue range in script
+- **Size jumping between animations**: Adjust `ANIMATION_SCALE` in script
+- **Wrong cells**: Update `ANIMATION_MAP` coordinates
 
 ## Local Development
 
