@@ -147,13 +147,12 @@ app.post('/think', async (c) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-5-nano',
+        model: 'gpt-5.2',
         messages: [
           { role: 'system', content: PEPPER_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        reasoning: { effort: 'low' },
       }),
       signal: controller.signal,
     });

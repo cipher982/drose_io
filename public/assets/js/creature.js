@@ -12,7 +12,7 @@
   // Sprite Configuration
   // ============================================================
 
-  const SPRITE_SHEET = '/assets/images/pepper_spritesheet_v2.png?v=4';
+  const SPRITE_SHEET = '/assets/images/pepper_spritesheet_v2.png?v=5';
 
   // Frame data: y-offset, frame height, frame count
   const SPRITES = {
@@ -164,58 +164,6 @@
   }
 
   // ============================================================
-  // Instant Greeting Engine
-  // ============================================================
-
-  function getInstantGreeting(ctx) {
-    // Returning visitor (priority)
-    if (ctx.visits > 1) {
-      if (ctx.visits > 5) return 'you again! *excited spin* basically friends now';
-      if (ctx.visits === 2) return 'hey, you came back! *wag wag*';
-      return 'visit #' + ctx.visits + '! *happy wag*';
-    }
-
-    // Referrer-based (external only)
-    if (ctx.referrer) {
-      const ref = ctx.referrer.toLowerCase();
-      if (ref.includes('linkedin')) return 'from linkedin? *sniff* recruiter maybe?';
-      if (ref.includes('github')) return 'github visitor! *sniff* checking the code?';
-      if (ref.includes('twitter') || ref.includes('x.com')) {
-        return 'from twitter! *curious tilt*';
-      }
-      if (ref.includes('google')) return 'google sent you! *sniff sniff* what were you searching?';
-    }
-
-    // Time-based
-    if (ctx.hour >= 22 || ctx.hour < 5) return 'late night browsing? *yawn* me too';
-    if (ctx.hour >= 5 && ctx.hour < 9) return 'early bird! *stretches* good morning';
-
-    // Default
-    return 'new visitor! *sniff sniff* welcome!';
-  }
-
-  function getGreetingContext() {
-    // Filter out same-origin referrers (internal navigation)
-    let referrer = document.referrer || null;
-    if (referrer) {
-      try {
-        const refHost = new URL(referrer).hostname;
-        if (refHost === window.location.hostname) {
-          referrer = null;
-        }
-      } catch {
-        referrer = null;
-      }
-    }
-
-    return {
-      referrer: referrer,
-      hour: new Date().getHours(),
-      visits: getVisitCount(),
-    };
-  }
-
-  // ============================================================
   // LLM Thought Requests
   // ============================================================
 
@@ -288,16 +236,10 @@
 
     updatePosition();
 
-    // Show instant greeting after brief delay
-    const greetingCtx = getGreetingContext();
-    setTimeout(() => {
-      showThought(getInstantGreeting(greetingCtx));
-    }, 500);
-
-    // Request LLM thought (will replace instant greeting when ready)
+    // Request LLM thought after approach animation starts
     setTimeout(() => {
       requestLLMThought('page_load');
-    }, 800);
+    }, 600);
 
     // Record visit (fire and forget, don't block page load)
     recordVisit();

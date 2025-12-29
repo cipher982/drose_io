@@ -132,32 +132,32 @@
   "face": {
     "y": 384,
     "frameWidth": 100,
-    "frameHeight": 71,
+    "frameHeight": 70,
     "frameCount": 2,
     "frames": [
       {
         "x": 0,
         "y": 384,
         "w": 100,
-        "h": 71
+        "h": 70
       },
       {
         "x": 100,
         "y": 384,
         "w": 100,
-        "h": 71
+        "h": 70
       }
     ]
   },
   "alert": {
-    "y": 455,
+    "y": 454,
     "frameWidth": 100,
     "frameHeight": 73,
     "frameCount": 1,
     "frames": [
       {
         "x": 0,
-        "y": 455,
+        "y": 454,
         "w": 100,
         "h": 73
       }
