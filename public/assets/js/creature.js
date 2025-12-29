@@ -12,17 +12,17 @@
   // Sprite Configuration
   // ============================================================
 
-  const SPRITE_SHEET = '/assets/images/pepper_spritesheet.png?v=1';
+  const SPRITE_SHEET = '/assets/images/pepper_spritesheet_v2.png?v=2';
 
   // Frame data: y-offset, frame height, frame count
   const SPRITES = {
-    idle:  { y: 0,   h: 88,  frames: 3, speed: 400 },
-    walk:  { y: 88,  h: 85,  frames: 4, speed: 150 },
-    run:   { y: 173, h: 82,  frames: 4, speed: 80  },
-    sit:   { y: 255, h: 99,  frames: 2, speed: 600 },
-    lie:   { y: 354, h: 58,  frames: 2, speed: 800 },
-    face:  { y: 412, h: 119, frames: 2, speed: 500 },
-    alert: { y: 531, h: 79,  frames: 1, speed: 0   },
+    idle:  { y: 0,   h: 84,  frames: 3, speed: 400 },
+    walk:  { y: 84,  h: 74,  frames: 4, speed: 150 },
+    run:   { y: 158, h: 74,  frames: 4, speed: 80  },
+    sit:   { y: 232, h: 84,  frames: 2, speed: 600 },
+    lie:   { y: 316, h: 67,  frames: 2, speed: 800 },
+    face:  { y: 383, h: 70,  frames: 2, speed: 500 },
+    alert: { y: 453, h: 74,  frames: 1, speed: 0   },
   };
 
   const FRAME_WIDTH = 100;
