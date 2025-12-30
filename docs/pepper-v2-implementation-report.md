@@ -295,9 +295,9 @@ OPENAI_API_KEY=sk-...  # Required for Phase 3
 ```
 
 ### Docker/Coolify
-- [ ] `data/` directory mounted as volume (visitor persistence)
+- [x] `data/` directory mounted as volume (visitor persistence)
 - [ ] `OPENAI_API_KEY` added to Coolify environment
-- [ ] Verify volume persists across deploys
+- [x] Verify volume persists across deploys
 
 ### Verification Steps
 1. Load page → Pepper approaches from right

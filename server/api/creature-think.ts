@@ -1,8 +1,34 @@
 import { Hono } from 'hono';
+import { appendFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 import { loadVisitor, validateVid } from '../lib/visitor-memory';
 import { PEPPER_SYSTEM_PROMPT, buildPrompt, type ThinkContext } from '../lib/pepper-prompt';
 
 const app = new Hono();
+
+// Response logging for review
+const LOGS_DIR = join(process.cwd(), 'data', 'pepper-logs');
+
+interface PepperLog {
+  ts: string;
+  vid: string;
+  trigger: string;
+  prompt: string;
+  thought: string;
+  mood: string;
+  latencyMs: number;
+}
+
+async function logResponse(log: PepperLog) {
+  try {
+    await mkdir(LOGS_DIR, { recursive: true });
+    const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const file = join(LOGS_DIR, `${date}.jsonl`);
+    await appendFile(file, JSON.stringify(log) + '\n');
+  } catch (e) {
+    console.error('Failed to log pepper response:', e);
+  }
+}
 
 interface ThinkRequest {
   vid: string;
@@ -115,6 +141,8 @@ app.post('/think', async (c) => {
   }
 
   try {
+    const startTime = Date.now();
+
     // Load visitor data
     const visitor = await loadVisitor(safeVid);
 
@@ -152,7 +180,7 @@ app.post('/think', async (c) => {
           { role: 'system', content: PEPPER_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.7,
+        temperature: 0.95,
       }),
       signal: controller.signal,
     });
@@ -175,16 +203,47 @@ app.post('/think', async (c) => {
     try {
       const parsed = JSON.parse(content) as ThinkResponse;
 
-      // Validate and sanitize (enforce 50 char limit)
-      const thought = (parsed.thought || '').slice(0, 50);
+      // Validate and sanitize (enforce 60 char limit, break at word boundary)
+      let thought = (parsed.thought || '').slice(0, 65);
+      if (thought.length === 65) {
+        // Truncate at last space to avoid mid-word cuts
+        const lastSpace = thought.lastIndexOf(' ');
+        if (lastSpace > 40) thought = thought.slice(0, lastSpace);
+      }
       const mood = ['happy', 'curious', 'tired', 'excited', 'sleepy'].includes(parsed.mood)
         ? parsed.mood
         : 'curious';
 
+      // Log response for review (async, don't await)
+      logResponse({
+        ts: new Date().toISOString(),
+        vid: safeVid,
+        trigger,
+        prompt: userPrompt,
+        thought,
+        mood,
+        latencyMs: Date.now() - startTime,
+      });
+
       return c.json({ thought, mood });
     } catch {
       // LLM didn't return valid JSON, extract text
-      const thought = content.slice(0, 50).replace(/[{}"]/g, '').trim();
+      let thought = content.slice(0, 65).replace(/[{}"]/g, '').trim();
+      if (thought.length > 60) {
+        const lastSpace = thought.lastIndexOf(' ');
+        if (lastSpace > 40) thought = thought.slice(0, lastSpace);
+      }
+
+      logResponse({
+        ts: new Date().toISOString(),
+        vid: safeVid,
+        trigger,
+        prompt: userPrompt,
+        thought,
+        mood: 'curious',
+        latencyMs: Date.now() - startTime,
+      });
+
       return c.json({ thought, mood: 'curious' });
     }
 

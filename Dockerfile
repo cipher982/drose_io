@@ -17,7 +17,7 @@ COPY scripts ./scripts
 RUN bun run build
 
 # Create data directories for persistence
-RUN mkdir -p /app/data/visitors
+RUN mkdir -p /app/data/visitors /app/data/pepper-logs
 
 # Expose port
 EXPOSE 3000

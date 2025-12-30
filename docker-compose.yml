@@ -22,7 +22,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     restart: unless-stopped
     volumes:
-      # Persist thread data only
+      # Persist data: threads, visitors, pepper-logs
       - threads-data:/app/data
 
 networks:
