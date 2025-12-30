@@ -186,9 +186,17 @@
   transform: translateX(-50%) translateY(-4px);
 }
 
-/* Responsive: hide on very small screens */
+/* Mobile optimizations */
 @media (max-width: 600px) {
+  /* Slightly smaller touch target, but still visible */
   .creature-container {
-    display: none;
+    transform-origin: center bottom;
+    scale: 0.9;
+  }
+
+  /* Smaller thought bubble text on mobile */
+  .creature-thought {
+    font-size: 11px;
+    padding: 6px 10px;
   }
 }

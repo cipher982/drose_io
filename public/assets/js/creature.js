@@ -42,6 +42,8 @@
   // Configuration
   // ============================================================
 
+  const isMobile = window.matchMedia('(max-width: 600px)').matches;
+
   const CONFIG = {
     wanderIntervalMin: 5000,
     wanderIntervalMax: 15000,
@@ -51,11 +53,12 @@
     fleeSpeed: 400,
     curiousSpeed: 30,
 
-    fleeDistance: 120,
-    curiousDistance: 300,
-    ignoreDistance: 400,
+    // Smaller interaction distances on mobile (touch is less precise)
+    fleeDistance: isMobile ? 100 : 120,
+    curiousDistance: isMobile ? 250 : 300,
+    ignoreDistance: isMobile ? 350 : 400,
 
-    boundaryPadding: 80,
+    boundaryPadding: isMobile ? 40 : 80,
   };
 
   // ============================================================
@@ -212,9 +215,8 @@
   // ============================================================
 
   function init() {
-    // Early return on mobile or reduced motion preference
-    if (window.matchMedia('(max-width: 600px)').matches ||
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // Early return for reduced motion (accessibility)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
 
@@ -324,12 +326,16 @@
 
   function bindEvents() {
     document.addEventListener('mousemove', onMouseMove, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
     container.addEventListener('click', onCreatureClick);
+    container.addEventListener('touchend', onCreatureTap);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     // Track idle time (30s of no interaction)
     let lastInteraction = Date.now();
     document.addEventListener('mousemove', () => { lastInteraction = Date.now(); }, { passive: true });
+    document.addEventListener('touchmove', () => { lastInteraction = Date.now(); }, { passive: true });
     document.addEventListener('keydown', () => { lastInteraction = Date.now(); }, { passive: true });
     document.addEventListener('scroll', () => { lastInteraction = Date.now(); }, { passive: true });
 
@@ -387,6 +393,44 @@
     state.lastMouseX = e.clientX;
     state.lastMouseY = e.clientY;
     state.lastMouseTime = now;
+  }
+
+  function onTouchStart(e) {
+    // Initialize touch tracking on first touch
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      state.mouseX = touch.clientX;
+      state.mouseY = touch.clientY;
+      state.lastMouseX = touch.clientX;
+      state.lastMouseY = touch.clientY;
+      state.lastMouseTime = performance.now();
+    }
+  }
+
+  function onTouchMove(e) {
+    // Track touch position like mouse position
+    if (e.touches.length > 0) {
+      const touch = e.touches[0];
+      const now = performance.now();
+      const dt = now - state.lastMouseTime;
+
+      if (dt > 0) {
+        const dx = touch.clientX - state.lastMouseX;
+        const dy = touch.clientY - state.lastMouseY;
+        state.mouseSpeed = Math.sqrt(dx * dx + dy * dy) / dt * 1000;
+      }
+
+      state.mouseX = touch.clientX;
+      state.mouseY = touch.clientY;
+      state.lastMouseX = touch.clientX;
+      state.lastMouseY = touch.clientY;
+      state.lastMouseTime = now;
+    }
+  }
+
+  function onCreatureTap(e) {
+    e.preventDefault(); // Prevent click event from also firing
+    onCreatureClick();
   }
 
   function onCreatureClick() {
