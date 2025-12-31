@@ -172,18 +172,30 @@
 
   const LLM_COOLDOWN = 10000; // 10s between requests
 
-  // Visitor context from collector library (cached)
+  // Visitor context from collector library (pre-collected on init)
   let visitorCtx = null;
+  let visitorCtxPromise = null;
+
+  // Start collecting immediately (don't block on it)
+  function startVisitorContextCollection() {
+    if (visitorCtxPromise) return visitorCtxPromise;
+    if (typeof VisitorContext !== 'undefined' && VisitorContext.collect) {
+      visitorCtxPromise = VisitorContext.collect()
+        .then(ctx => { visitorCtx = ctx; return ctx; })
+        .catch(e => { console.warn('VisitorContext collection failed:', e); return null; });
+    } else {
+      visitorCtxPromise = Promise.resolve(null);
+    }
+    return visitorCtxPromise;
+  }
+
+  // Get cached context (with short timeout if still collecting)
   async function getVisitorCtx() {
     if (visitorCtx) return visitorCtx;
-    if (typeof VisitorContext !== 'undefined' && VisitorContext.collect) {
-      try {
-        visitorCtx = await VisitorContext.collect();
-      } catch (e) {
-        console.warn('VisitorContext collection failed:', e);
-      }
-    }
-    return visitorCtx;
+    if (!visitorCtxPromise) startVisitorContextCollection();
+    // Wait max 500ms for collection, then proceed without it
+    const timeout = new Promise(r => setTimeout(() => r(null), 500));
+    return Promise.race([visitorCtxPromise, timeout]);
   }
 
   async function requestLLMThought(trigger) {
@@ -247,6 +259,9 @@
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
+
+    // Start collecting visitor context early (non-blocking)
+    startVisitorContextCollection();
 
     createCreatureDOM();
     bindEvents();
