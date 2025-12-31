@@ -16,6 +16,7 @@ VARIETY - pick different angles each time:
 - Self-referential: pixel life, being a digital dog, watching cursors all day
 - Page-specific: if on blog, mention reading; if on homepage, mention exploring
 - Random dog thoughts: squirrels, naps, treats, the void beyond the viewport
+- VISITOR UNIQUENESS: their browser, device, timezone, language - observe them!
 
 GOOD examples:
 {"thought":"hmm, what brings you here? *curious sniff*","mood":"curious"}
@@ -25,6 +26,14 @@ GOOD examples:
 {"thought":"pixels get lonely sometimes. hi! *wag*","mood":"happy"}
 {"thought":"you smell like coffee and ambition *sniff*","mood":"curious"}
 {"thought":"the cursor... it moves... *alert ears*","mood":"excited"}
+{"thought":"a firefox user! rare breed these days *sniff*","mood":"curious"}
+{"thought":"linux and chrome... fellow dev vibes *wag*","mood":"happy"}
+{"thought":"3am your time?? go to sleep human *concerned tilt*","mood":"sleepy"}
+{"thought":"browsing from tokyo! konnichiwa *excited wag*","mood":"excited"}
+{"thought":"tiny phone screen... on the go? *tilt*","mood":"curious"}
+{"thought":"ooh 4k display, fancy setup *impressed sniff*","mood":"happy"}
+{"thought":"slow connection... patience, friend *supportive wag*","mood":"curious"}
+{"thought":"battery at 12%?? living dangerously *nervous*","mood":"curious"}
 
 BAD (too generic, visit-count focused):
 {"thought":"welcome back visit #3 *wag*","mood":"happy"}
@@ -35,24 +44,122 @@ OUTPUT (JSON only):
 
 Moods: happy, curious, tired, excited, sleepy`;
 
+export interface VisitorTraits {
+  timezone?: string;
+  language?: string;
+  languages?: string[];
+  screen?: { width?: number; height?: number; pixelRatio?: number };
+  device?: { type?: string; vendor?: string; model?: string };
+  browser?: { name?: string; version?: string };
+  connection?: { effectiveType?: string; downlink?: number; rtt?: number };
+  battery?: { level?: number; charging?: boolean };
+}
+
 export interface ThinkContext {
   trigger: 'page_load' | 'click' | 'idle' | 'leaving';
   visitor: VisitorMemory;
   currentPage: string;
   timeOnPage: number;
   hour: number;
+  visitorTraits?: VisitorTraits;
 }
 
 export function buildPrompt(ctx: ThinkContext): string {
-  const { trigger, visitor, currentPage, timeOnPage, hour } = ctx;
+  const { trigger, visitor, currentPage, timeOnPage, hour, visitorTraits } = ctx;
 
   const lines: string[] = [];
 
-  // Time of day context - always useful
+  // ============================================================
+  // VISITOR DEVICE/BROWSER TRAITS (the fun stuff!)
+  // ============================================================
+  if (visitorTraits) {
+    const traits: string[] = [];
+
+    // Browser
+    if (visitorTraits.browser?.name) {
+      const browser = visitorTraits.browser.name;
+      if (browser === 'Firefox') traits.push('Firefox user (rare!)');
+      else if (browser === 'Safari') traits.push('Safari user');
+      else if (browser === 'Edge') traits.push('Edge user');
+      else if (browser === 'Chrome') traits.push('Chrome user');
+      else traits.push(`${browser} browser`);
+    }
+
+    // Device type
+    if (visitorTraits.device?.type) {
+      const type = visitorTraits.device.type;
+      if (type === 'mobile') traits.push('on mobile phone');
+      else if (type === 'tablet') traits.push('on tablet');
+    }
+
+    // Screen size observations
+    if (visitorTraits.screen?.width && visitorTraits.screen?.height) {
+      const w = visitorTraits.screen.width;
+      const h = visitorTraits.screen.height;
+      if (w >= 2560) traits.push('big monitor (4K or ultrawide)');
+      else if (w <= 480) traits.push('tiny screen');
+      else if (w >= 1920) traits.push('nice display');
+
+      if (visitorTraits.screen.pixelRatio && visitorTraits.screen.pixelRatio >= 2) {
+        traits.push('retina/HiDPI display');
+      }
+    }
+
+    // Timezone (can reveal location)
+    if (visitorTraits.timezone) {
+      const tz = visitorTraits.timezone;
+      // Extract region hints
+      if (tz.includes('Tokyo') || tz.includes('Asia/Tokyo')) traits.push('browsing from Japan');
+      else if (tz.includes('London') || tz.includes('Europe/London')) traits.push('in the UK');
+      else if (tz.includes('Paris') || tz.includes('Berlin')) traits.push('in Europe');
+      else if (tz.includes('Los_Angeles') || tz.includes('America/Los_Angeles')) traits.push('on the west coast');
+      else if (tz.includes('New_York') || tz.includes('America/New_York')) traits.push('on the east coast');
+      else if (tz.includes('Australia')) traits.push('down under in Australia');
+      else if (tz.includes('Asia')) traits.push('somewhere in Asia');
+    }
+
+    // Language
+    if (visitorTraits.language && !visitorTraits.language.startsWith('en')) {
+      const lang = visitorTraits.language.split('-')[0];
+      const langNames: Record<string, string> = {
+        de: 'German speaker', fr: 'French speaker', es: 'Spanish speaker',
+        ja: 'Japanese speaker', zh: 'Chinese speaker', ko: 'Korean speaker',
+        pt: 'Portuguese speaker', it: 'Italian speaker', ru: 'Russian speaker',
+        nl: 'Dutch speaker', pl: 'Polish speaker', sv: 'Swedish speaker',
+      };
+      if (langNames[lang]) traits.push(langNames[lang]);
+    }
+
+    // Connection quality
+    if (visitorTraits.connection?.effectiveType) {
+      const conn = visitorTraits.connection.effectiveType;
+      if (conn === 'slow-2g' || conn === '2g') traits.push('very slow connection');
+      else if (conn === '3g') traits.push('slower connection (3G)');
+      // Don't mention 4g, that's normal
+    }
+
+    // Battery
+    if (visitorTraits.battery?.level !== undefined) {
+      const level = visitorTraits.battery.level;
+      if (level <= 15) traits.push(`battery critical (${level}%!)`);
+      else if (level <= 30) traits.push(`battery low (${level}%)`);
+      // Charging status
+      if (visitorTraits.battery.charging && level < 50) {
+        traits.push('charging');
+      }
+    }
+
+    if (traits.length > 0) {
+      lines.push('VISITOR: ' + traits.join(', '));
+    }
+  }
+
+  // ============================================================
+  // TIME & DAY CONTEXT
+  // ============================================================
   const timeDesc = getTimeDescription(hour);
   if (timeDesc) lines.push(timeDesc);
 
-  // Day of week
   const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   lines.push(`It's ${day}`);
 

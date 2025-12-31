@@ -30,6 +30,17 @@ async function logResponse(log: PepperLog) {
   }
 }
 
+interface VisitorTraits {
+  timezone?: string;
+  language?: string;
+  languages?: string[];
+  screen?: { width?: number; height?: number; pixelRatio?: number };
+  device?: { type?: string; vendor?: string; model?: string };
+  browser?: { name?: string; version?: string };
+  connection?: { effectiveType?: string; downlink?: number; rtt?: number };
+  battery?: { level?: number; charging?: boolean };
+}
+
 interface ThinkRequest {
   vid: string;
   trigger: 'page_load' | 'click' | 'idle' | 'leaving';
@@ -38,6 +49,7 @@ interface ThinkRequest {
     timeOnPage: number;
     hour: number;
   };
+  visitor?: VisitorTraits;
 }
 
 interface ThinkResponse {
@@ -121,7 +133,7 @@ app.post('/think', async (c) => {
     return c.json({ error: 'invalid json' }, 400);
   }
 
-  const { vid, trigger, context } = body;
+  const { vid, trigger, context, visitor: visitorTraits } = body;
 
   // Validate vid
   const safeVid = validateVid(vid);
@@ -153,6 +165,7 @@ app.post('/think', async (c) => {
       currentPage: context?.currentPage?.slice(0, 200) || '/',
       timeOnPage: Math.min(context?.timeOnPage || 0, 3600),
       hour: context?.hour ?? new Date().getHours(),
+      visitorTraits: visitorTraits || undefined,
     };
 
     const userPrompt = buildPrompt(thinkContext);

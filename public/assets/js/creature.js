@@ -172,11 +172,28 @@
 
   const LLM_COOLDOWN = 10000; // 10s between requests
 
+  // Visitor context from collector library (cached)
+  let visitorCtx = null;
+  async function getVisitorCtx() {
+    if (visitorCtx) return visitorCtx;
+    if (typeof VisitorContext !== 'undefined' && VisitorContext.collect) {
+      try {
+        visitorCtx = await VisitorContext.collect();
+      } catch (e) {
+        console.warn('VisitorContext collection failed:', e);
+      }
+    }
+    return visitorCtx;
+  }
+
   async function requestLLMThought(trigger) {
     // Cooldown check
     const now = Date.now();
     if (now - state.lastLLMRequest < LLM_COOLDOWN) return;
     state.lastLLMRequest = now;
+
+    // Collect visitor context (cached after first call)
+    const vctx = await getVisitorCtx();
 
     try {
       const response = await fetch('/api/creature/think', {
@@ -190,6 +207,17 @@
             timeOnPage: Math.floor(performance.now() / 1000),
             hour: new Date().getHours(),
           },
+          // Visitor traits from collector library
+          visitor: vctx ? {
+            timezone: vctx.context?.timezone,
+            language: vctx.context?.language,
+            languages: vctx.context?.languages,
+            screen: vctx.context?.screen,
+            device: vctx.context?.device,
+            browser: vctx.context?.browser,
+            connection: vctx.network?.connection,
+            battery: vctx.battery,
+          } : null,
         }),
       });
 
