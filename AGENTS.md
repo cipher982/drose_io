@@ -29,6 +29,10 @@ CSS and static assets are aggressively cached. When updating styles or the feedb
 2. Changes won't show until you do this, even after deploy.
 3. Verify with: `curl -sI "https://drose.io/assets/css/styles.css?v=X" | grep cf-cache`.
 
+**External dependencies** (like `/collector/v1/context.min.js`) are also cached with `max-age=31536000, immutable`. When the collector library is updated:
+1. Bump the version param in `index.html`: `?v=1` → `?v=2`
+2. Even after collector deploys, Cloudflare serves stale version without this.
+
 ### Umami Injection
 The script `scripts/inject-umami.ts` modifies static HTML files (`public/index.html`, `public/admin.html`) at build time. 
 - **Dev Conflict**: If editing these files while the dev server runs, the file may be modified mid-edit. Re-read before editing if this happens.
