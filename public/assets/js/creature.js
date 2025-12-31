@@ -189,12 +189,12 @@
     return visitorCtxPromise;
   }
 
-  // Get cached context (with short timeout if still collecting)
+  // Get cached context (with timeout if still collecting)
   async function getVisitorCtx() {
     if (visitorCtx) return visitorCtx;
     if (!visitorCtxPromise) startVisitorContextCollection();
-    // Wait max 500ms for collection, then proceed without it
-    const timeout = new Promise(r => setTimeout(() => r(null), 500));
+    // Wait max 6s for collection (library waits for web vitals which takes ~5s)
+    const timeout = new Promise(r => setTimeout(() => r(null), 6000));
     return Promise.race([visitorCtxPromise, timeout]);
   }
 
