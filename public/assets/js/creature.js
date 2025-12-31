@@ -219,15 +219,27 @@
             timeOnPage: Math.floor(performance.now() / 1000),
             hour: new Date().getHours(),
           },
-          // Visitor traits from collector library
+          // Visitor traits from collector library (map to expected structure)
           visitor: vctx ? {
-            timezone: vctx.context?.timezone,
-            language: vctx.context?.language,
-            languages: vctx.context?.languages,
-            screen: vctx.context?.screen,
-            device: vctx.context?.device,
-            browser: vctx.context?.browser,
-            connection: vctx.network?.connection,
+            timezone: vctx.locale?.timezone,
+            language: vctx.browser?.language,
+            languages: vctx.browser?.languages,
+            screen: vctx.device ? {
+              width: vctx.device.screenWidth,
+              height: vctx.device.screenHeight,
+              pixelRatio: vctx.device.pixelRatio,
+            } : null,
+            device: vctx.device ? {
+              type: vctx.device.touchPoints > 0 ? 'mobile' : 'desktop',
+            } : null,
+            browser: vctx.browser ? {
+              name: detectBrowserName(vctx.browser.userAgent),
+            } : null,
+            connection: vctx.network ? {
+              effectiveType: vctx.network.effectiveType,
+              downlink: vctx.network.downlink,
+              rtt: vctx.network.rtt,
+            } : null,
             battery: vctx.battery,
           } : null,
         }),
@@ -801,6 +813,15 @@
     const dx = x2 - x1;
     const dy = y2 - y1;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function detectBrowserName(ua) {
+    if (!ua) return null;
+    if (ua.includes('Firefox')) return 'Firefox';
+    if (ua.includes('Edg/')) return 'Edge';
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+    if (ua.includes('Chrome')) return 'Chrome';
+    return null;
   }
 
   // ============================================================
