@@ -193,8 +193,8 @@
   async function getVisitorCtx() {
     if (visitorCtx) return visitorCtx;
     if (!visitorCtxPromise) startVisitorContextCollection();
-    // Wait max 6s for collection (library waits for web vitals which takes ~5s)
-    const timeout = new Promise(r => setTimeout(() => r(null), 6000));
+    // Wait max 500ms - instant metrics (ttfb, fcp, lcp) resolve in <10ms
+    const timeout = new Promise(r => setTimeout(() => r(null), 500));
     return Promise.race([visitorCtxPromise, timeout]);
   }
 
