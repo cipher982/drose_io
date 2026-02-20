@@ -51,6 +51,9 @@ app.route('/api/creature', creatureThink);
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);
 
+// Admin page
+app.get('/admin', serveStatic({ path: './public/admin.html' }));
+
 // Public blog routes
 app.get('/blog', renderBlogIndex);
 app.get('/blog/:slug', renderBlogPost);
