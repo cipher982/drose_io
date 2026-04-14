@@ -1,5 +1,11 @@
-/* Design Tokens - CSS Custom Properties */
-/* Zerg/Swarmlet Design System */
+/*
+ * GENERATED FILE.
+ * Source: ~/git/me/mytech/infrastructure/shared-web/drose-theme/source/drose-core-tokens.css
+ * Regenerate with: python3 ~/git/me/mytech/infrastructure/shared-web/drose-theme/scripts/sync.py
+ */
+
+/* Shared drose.io design tokens */
+/* Source of truth for drose-themed consumers. */
 
 :root {
   /* ========================================
@@ -281,4 +287,50 @@
   --height-code-container-min: calc(10em + 20px);
   --height-blog-posts-list-max: 320px;
   --height-blog-preview-max: 480px;
+
+  /* ========================================
+     DROSE APP ALIASES
+     ======================================== */
+
+  --drose-void: var(--color-void);
+  --drose-void-light: var(--color-void-light);
+  --drose-surface-panel: rgba(5, 5, 12, 0.18);
+  --drose-surface-card: rgba(12, 12, 22, 0.72);
+  --drose-surface-card-strong: rgba(15, 15, 28, 0.92);
+  --drose-surface-glass: var(--color-glass-light);
+  --drose-surface-glass-strong: var(--color-glass-elevated);
+  --drose-border-soft: var(--color-glass-border);
+  --drose-border-strong: rgba(99, 102, 241, 0.22);
+  --drose-border-bright: rgba(6, 182, 212, 0.34);
+  --drose-text: var(--color-text-primary);
+  --drose-text-secondary: #c2c5cf;
+  --drose-text-muted: #8e93a4;
+  --drose-indigo: var(--color-neon-indigo);
+  --drose-cyan: var(--color-neon-cyan);
+  --drose-pink: var(--color-neon-pink);
+  --drose-purple: var(--color-neon-purple);
+  --drose-red: #fb7185;
+  --drose-amber: #f59e0b;
+  --drose-green: #22c55e;
+  --drose-shadow-shell:
+    0 0 0 1px rgba(99, 102, 241, 0.1),
+    0 25px 80px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --drose-shadow-card:
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --drose-shadow-card-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 40px rgba(99, 102, 241, 0.18),
+    0 24px 48px rgba(0, 0, 0, 0.4);
+  --drose-radius-sm: 10px;
+  --drose-radius-md: 14px;
+  --drose-radius-lg: 18px;
+  --drose-radius-xl: 24px;
+  --drose-shell-width: 1240px;
+  --drose-content-width: 1080px;
+  --drose-transition-fast: var(--duration-fast) var(--timing-ease);
+  --drose-transition-base: var(--duration-normal) var(--timing-standard);
+  --drose-font-sans: var(--font-system);
+  --drose-font-mono: var(--font-code);
 }
