@@ -1,0 +1,14 @@
+<p>This is a test of the new drose.io blog system.</p>
+
+<p>Posts are authored as raw HTML with a small <code>meta.json</code> file. No markdown. No build step. Just HTML and whatever it brings with it: images, embeds, interactive demos in iframes.</p>
+
+<p>Each post is a self-contained directory:</p>
+
+<pre><code>content/blog/&lt;slug&gt;/
+  index.html
+  meta.json
+  assets/
+    figure-1.png
+    demo.html</code></pre>
+
+<p>The server wraps a shared layout around the post body, emits the right OG/Twitter/JSON-LD metadata, and that's it. More to come.</p>

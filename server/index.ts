@@ -6,9 +6,7 @@ import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, 
 import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
 import { subscribeToPush, getVapidPublicKey } from './api/push';
-import { createBlogPost, deleteBlogPostHandler, getAdminBlogPost, listAdminBlogPosts, updateBlogPost } from './api/blog';
-import { listPublicBlogPosts } from './api/blog-public';
-import { renderBlogIndex, renderBlogPost } from './routes/blog-public';
+import { blogIndex, blogPost, blogRss, blogAsset } from './blog/routes';
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
@@ -56,16 +54,6 @@ app.delete('/api/admin/threads/:visitorId', deleteThreadById);
 app.get('/api/admin/stream', streamAdminUpdates);
 app.post('/api/admin/push-subscribe', subscribeToPush);
 
-// Admin blog routes
-app.get('/api/admin/blog/posts', listAdminBlogPosts);
-app.get('/api/admin/blog/posts/:slug', getAdminBlogPost);
-app.post('/api/admin/blog/posts', createBlogPost);
-app.patch('/api/admin/blog/posts/:slug', updateBlogPost);
-app.delete('/api/admin/blog/posts/:slug', deleteBlogPostHandler);
-
-// Public blog API
-app.get('/api/blog/posts', listPublicBlogPosts);
-
 // Creature API
 app.get('/api/creature/state', getCreatureState);
 app.route('/api/creature', creatureVisit);
@@ -78,8 +66,10 @@ app.get('/api/push/vapid-public-key', getVapidPublicKey);
 app.get('/admin', serveStatic({ path: './public/admin.html' }));
 
 // Public blog routes
-app.get('/blog', renderBlogIndex);
-app.get('/blog/:slug', renderBlogPost);
+app.get('/blog', blogIndex);
+app.get('/blog/rss.xml', blogRss);
+app.get('/blog/:slug/assets/:path{.+}', blogAsset);
+app.get('/blog/:slug', blogPost);
 
 // Health check
 app.get('/api/health', (c) => c.json({
