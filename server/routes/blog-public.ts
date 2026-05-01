@@ -292,9 +292,9 @@ function renderPage({ title, description, content }: { title: string; descriptio
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>${escapeHtml(title)}</title>
       <meta name="description" content="${escapeHtml(description)}">
-      <link rel="stylesheet" href="/assets/css/tokens.css">
-      <link rel="stylesheet" href="/assets/css/win98-theme.css">
-      <link rel="stylesheet" href="/assets/css/styles.css">
+      <link rel="stylesheet" href="/assets/css/tokens.css?v=7432f9b0">
+      <link rel="stylesheet" href="/assets/css/win98-theme.css?v=adf78f17">
+      <link rel="stylesheet" href="/assets/css/styles.css?v=6e40fa34">
       ${buildUmamiScript()}
       <style>${BLOG_STYLES}</style>
     </head>

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "bun run scripts/inject-umami.ts",
-    "dev": "bun run scripts/inject-umami.ts && bun run server/index.ts",
-    "start": "bun run scripts/inject-umami.ts && bun run server/index.ts",
+    "build": "bun run scripts/inject-umami.ts && bun run scripts/bust-cache.ts",
+    "dev": "bun run scripts/inject-umami.ts && bun run scripts/bust-cache.ts && bun run server/index.ts",
+    "start": "bun run scripts/inject-umami.ts && bun run scripts/bust-cache.ts && bun run server/index.ts",
     "perf": "bun run scripts/perf/run.ts",
     "perf:analyze": "bun run scripts/perf/analyze-cpuprofile.ts",
     "perf:trace-analyze": "bun run scripts/perf/analyze-trace.ts"

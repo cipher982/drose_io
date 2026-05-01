@@ -18,6 +18,29 @@ const app = new Hono();
 // CORS for API endpoints
 app.use('/api/*', cors());
 
+// Cache-Control: immutable for hashed asset URLs (?v=...), short TTL for HTML.
+// Registered early so it wraps all downstream routes/handlers.
+app.use('/*', async (c, next) => {
+  await next();
+  if (c.req.method !== 'GET' || !c.res || c.res.status !== 200) return;
+  if (c.res.headers.has('Cache-Control')) return;
+
+  const path = c.req.path;
+  const hasVersion = c.req.query('v');
+
+  if (hasVersion && /\.(css|js|png|jpe?g|gif|webp|svg|woff2?|ico)$/i.test(path)) {
+    c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    return;
+  }
+  if (path === '/' || path === '/admin' || path.startsWith('/blog') || path.endsWith('.html')) {
+    c.res.headers.set('Cache-Control', 'public, max-age=300, must-revalidate');
+    return;
+  }
+  if (/\.(png|jpe?g|gif|webp|svg|woff2?|ico)$/i.test(path)) {
+    c.res.headers.set('Cache-Control', 'public, max-age=86400, must-revalidate');
+  }
+});
+
 // API routes
 app.post('/api/feedback', handleFeedback);
 
