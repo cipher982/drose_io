@@ -101,33 +101,26 @@
   --color-admin-tab-shadow: rgba(0, 0, 0, 0.08);
   --color-admin-tab-active-border: #0055aa;
 
-  /* Blog Colors */
-  --color-blog-bg: #f1f1f1;
-  --color-blog-text: #1d1d1f;
-  --color-blog-card-bg: #ffffff;
-  --color-blog-card-border: rgba(0, 0, 0, 0.08);
-  --color-blog-card-shadow: rgba(0, 0, 0, 0.05);
-  --color-blog-card-shadow-hover: rgba(0, 0, 0, 0.08);
-  --color-blog-meta: #666;
-  --color-blog-subtitle: #555;
-  --color-blog-body-text: #202124;
-  --color-blog-code-bg: #edf2ff;
-  --color-blog-code-block-bg: #0f172a;
-  --color-blog-code-block-text: #f8fafc;
-  --color-blog-tag-bg: #eef2ff;
-  --color-blog-tag-text: #3730a3;
+  /* Blog Colors — dark void theme, matches homepage */
+  --color-blog-bg: #030305;
+  --color-blog-text: #f8fafc;
+  --color-blog-card-bg: rgba(15, 15, 25, 0.55);
+  --color-blog-card-border: rgba(255, 255, 255, 0.08);
+  --color-blog-card-shadow: rgba(0, 0, 0, 0.4);
+  --color-blog-card-shadow-hover: rgba(99, 102, 241, 0.25);
+  --color-blog-meta: #8b95a8;
+  --color-blog-subtitle: #a5adc0;
+  --color-blog-body-text: #e2e8f0;
+  --color-blog-code-bg: rgba(99, 102, 241, 0.1);
+  --color-blog-code-block-bg: rgba(0, 0, 0, 0.55);
+  --color-blog-code-block-text: #f1f5f9;
+  --color-blog-tag-bg: rgba(99, 102, 241, 0.15);
+  --color-blog-tag-text: #a5b4fc;
   --color-blog-blockquote-border: #6366f1;
-  --color-blog-blockquote-bg: #f5f7ff;
-  --color-blog-blockquote-text: #1f2937;
-  --color-blog-back-link: #555;
-  --color-blog-back-link-hover: #111;
-  --color-blog-editor-stats-bg: #f6f9ff;
-  --color-blog-editor-card-bg: #fafafa;
-  --color-blog-editor-preview-bg: #f8fafc;
-  --color-blog-editor-preview-header: #475569;
-  --color-blog-editor-preview-empty: #64748b;
-  --color-blog-status-published: #2e7d32;
-  --color-blog-status-draft: #ff6f00;
+  --color-blog-blockquote-bg: rgba(99, 102, 241, 0.08);
+  --color-blog-blockquote-text: #cbd5e1;
+  --color-blog-back-link: #a5b4fc;
+  --color-blog-back-link-hover: #c7d2fe;
 
   /* Syntax Highlighting Colors */
   --color-hljs-comment: #94a3b8;
