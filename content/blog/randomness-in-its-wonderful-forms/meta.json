@@ -1,7 +1,7 @@
 {
   "title": "Randomness in all its wonderful forms!",
   "slug": "randomness-in-its-wonderful-forms",
-  "summary": "A tour through randomness: what it is, how PRNGs work, and where true randomness comes from.",
+  "summary": "A tour through randomness: why it matters in modeling, random walks and the Wiener process, and estimating area with Monte Carlo.",
   "publishedAt": "2017-10-09T21:04:17.618Z",
   "updatedAt": "2017-10-09T21:04:17.618Z",
   "tags": [
