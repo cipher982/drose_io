@@ -7,7 +7,7 @@
  * Targets:
  *  - public/index.html (in place)
  *  - public/admin.html (in place)
- *  - server/routes/blog-public.ts (SSR CSS links)
+ *  - server/blog/layout.ts (SSR CSS links)
  */
 
 import { createHash } from 'crypto';
@@ -23,7 +23,7 @@ const HTML_TARGETS = [
 ];
 
 const TS_TARGETS = [
-  join(ROOT, 'server/routes/blog-public.ts'),
+  join(ROOT, 'server/blog/layout.ts'),
 ];
 
 // Assets we want busted. Key: URL path as it appears in markup.
