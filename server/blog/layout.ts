@@ -28,10 +28,10 @@ const BLOG_STYLES = `
   .blog-header { text-align: center; margin-bottom: var(--spacing-4xl); }
   .blog-header h1 { font-size: clamp(var(--font-size-7xl), 6vw, 48px); margin-bottom: var(--spacing-md); color: var(--color-blog-text); background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #a855f7 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .blog-header p { color: var(--color-blog-subtitle); font-size: var(--font-size-2xl); }
-  .blog-card { background: var(--color-blog-card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: var(--border-radius-xl); padding: var(--spacing-3xl); border: var(--border-width-thin) solid var(--color-blog-card-border); box-shadow: 0 4px 24px var(--color-blog-card-shadow); margin-bottom: var(--spacing-2xl); transition: transform var(--duration-fast) var(--timing-ease), box-shadow var(--duration-fast) var(--timing-ease), border-color var(--duration-fast) var(--timing-ease); }
+  .blog-card { display: block; background: var(--color-blog-card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: var(--border-radius-xl); padding: var(--spacing-3xl); border: var(--border-width-thin) solid var(--color-blog-card-border); box-shadow: 0 4px 24px var(--color-blog-card-shadow); margin-bottom: var(--spacing-2xl); transition: transform var(--duration-fast) var(--timing-ease), box-shadow var(--duration-fast) var(--timing-ease), border-color var(--duration-fast) var(--timing-ease); color: inherit; text-decoration: none; }
   .blog-card:hover { transform: translateY(-2px); box-shadow: 0 8px 40px var(--color-blog-card-shadow-hover); border-color: rgba(99, 102, 241, 0.3); }
-  .blog-card h2 { font-size: var(--font-size-4xl); margin: 0 0 var(--spacing-lg); }
-  .blog-card a { color: inherit; text-decoration: none; }
+  .blog-card:hover h2 { color: #a5b4fc; }
+  .blog-card h2 { font-size: var(--font-size-4xl); margin: 0 0 var(--spacing-lg); transition: color var(--duration-fast) var(--timing-ease); }
   .blog-card .meta { font-size: var(--font-size-md); color: var(--color-blog-meta); margin-bottom: var(--spacing-lg); }
   .blog-card .summary { font-size: var(--font-size-xl); line-height: var(--line-height-comfortable); }
   .blog-tags { display: flex; flex-wrap: wrap; gap: var(--spacing-md); margin-top: var(--spacing-xl); }
@@ -103,12 +103,12 @@ export function renderIndexPage(posts: Post[]): string {
   const cards = posts.map(p => {
     const tags = (p.meta.tags ?? []).map(t => `<span class="blog-tag">${esc(t)}</span>`).join('');
     return `
-<article class="blog-card">
-  <a href="/blog/${esc(p.meta.slug)}"><h2>${esc(p.meta.title)}</h2></a>
+<a class="blog-card" href="/blog/${esc(p.meta.slug)}">
+  <h2>${esc(p.meta.title)}</h2>
   <div class="meta">${formatDate(p.meta.publishedAt)}</div>
   <p class="summary">${esc(p.meta.summary)}</p>
   ${tags ? `<div class="blog-tags">${tags}</div>` : ''}
-</article>`;
+</a>`;
   }).join('\n');
 
   const body = `

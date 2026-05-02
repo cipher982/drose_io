@@ -271,16 +271,24 @@ async function convertPost(spec: PostSpec) {
     }
   });
 
-  // Highlight any residual <pre><code> blocks
-  body.find('pre code').each((_, el) => {
-    const $code = $(el);
-    const code = $code.text();
+  // Highlight any residual <pre> blocks. Medium uses two shapes:
+  //   (a) <pre><code class="language-X">...</code></pre>  (older exports)
+  //   (b) <pre data-code-block-lang="X">text</pre>        (newer exports — no child <code>)
+  body.find('pre').each((_, el) => {
+    const $pre = $(el);
+    const $code = $pre.find('code').first();
+    const code = $code.length ? $code.text() : $pre.text();
+    if (!code.trim()) return;
+
+    // Language lookup: prefer the data attr Medium puts on the <pre>, fall back to code class, then spec default
+    const dataLang = $pre.attr('data-code-block-lang');
     const classAttr = $code.attr('class') || '';
-    const langMatch = classAttr.match(/language-(\w+)/);
-    const lang = langMatch ? langMatch[1] : (spec.codeLang || 'plaintext');
+    const classMatch = classAttr.match(/language-(\w+)/);
+    const lang = dataLang || (classMatch ? classMatch[1] : (spec.codeLang || 'plaintext'));
+
     try {
       const highlighted = shiki.codeToHtml(code, { lang: lang as any, theme: 'github-dark' });
-      $code.parent('pre').replaceWith(highlighted);
+      $pre.replaceWith(highlighted);
     } catch {
       // unknown language — leave it
     }
