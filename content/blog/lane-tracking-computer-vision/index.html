@@ -13,7 +13,7 @@
 <span class="line"><span style="color:#E1E4E8">        cv2.drawChessboardCorners(img, (nx, ny), corners, ret)</span></span>
 <span class="line"><span style="color:#E1E4E8">        imgpoints.append(corners)</span></span>
 <span class="line"><span style="color:#E1E4E8">        objpoints.append(objp)</span></span>
-<span class="line"><span style="color:#E1E4E8">        plt.suptitle(</span><span style="color:#9ECBFF">'Before Distortion'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">        plt.suptitle(</span><span style="color:#9ECBFF">'Original'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">        plt.imshow(img)</span></span>
 <span class="line"><span style="color:#E1E4E8">        plt.show()</span></span>
 <span class="line"></span>
@@ -25,7 +25,7 @@
 <span class="line"><span style="color:#E1E4E8">        ret, mtx, dist, rvecs, tvecs </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> cv2.calibrateCamera(objpoints, imgpoints, toGray(img).shape[::</span><span style="color:#F97583">-</span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">], </span><span style="color:#79B8FF">None</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">None</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">        undist </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> cv2.undistort(img, mtx, dist, </span><span style="color:#79B8FF">None</span><span style="color:#E1E4E8">, mtx)</span></span>
 <span class="line"><span style="color:#E1E4E8">        </span></span>
-<span class="line"><span style="color:#E1E4E8">        plt.suptitle(</span><span style="color:#9ECBFF">'After Distortion'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">        plt.suptitle(</span><span style="color:#9ECBFF">'Undistorted'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">        plt.imshow(undist)</span></span>
 <span class="line"><span style="color:#E1E4E8">        plt.show()</span></span>
 <span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> ret </span><span style="color:#F97583">==</span><span style="color:#79B8FF"> False</span><span style="color:#E1E4E8">:</span></span>
@@ -90,14 +90,14 @@
 <span class="line"><span style="color:#E1E4E8">    out_img </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.dstack((binary_warped, binary_warped, binary_warped))</span><span style="color:#F97583">*</span><span style="color:#79B8FF">255</span></span>
 <span class="line"><span style="color:#6A737D">    # Find the peak of the left and right halves of the histogram</span></span>
 <span class="line"><span style="color:#6A737D">    # These will be the starting point for the left and right lines</span></span>
-<span class="line"><span style="color:#E1E4E8">    midpoint </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int(histogram.shape[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">]</span><span style="color:#F97583">/</span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">    midpoint </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int_(histogram.shape[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">]</span><span style="color:#F97583">/</span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">    leftx_base </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.argmax(histogram[:midpoint])</span></span>
 <span class="line"><span style="color:#E1E4E8">    rightx_base </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.argmax(histogram[midpoint:]) </span><span style="color:#F97583">+</span><span style="color:#E1E4E8"> midpoint</span></span>
 <span class="line"></span>
 <span class="line"><span style="color:#6A737D">    # Choose the number of sliding windows</span></span>
 <span class="line"><span style="color:#E1E4E8">    nwindows </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> 9</span></span>
 <span class="line"><span style="color:#6A737D">    # Set height of windows</span></span>
-<span class="line"><span style="color:#E1E4E8">    window_height </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int(binary_warped.shape[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">]</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">nwindows)</span></span>
+<span class="line"><span style="color:#E1E4E8">    window_height </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int_(binary_warped.shape[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">]</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">nwindows)</span></span>
 <span class="line"><span style="color:#6A737D">    # Identify the x and y positions of all nonzero pixels in the image</span></span>
 <span class="line"><span style="color:#E1E4E8">    nonzero </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> binary_warped.nonzero()</span></span>
 <span class="line"><span style="color:#E1E4E8">    nonzeroy </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.array(nonzero[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">])</span></span>
@@ -133,9 +133,9 @@
 <span class="line"><span style="color:#E1E4E8">        right_lane_inds.append(good_right_inds)</span></span>
 <span class="line"><span style="color:#6A737D">        # If you found &gt; minpix pixels, recenter next window on their mean position</span></span>
 <span class="line"><span style="color:#F97583">        if</span><span style="color:#79B8FF"> len</span><span style="color:#E1E4E8">(good_left_inds) </span><span style="color:#F97583">&gt;</span><span style="color:#E1E4E8"> minpix:</span></span>
-<span class="line"><span style="color:#E1E4E8">            leftx_current </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int(np.mean(nonzerox[good_left_inds]))</span></span>
+<span class="line"><span style="color:#E1E4E8">            leftx_current </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int_(np.mean(nonzerox[good_left_inds]))</span></span>
 <span class="line"><span style="color:#F97583">        if</span><span style="color:#79B8FF"> len</span><span style="color:#E1E4E8">(good_right_inds) </span><span style="color:#F97583">&gt;</span><span style="color:#E1E4E8"> minpix:        </span></span>
-<span class="line"><span style="color:#E1E4E8">            rightx_current </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int(np.mean(nonzerox[good_right_inds]))</span></span>
+<span class="line"><span style="color:#E1E4E8">            rightx_current </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.int_(np.mean(nonzerox[good_right_inds]))</span></span>
 <span class="line"></span>
 <span class="line"><span style="color:#6A737D">    # Concatenate the arrays of indices</span></span>
 <span class="line"><span style="color:#E1E4E8">    left_lane_inds </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> np.concatenate(left_lane_inds)</span></span>
@@ -187,7 +187,7 @@
 <span class="line"><span style="color:#E1E4E8">  plt.imshow(color_warp)</span></span>
 <span class="line"><span style="color:#E1E4E8">  plt.plot(left_fitx, ploty, </span><span style="color:#FFAB70">color</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'yellow'</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">  plt.plot(right_fitx, ploty, </span><span style="color:#FFAB70">color</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'yellow'</span><span style="color:#E1E4E8">)</span></span>
-<span class="line"><span style="color:#E1E4E8">  plt.suptitle(</span><span style="color:#9ECBFF">'laness'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">  plt.suptitle(</span><span style="color:#9ECBFF">'lanes'</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontsize</span><span style="color:#F97583">=</span><span style="color:#79B8FF">14</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">fontweight</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">'bold'</span><span style="color:#E1E4E8">)</span></span>
 <span class="line"><span style="color:#E1E4E8">  plt.show()</span></span>
 <span class="line"><span style="color:#6A737D">  #toWarp(fig,src=src,dst=dst)</span></span>
 <span class="line"></span>
