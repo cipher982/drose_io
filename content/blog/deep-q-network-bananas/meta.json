@@ -1,0 +1,13 @@
+{
+  "title": "Collecting Bananas with a Deep Q-Network",
+  "slug": "deep-q-network-bananas",
+  "summary": "Training a Deep Q-Network agent in Unity to collect yellow bananas and avoid blue ones — replay buffers, target networks, the DQN essentials.",
+  "publishedAt": "2019-01-03T20:35:00.527Z",
+  "updatedAt": "2019-01-03T20:35:00.527Z",
+  "tags": [
+    "reinforcement-learning",
+    "deep-learning"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/collecting-bananas-with-a-deep-q-network-26c7a45d4c27"
+}

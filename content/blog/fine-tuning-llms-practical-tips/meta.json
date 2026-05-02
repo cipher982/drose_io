@@ -1,0 +1,14 @@
+{
+  "title": "Fine-tuning LLMs: Practical Techniques and Helpful Tips",
+  "slug": "fine-tuning-llms-practical-tips",
+  "summary": "Practical techniques and hard-won tips for fine-tuning large language models: dataset prep, parameter-efficient methods, and evaluation.",
+  "publishedAt": "2023-09-27T18:57:21.723Z",
+  "updatedAt": "2023-09-27T18:57:21.723Z",
+  "tags": [
+    "llm",
+    "fine-tuning",
+    "machine-learning"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/fine-tuning-llms-practical-techniques-and-helpful-tips-3a169cc62cca"
+}

@@ -1,0 +1,13 @@
+{
+  "title": "Graph Neural Networks",
+  "slug": "graph-neural-networks-intro",
+  "summary": "An intuition-first introduction to Graph Neural Networks: message passing, aggregation, and why GNNs unlock problems that grids and sequences cannot.",
+  "publishedAt": "2021-07-05T20:58:43.004Z",
+  "updatedAt": "2021-07-05T20:58:43.004Z",
+  "tags": [
+    "graph-neural-networks",
+    "deep-learning"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/graph-neural-networks-3346c6fe7553"
+}

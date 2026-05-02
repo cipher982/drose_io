@@ -1,0 +1,13 @@
+{
+  "title": "Vehicle MPC Controller",
+  "slug": "vehicle-mpc-controller",
+  "summary": "Implementing a Model Predictive Controller for autonomous vehicle steering and throttle — optimizing a cost function over a rolling horizon.",
+  "publishedAt": "2017-12-19T21:53:33.512Z",
+  "updatedAt": "2017-12-19T21:53:33.512Z",
+  "tags": [
+    "control-systems",
+    "self-driving-cars"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/vehicle-mpc-controller-33ae813cf3be"
+}

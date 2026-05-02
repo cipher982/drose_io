@@ -17,6 +17,9 @@
   "devDependencies": {
     "@playwright/test": "^1.55.1",
     "bun-types": "latest",
+    "cheerio": "^1.2.0",
+    "isomorphic-dompurify": "^3.11.0",
+    "shiki": "^4.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

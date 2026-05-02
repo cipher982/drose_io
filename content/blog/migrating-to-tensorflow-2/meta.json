@@ -1,0 +1,13 @@
+{
+  "title": "Lessons Migrating a Large Project to TensorFlow 2",
+  "slug": "migrating-to-tensorflow-2",
+  "summary": "Field notes from migrating a production TensorFlow 1.x project to TF 2.x — the traps, the compatibility shims, and what was actually worth the rewrite.",
+  "publishedAt": "2020-09-29T22:49:20.941Z",
+  "updatedAt": "2020-09-29T22:49:20.941Z",
+  "tags": [
+    "tensorflow",
+    "machine-learning"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/lessons-migrating-a-large-project-to-tensorflow-2-27174292aa37"
+}

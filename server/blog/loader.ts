@@ -25,6 +25,9 @@ function validateMeta(raw: unknown, dirName: string): PostMeta {
   if (m.status !== 'published' && m.status !== 'draft') {
     throw new Error(`${dirName}/meta.json: status must be "published" or "draft"`);
   }
+  if (Number.isNaN(new Date(m.publishedAt as string).getTime())) {
+    throw new Error(`${dirName}/meta.json: publishedAt "${m.publishedAt}" is not a valid date`);
+  }
   const tags = Array.isArray(m.tags) ? m.tags.filter((t): t is string => typeof t === 'string') : [];
   return {
     title: m.title as string,

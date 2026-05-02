@@ -1,0 +1,13 @@
+{
+  "title": "Autonomous Vehicle Path Planning",
+  "slug": "autonomous-vehicle-path-planning",
+  "summary": "Building a path planner for a simulated highway: behavior planning, trajectory generation, and smooth lane changes in traffic.",
+  "publishedAt": "2018-02-16T15:56:03.662Z",
+  "updatedAt": "2018-02-16T15:56:03.662Z",
+  "tags": [
+    "self-driving-cars",
+    "path-planning"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/autonomous-vehicle-path-planning-f8027a5f83f8"
+}

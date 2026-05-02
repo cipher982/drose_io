@@ -1,0 +1,13 @@
+{
+  "title": "Lane Tracking via Computer Vision",
+  "slug": "lane-tracking-computer-vision",
+  "summary": "Classical computer-vision techniques — color thresholds, perspective transforms, polynomial fits — to detect lane lines from a dashcam feed.",
+  "publishedAt": "2017-11-08T21:35:00.833Z",
+  "updatedAt": "2017-11-08T21:35:00.833Z",
+  "tags": [
+    "computer-vision",
+    "self-driving-cars"
+  ],
+  "status": "published",
+  "mediumUrl": "https://medium.com/@david010/lane-tracking-via-computer-vision-2acb4c7c1c22"
+}

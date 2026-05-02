@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { join, normalize, resolve, extname } from 'path';
-import { BLOG_DIR, getPost, publishedPosts, allPosts } from './loader';
+import { BLOG_DIR, getPost, publishedPosts } from './loader';
 import { renderIndexPage, renderPostPage } from './layout';
 import { renderRss } from './rss';
 
@@ -16,7 +16,7 @@ export function blogRss(c: Context) {
 export function blogPost(c: Context) {
   const slug = c.req.param('slug');
   if (!slug) return c.notFound();
-  const post = allPosts().find(p => p.meta.slug === slug);
+  const post = getPost(slug);
   if (!post) return c.notFound();
   if (post.meta.status === 'draft' && c.req.query('preview') !== '1') {
     return c.notFound();
@@ -37,7 +37,7 @@ export async function blogAsset(c: Context) {
   const slug = c.req.param('slug');
   const assetPath = c.req.param('path');
   if (!slug || !assetPath) return c.notFound();
-  if (!getPost(slug) && !allPosts().find(p => p.meta.slug === slug)) return c.notFound();
+  if (!getPost(slug)) return c.notFound();
 
   const assetsRoot = resolve(join(BLOG_DIR, slug, 'assets'));
   const requested = resolve(join(assetsRoot, assetPath));
