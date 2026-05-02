@@ -15,6 +15,10 @@ export function buildUmamiScript(): string {
 
   const domainAttr = domains ? ` data-domains="${domains}"` : '';
   const tagAttr = tag ? ` data-tag="${tag}"` : '';
+  const recorderSrc = scriptSrc.replace('script.js', 'recorder.js');
 
-  return `<script defer src="${scriptSrc}" data-website-id="${websiteId}"${domainAttr}${tagAttr}></script>`;
+  return [
+    `<script defer src="${scriptSrc}" data-website-id="${websiteId}"${domainAttr}${tagAttr} data-performance="true"></script>`,
+    `<script defer src="${recorderSrc}" data-website-id="${websiteId}" data-sample-rate="1" data-mask-level="moderate" data-max-duration="1800000"></script>`,
+  ].join('\n    ');
 }

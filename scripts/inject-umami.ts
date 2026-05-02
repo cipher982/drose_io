@@ -11,7 +11,8 @@ const HTML_FILES = [
   './public/admin.html',
 ];
 
-const UMAMI_PATTERN = /<script[^>]*analytics\.drose\.io\/script\.js[^>]*><\/script>/g;
+const UMAMI_PATTERN =
+  /<script[^>]*analytics\.drose\.io\/script\.js[^>]*><\/script>(?:\s*<script[^>]*analytics\.drose\.io\/recorder\.js[^>]*><\/script>)?/g;
 
 async function injectUmamiScript() {
   const umamiScript = buildUmamiScript();
