@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ripple map — Qwen3.5 2B internal response to prompt perturbation</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --accent: #ff7a59; --grid: #1c2026; --panel:#0e1116;
+    --border:#1c2026; --a:#6cc4ff; --b:#ff9e5a;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; font-size:13px; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:14px 20px 10px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:18px; margin:0; letter-spacing:0.2px; }
+  .sub { color:var(--muted); font-size:11.5px; margin:2px 0 8px; max-width:1200px; line-height:1.45; }
+  .controls { display:flex; gap:6px; align-items:center; padding:4px 0 8px; flex-wrap:wrap; }
+  .cat-pill {
+    background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:5px 9px; border-radius:5px; font-size:11px; cursor:pointer;
+    font-family:inherit; transition:all .15s; font-variant-numeric:tabular-nums;
+  }
+  .cat-pill .num { opacity:0.55; margin-right:4px; }
+  .cat-pill.active { background:var(--accent); color:#0b0d10; border-color:var(--accent); font-weight:600; }
+  .cat-pill.active .num { opacity:0.85; }
+  .cat-pill:hover:not(.active) { border-color:#555; color:var(--ink); }
+  .divider { width:1px; height:18px; background:#2a2f38; margin:0 6px; }
+  .chan-group { display:flex; gap:3px; }
+  .chan { background:#151921; color:var(--muted); border:1px solid #262c35;
+    padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer;
+    font-family:inherit; letter-spacing:0.5px; }
+  .chan.active { background:#2a2f38; color:var(--ink); border-color:#3b434f; }
+  .readout { color:var(--muted); font-size:11px; margin-left:auto; font-variant-numeric:tabular-nums; }
+  .readout b { color:var(--ink); }
+
+  .grid-main { flex:1; min-height:0;
+    display:grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: minmax(0,1.9fr) minmax(0,1fr);
+    gap:10px; }
+  .panel { border:1px solid var(--border); border-radius:6px; background:var(--panel);
+    display:flex; flex-direction:column; min-height:0; min-width:0; overflow:hidden; }
+  .panel-head { display:flex; align-items:baseline; gap:10px;
+    padding:6px 10px 4px; border-bottom:1px solid #161a20; }
+  .panel-title { font-size:12px; font-weight:500; letter-spacing:0.3px; }
+  .panel-sub { color:var(--muted); font-size:10.5px; }
+  .panel-body { flex:1; min-height:0; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+
+  /* A spans tall, B to its right spans tall. C & D bottom row. */
+  .p-A { grid-column:1; grid-row:1; }
+  .p-B { grid-column:2; grid-row:1; }
+  .p-C { grid-column:1; grid-row:2; }
+  .p-D { grid-column:2; grid-row:2; }
+
+  .axis path, .axis line { stroke:#3a4049; }
+  .axis text { fill:var(--muted); font-size:10px; }
+  .grid-ln line { stroke:var(--grid); stroke-dasharray:2 3; }
+  .grid-ln path { stroke:none; }
+  .axis-label { fill:var(--ink); font-size:11px; }
+  .legend-lbl { fill:var(--muted); font-size:10px; }
+  .hair { stroke:#ff7a59; stroke-width:1; stroke-dasharray:3 3; fill:none; }
+  .annot { fill:var(--muted); font-size:10px; }
+  .annot.ink { fill:var(--ink); }
+
+  .tooltip { position:absolute; pointer-events:none; background:#11151b;
+    border:1px solid #2a2f38; border-radius:5px; padding:6px 9px;
+    font-size:11px; color:var(--ink); max-width:260px;
+    font-variant-numeric:tabular-nums; opacity:0; transition:opacity 0.1s;
+    z-index:10; }
+  .tooltip .tok { color:var(--accent); font-family:"SF Mono",Menlo,monospace; }
+  .tooltip .dim { color:var(--muted); }
+
+  .tok-strip { font-family:"SF Mono",Menlo,monospace; font-size:9.5px;
+    color:var(--muted); padding:2px 4px; white-space:nowrap; overflow:hidden; }
+  .ch-lbl { fill:var(--muted); font-size:10px; }
+  .ch-val { fill:var(--ink); font-size:10.5px; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ripple map — Qwen3.5 2B internal response to prompt perturbation</h1>
+  <div class="sub">One prompt pair per perturbation tier. Heatmap = layer × token cosine distance between A and B generations. Shallow layers contract; deep layers amplify (Li et al. 2025). The same perturbation rock, dropped into progressively deeper water.</div>
+
+  <div class="controls" id="controls">
+    <span style="color:var(--muted);font-size:10.5px;letter-spacing:0.4px;">TIER</span>
+    <div id="pills" style="display:flex;gap:4px;"></div>
+    <div class="divider"></div>
+    <span style="color:var(--muted);font-size:10.5px;letter-spacing:0.4px;">CHANNEL</span>
+    <div class="chan-group" id="chans">
+      <button class="chan active" data-key="resid_cos">RESID</button>
+      <button class="chan" data-key="attn_cos">ATTN</button>
+      <button class="chan" data-key="mlp_cos">MLP</button>
+    </div>
+    <div class="readout" id="readout"></div>
+  </div>
+
+  <div class="grid-main">
+    <div class="panel p-A">
+      <div class="panel-head">
+        <span class="panel-title">A · Ripple map</span>
+        <span class="panel-sub">layer × token cosine distance (A vs B) · hover cells for token detail</span>
+      </div>
+      <div class="panel-body" id="A"></div>
+    </div>
+
+    <div class="panel p-B">
+      <div class="panel-head">
+        <span class="panel-title">B · Activation magnitude by layer</span>
+        <span class="panel-sub">mean ‖resid‖; Li et al. two-phase fit</span>
+      </div>
+      <div class="panel-body" id="B"></div>
+    </div>
+
+    <div class="panel p-C">
+      <div class="panel-head">
+        <span class="panel-title">C · Top-K KL(A‖B) per token</span>
+        <span class="panel-sub">output-space divergence, final layer</span>
+      </div>
+      <div class="panel-body" id="C"></div>
+    </div>
+
+    <div class="panel p-D">
+      <div class="panel-head">
+        <span class="panel-title">D · Channel decomposition</span>
+        <span class="panel-sub">layer 23, mean |cos-dist|</span>
+      </div>
+      <div class="panel-body" id="D"></div>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tip"></div>
+
+<script>
+const CATS = [
+  { key:"control_identical", label:"control" },
+  { key:"noop_format",       label:"noop" },
+  { key:"punctuation",       label:"punctuation" },
+  { key:"synonym",           label:"synonym" },
+  { key:"paraphrase",        label:"paraphrase" },
+  { key:"semantic_small",    label:"semantic" },
+  { key:"positive_control",  label:"pos ctrl" },
+];
+const DUR = 180;
+const EASE = d3.easeCubicInOut;
+const CHANNEL_LBL = { resid_cos:"residual", attn_cos:"attention", mlp_cos:"MLP" };
+
+// Li et al. two-phase exponential fit in log-space (natural log slope per layer)
+const LI_SHALLOW_SLOPE = 0.27;  // layers 0..9
+const LI_DEEP_SLOPE    = 0.075; // layers 10..23
+const LI_TRANSITION    = 10;
+
+const state = { tier: "punctuation", channel: "resid_cos", data:null };
+const tip = d3.select("#tip");
+
+function fmt(n, d=3) { return (n==null||isNaN(n))?"—":(+n).toFixed(d); }
+
+function tooltip(html, x, y) {
+  tip.html(html).style("opacity", 1)
+    .style("left", (x+12)+"px").style("top", (y+12)+"px");
+}
+function hideTip() { tip.style("opacity", 0); }
+
+// Cosine distance maps very non-linearly to "meaningful difference" — almost any
+// text perturbation saturates to ~0.4-0.7 quickly, so a linear [0,1] scale makes
+// punctuation/synonym/paraphrase look the same. Gamma-shape the scale so the
+// mid-band is visually separated.
+const COLOR = v => d3.interpolateInferno(Math.pow(Math.min(1, Math.max(0, v)), 0.6));
+
+function mean(arr) { let s=0,n=0; for (const v of arr) { if (isFinite(v)) { s+=v; n++; } } return n?s/n:0; }
+
+fetch("data/ripple.json").then(r=>r.json()).then(data => {
+  state.data = data;
+
+  // Build tier pills
+  const pills = d3.select("#pills");
+  data.categories.forEach((k, i) => {
+    const c = CATS.find(c=>c.key===k) || {key:k, label:k};
+    pills.append("button")
+      .attr("class", "cat-pill" + (k===state.tier ? " active" : ""))
+      .attr("data-key", k)
+      .html(`<span class="num">${i+1}.</span>${c.label}`)
+      .on("click", function() {
+        pills.selectAll(".cat-pill").classed("active", false);
+        d3.select(this).classed("active", true);
+        state.tier = k;
+        renderAll();
+      });
+  });
+
+  d3.selectAll("#chans .chan").on("click", function() {
+    d3.selectAll("#chans .chan").classed("active", false);
+    d3.select(this).classed("active", true);
+    state.channel = this.dataset.key;
+    renderA();
+    renderD();
+    renderReadout();
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    const n = parseInt(e.key, 10);
+    if (n>=1 && n<=data.categories.length) {
+      const k = data.categories[n-1];
+      state.tier = k;
+      pills.selectAll(".cat-pill").classed("active", function(){ return d3.select(this).attr("data-key")===k; });
+      renderAll();
+    }
+  });
+
+  buildA(); buildB(); buildC(); buildD();
+  renderAll();
+  window.addEventListener("resize", () => { buildA(); buildB(); buildC(); buildD(); renderAll(); });
+});
+
+function renderAll() { renderA(); renderB(); renderC(); renderD(); renderReadout(); }
+
+function renderReadout() {
+  const p = state.data.pairs[state.tier];
+  const mat = p[state.channel];
+  const allVals = mat.flat();
+  const meanV = mean(allVals.map(Math.abs));
+  const deepMean = mean(mat[mat.length-1].map(Math.abs));
+  const shallowMean = mean(mat[0].map(Math.abs));
+  d3.select("#readout").html(
+    `<b>${state.tier}</b> · <span class="dim" style="opacity:0.6">${CHANNEL_LBL[state.channel]}</span>
+    · pair <b>${p.pair_id}</b> · ${p.n_tokens} tokens
+    &nbsp;·&nbsp; mean |cos-d|: <b>${fmt(meanV)}</b>
+    &nbsp;·&nbsp; L0: <b>${fmt(shallowMean)}</b>
+    &nbsp;·&nbsp; L23: <b>${fmt(deepMean)}</b>
+    &nbsp;·&nbsp; ratio: <b>${fmt(deepMean/Math.max(shallowMean,1e-9),1)}×</b>`
+  );
+}
+
+// ============ PANEL A: ripple heatmap ============
+let A = {};
+function buildA() {
+  const root = d3.select("#A"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:18, right:18, bottom:44, left:52 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+
+  // Layer axis label
+  svg.append("text").attr("class","annot ink")
+    .attr("x", 10).attr("y", margin.top+6).attr("font-size",10)
+    .text("shallow ↑");
+  svg.append("text").attr("class","annot ink")
+    .attr("x", 10).attr("y", H - margin.bottom - 2).attr("font-size",10)
+    .text("deep ↓");
+
+  // Colorbar (right side inside panel head area)
+  const cbW = 120, cbH = 6;
+  const cbG = svg.append("g").attr("transform", `translate(${W-cbW-16}, 6)`);
+  const grad = svg.append("defs").append("linearGradient")
+    .attr("id","ripple-grad").attr("x1","0").attr("x2","1").attr("y1","0").attr("y2","0");
+  d3.range(0, 1.001, 0.05).forEach(t => {
+    grad.append("stop").attr("offset", (t*100)+"%").attr("stop-color", COLOR(t));
+  });
+  cbG.append("rect").attr("width",cbW).attr("height",cbH).attr("fill","url(#ripple-grad)").attr("rx",2);
+  cbG.append("text").attr("y",-2).attr("x",0).attr("class","legend-lbl").text("cosine distance");
+  cbG.append("text").attr("y",cbH+10).attr("x",0).attr("class","legend-lbl").text("0");
+  cbG.append("text").attr("y",cbH+10).attr("x",cbW).attr("class","legend-lbl").attr("text-anchor","end").text("1");
+
+  g.append("g").attr("class","cells");
+  g.append("g").attr("class","y-axis axis");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  g.append("text").attr("class","axis-label")
+    .attr("transform",`translate(-38, ${ih/2}) rotate(-90)`)
+    .attr("text-anchor","middle").text("layer index");
+  g.append("text").attr("class","axis-label")
+    .attr("x", iw/2).attr("y", ih+32).attr("text-anchor","middle").text("token index (generation step)");
+  g.append("line").attr("class","hair").attr("x1",0).attr("x2",iw);
+  g.append("text").attr("class","annot ink").attr("class","transition-lbl");
+  A = { svg, g, iw, ih, margin, root, W, H };
+}
+
+function renderA() {
+  if (!A.g) return;
+  const p = state.data.pairs[state.tier];
+  const mat = p[state.channel];
+  const nL = state.data.n_layers, nT = p.n_tokens;
+  const cw = A.iw / nT, rh = A.ih / nL;
+
+  const yAxis = d3.scaleLinear().domain([-0.5, nL-0.5]).range([0, A.ih]);
+  const xAxis = d3.scaleLinear().domain([-0.5, nT-0.5]).range([0, A.iw]);
+
+  A.g.select(".y-axis").call(
+    d3.axisLeft(yAxis).tickValues([0, 6, 12, 18, 23]).tickFormat(d=>d).tickSize(-A.iw)
+  ).call(sel => sel.selectAll("line").attr("stroke","#1c2026").attr("stroke-dasharray","2 3"))
+   .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  // X ticks: every ~8 tokens
+  const stride = Math.max(1, Math.floor(nT/8));
+  const xTicks = d3.range(0, nT, stride);
+  A.g.select(".x-axis").call(
+    d3.axisBottom(xAxis).tickValues(xTicks).tickFormat(d=>d).tickSize(4)
+  ).call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  // Transition line (layer 10)
+  const ty = yAxis(LI_TRANSITION - 0.5);
+  A.g.select(".hair").transition().duration(DUR).ease(EASE)
+    .attr("y1", ty).attr("y2", ty);
+
+  A.g.select(".transition-lbl")
+    .attr("x", A.iw - 6).attr("y", ty - 4)
+    .attr("text-anchor","end")
+    .attr("font-size", 9.5)
+    .attr("fill", "#ff7a59")
+    .text("L10 · shallow contracting  |  deep amplifying");
+
+  // Build cell data
+  const cells = [];
+  for (let L=0; L<nL; L++) {
+    for (let T=0; T<nT; T++) {
+      cells.push({ L, T, v: mat[L][T] });
+    }
+  }
+
+  const sel = A.g.select(".cells").selectAll("rect").data(cells, d => `${d.L}-${d.T}`);
+  sel.enter().append("rect")
+    .attr("x", d=>xAxis(d.T-0.5))
+    .attr("y", d=>yAxis(d.L-0.5))
+    .attr("width", cw+0.5).attr("height", rh+0.5)
+    .attr("fill", d=>COLOR(Math.max(0, Math.min(1, Math.abs(d.v)))))
+    .attr("stroke","none")
+    .on("mouseover", (e, d) => {
+      const tok = p.tokens_a[d.T] || "";
+      const tokB = p.tokens_b[d.T] || "";
+      tooltip(
+        `<div>layer <b>${d.L}</b> · token <b>${d.T}</b></div>
+         <div>A: <span class="tok">${escapeHtml(tok)}</span></div>
+         <div>B: <span class="tok">${escapeHtml(tokB)}</span></div>
+         <div class="dim">${CHANNEL_LBL[state.channel]} cos-dist: <b style="color:var(--ink)">${fmt(d.v, 4)}</b></div>`,
+        e.clientX, e.clientY);
+    })
+    .on("mousemove", (e) => tip.style("left",(e.clientX+12)+"px").style("top",(e.clientY+12)+"px"))
+    .on("mouseout", hideTip)
+    .merge(sel)
+      .attr("x", d=>xAxis(d.T-0.5))
+      .attr("y", d=>yAxis(d.L-0.5))
+      .attr("width", cw+0.5).attr("height", rh+0.5)
+      .attr("fill", d=>COLOR(Math.max(0, Math.min(1, Math.abs(d.v)))));
+  sel.exit().remove();
+}
+
+// ============ PANEL B: magnitude curve ============
+let B = {};
+function buildB() {
+  const root = d3.select("#B"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:12, right:14, bottom:34, left:44 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+  g.append("g").attr("class","grid-ln");
+  g.append("g").attr("class","y-axis axis");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  g.append("text").attr("class","axis-label")
+    .attr("transform",`translate(-34, ${ih/2}) rotate(-90)`)
+    .attr("text-anchor","middle").text("log ‖resid‖");
+  g.append("text").attr("class","axis-label")
+    .attr("x", iw/2).attr("y", ih+26).attr("text-anchor","middle").text("layer index");
+  g.append("path").attr("class","curve-a").attr("fill","none").attr("stroke","var(--a)").attr("stroke-width",2);
+  g.append("path").attr("class","curve-b").attr("fill","none").attr("stroke","var(--b)").attr("stroke-width",2).attr("stroke-dasharray","4 3");
+  g.append("path").attr("class","fit-shallow").attr("fill","none").attr("stroke","#8a8f98").attr("stroke-width",1).attr("stroke-dasharray","2 2");
+  g.append("path").attr("class","fit-deep").attr("fill","none").attr("stroke","#8a8f98").attr("stroke-width",1).attr("stroke-dasharray","2 2");
+  // Legend
+  const lg = svg.append("g").attr("transform",`translate(${margin.left+8},${margin.top+4})`);
+  function legItem(y, color, text, dashed=false) {
+    lg.append("line").attr("x1",0).attr("x2",14).attr("y1",y).attr("y2",y)
+      .attr("stroke",color).attr("stroke-width",2)
+      .attr("stroke-dasharray", dashed ? "4 3" : "none");
+    lg.append("text").attr("x",18).attr("y",y+3).attr("class","legend-lbl").text(text);
+  }
+  legItem(0, "var(--a)", "A");
+  legItem(12, "var(--b)", "B", true);
+  legItem(24, "#8a8f98", "Li fit 0.27→0.075", true);
+  B = { svg, g, iw, ih, margin, W, H };
+}
+
+function renderB() {
+  if (!B.g) return;
+  const p = state.data.pairs[state.tier];
+  const nL = state.data.n_layers;
+
+  const meansA = p.resid_norm_a.map(row => mean(row));
+  const meansB = p.resid_norm_b.map(row => mean(row));
+
+  // log scale
+  const logA = meansA.map(v => Math.log(Math.max(v, 1e-9)));
+  const logB = meansB.map(v => Math.log(Math.max(v, 1e-9)));
+
+  // Li et al. two-phase fit: anchor at the actual A magnitude at layer 0
+  // then project forward with slope 0.27 to layer 9, slope 0.075 from layer 10 to 23.
+  const start = logA[0];
+  const fitShallow = [];
+  for (let L=0; L<=LI_TRANSITION-1; L++) fitShallow.push({L, v: start + LI_SHALLOW_SLOPE*L});
+  const pivot = start + LI_SHALLOW_SLOPE*(LI_TRANSITION-1);
+  const fitDeep = [];
+  for (let L=LI_TRANSITION-1; L<nL; L++) fitDeep.push({L, v: pivot + LI_DEEP_SLOPE*(L-(LI_TRANSITION-1))});
+
+  const allLog = [...logA, ...logB, ...fitShallow.map(d=>d.v), ...fitDeep.map(d=>d.v)];
+  const yMin = d3.min(allLog) - 0.3;
+  const yMax = d3.max(allLog) + 0.3;
+
+  const x = d3.scaleLinear().domain([0, nL-1]).range([0, B.iw]);
+  const y = d3.scaleLinear().domain([yMin, yMax]).range([B.ih, 0]);
+
+  B.g.select(".grid-ln")
+    .call(d3.axisLeft(y).ticks(4).tickSize(-B.iw).tickFormat(""))
+    .call(sel => sel.select(".domain").attr("stroke","none"));
+
+  B.g.select(".y-axis").call(d3.axisLeft(y).ticks(4).tickFormat(d=>d.toFixed(1)))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+  B.g.select(".x-axis").call(d3.axisBottom(x).ticks(6).tickFormat(d=>d))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  const line = d3.line().x((d,i)=>x(i)).y(d=>y(d)).curve(d3.curveMonotoneX);
+  B.g.select(".curve-a").datum(logA).transition().duration(DUR).ease(EASE).attr("d", line);
+  B.g.select(".curve-b").datum(logB).transition().duration(DUR).ease(EASE).attr("d", line);
+
+  const fitLine = d3.line().x(d=>x(d.L)).y(d=>y(d.v));
+  B.g.select(".fit-shallow").datum(fitShallow).transition().duration(DUR).ease(EASE).attr("d", fitLine);
+  B.g.select(".fit-deep").datum(fitDeep).transition().duration(DUR).ease(EASE).attr("d", fitLine);
+
+  // Slope labels (static but re-position)
+  B.g.selectAll(".slope-lbl").remove();
+  B.g.append("text").attr("class","slope-lbl annot")
+    .attr("x", x(4)).attr("y", y(fitShallow[4].v) - 6)
+    .attr("font-size", 9.5).attr("fill","#8a8f98")
+    .text("1.32×/layer");
+  B.g.append("text").attr("class","slope-lbl annot")
+    .attr("x", x(16)).attr("y", y(fitDeep[16-(LI_TRANSITION-1)].v) - 6)
+    .attr("font-size", 9.5).attr("fill","#8a8f98")
+    .text("1.08×/layer");
+}
+
+// ============ PANEL C: KL ribbon ============
+let C = {};
+function buildC() {
+  const root = d3.select("#C"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:12, right:14, bottom:28, left:44 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+  g.append("g").attr("class","grid-ln");
+  g.append("g").attr("class","y-axis axis");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  g.append("path").attr("class","area").attr("fill","var(--accent)").attr("fill-opacity",0.35).attr("stroke","var(--accent)").attr("stroke-width",1.5);
+  g.append("text").attr("class","axis-label")
+    .attr("transform",`translate(-34, ${ih/2}) rotate(-90)`).attr("text-anchor","middle").text("KL(A‖B)");
+  g.append("text").attr("class","axis-label")
+    .attr("x", iw/2).attr("y", ih+22).attr("text-anchor","middle").text("token index");
+  C = { svg, g, iw, ih };
+}
+
+function renderC() {
+  if (!C.g) return;
+  const p = state.data.pairs[state.tier];
+  const kl = p.topk_kl;
+  const nT = kl.length;
+  const yMax = Math.max(1e-3, d3.max(kl) * 1.1);
+  const x = d3.scaleLinear().domain([0, nT-1]).range([0, C.iw]);
+  const y = d3.scaleLinear().domain([0, yMax]).range([C.ih, 0]);
+
+  C.g.select(".grid-ln")
+    .call(d3.axisLeft(y).ticks(3).tickSize(-C.iw).tickFormat(""))
+    .call(sel => sel.select(".domain").attr("stroke","none"));
+  C.g.select(".y-axis").call(d3.axisLeft(y).ticks(3).tickFormat(d=>d.toFixed(2)))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+  const stride = Math.max(1, Math.floor(nT/8));
+  C.g.select(".x-axis").call(d3.axisBottom(x).tickValues(d3.range(0,nT,stride)).tickFormat(d=>d))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  const area = d3.area()
+    .x((d,i)=>x(i)).y0(C.ih).y1(d=>y(Math.max(0,d)))
+    .curve(d3.curveMonotoneX);
+  C.g.select(".area").datum(kl).transition().duration(DUR).ease(EASE).attr("d", area);
+}
+
+// ============ PANEL D: channel decomposition bars ============
+let D = {};
+function buildD() {
+  const root = d3.select("#D"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:14, right:18, bottom:18, left:70 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+  g.append("g").attr("class","bars");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  D = { svg, g, iw, ih };
+}
+
+function renderD() {
+  if (!D.g) return;
+  const p = state.data.pairs[state.tier];
+  const nL = state.data.n_layers;
+  const channels = [
+    { key:"resid_cos", lbl:"residual", color:"#ff7a59" },
+    { key:"attn_cos", lbl:"attention", color:"#6cc4ff" },
+    { key:"mlp_cos", lbl:"MLP",       color:"#ff9e5a" },
+  ];
+  const vals = channels.map(c => ({ ...c, v: mean(p[c.key][nL-1].map(Math.abs)) }));
+  const maxV = Math.max(d3.max(vals, d=>d.v) || 0, 0.01);
+  const x = d3.scaleLinear().domain([0, maxV*1.05]).range([0, D.iw]);
+  const y = d3.scaleBand().domain(vals.map(v=>v.lbl)).range([0, D.ih]).padding(0.25);
+
+  D.g.select(".x-axis").call(d3.axisBottom(x).ticks(3).tickFormat(d=>d.toFixed(2)))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  const sel = D.g.select(".bars").selectAll("g.bar").data(vals, d=>d.key);
+  const enter = sel.enter().append("g").attr("class","bar");
+  enter.append("rect").attr("x",0).attr("height", y.bandwidth()).attr("rx",2);
+  enter.append("text").attr("class","ch-lbl").attr("x",-8).attr("text-anchor","end");
+  enter.append("text").attr("class","ch-val");
+
+  const m = enter.merge(sel);
+  m.select("rect")
+    .attr("y", d=>y(d.lbl))
+    .attr("height", y.bandwidth())
+    .attr("fill", d=>d.color)
+    .transition().duration(DUR).ease(EASE)
+    .attr("width", d=>x(d.v));
+  m.select(".ch-lbl")
+    .attr("y", d=>y(d.lbl) + y.bandwidth()/2 + 3)
+    .text(d=>d.lbl);
+  m.select(".ch-val")
+    .attr("y", d=>y(d.lbl) + y.bandwidth()/2 + 3)
+    .transition().duration(DUR).ease(EASE)
+    .attr("x", d=>x(d.v) + 6)
+    .tween("text", function(d) {
+      const self = d3.select(this);
+      const prev = +self.attr("data-v") || 0;
+      const i = d3.interpolateNumber(prev, d.v);
+      return t => { const v = i(t); self.text(v.toFixed(3)); self.attr("data-v", v); };
+    });
+  sel.exit().remove();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

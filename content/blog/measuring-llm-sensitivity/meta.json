@@ -1,0 +1,16 @@
+{
+  "title": "Measuring LLM Sensitivity: What Actually Moves the Output",
+  "slug": "measuring-llm-sensitivity",
+  "summary": "About 21 models, a ladder of tiny prompt edits, and all the ways the measurement itself tries to lie to you. Scaffold-stability is a metric artifact. Confident logits don't mean stable trajectories. Boundary beats bulk. Part 2 of the Nearby Prompts series.",
+  "publishedAt": "2026-05-02T12:05:00.000Z",
+  "updatedAt": "2026-05-02T12:05:00.000Z",
+  "tags": [
+    "llm",
+    "evaluation",
+    "interpretability",
+    "research",
+    "measurement"
+  ],
+  "status": "published",
+  "heroImage": "/blog/measuring-llm-sensitivity/assets/figures/token_micro_v2_category_heatmap.png"
+}

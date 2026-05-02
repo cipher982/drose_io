@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Activation ripple — a perturbation traveling through Qwen3.5 2B</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --accent: #ff7a59; --grid: #1c2026; --panel:#0e1116;
+    --border:#1c2026;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; font-size:13px; }
+  .wrap { display:flex; flex-direction:column; height:100vh;
+    padding:14px 20px 10px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:18px; margin:0; letter-spacing:0.2px; }
+  .sub { color:var(--muted); font-size:11.5px; margin:2px 0 8px;
+    max-width:1200px; line-height:1.45; }
+  .controls { display:flex; gap:8px; align-items:center;
+    padding:4px 0 8px; flex-wrap:wrap; }
+  .pill {
+    background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:5px 11px; border-radius:5px; font-size:11px; cursor:pointer;
+    font-family:inherit; transition:all .15s; font-variant-numeric:tabular-nums;
+  }
+  .pill .num { opacity:0.55; margin-right:4px; }
+  .pill.active { background:var(--accent); color:#0b0d10;
+    border-color:var(--accent); font-weight:600; }
+  .pill.active .num { opacity:0.85; }
+  .pill:hover:not(.active) { border-color:#555; color:var(--ink); }
+  .divider { width:1px; height:18px; background:#2a2f38; margin:0 4px; }
+  .btn { background:#151921; color:var(--ink); border:1px solid #262c35;
+    padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer;
+    font-family:inherit; }
+  .btn:hover { background:#1c2026; border-color:#3b434f; }
+  .label { color:var(--muted); font-size:10.5px; letter-spacing:0.4px; }
+  input[type=range] { accent-color: var(--accent); width:120px; }
+  .readout { color:var(--muted); font-size:11px; margin-left:auto;
+    font-variant-numeric:tabular-nums; }
+  .readout b { color:var(--ink); }
+  .readout .amp { color:#6cc4ff; }
+  .readout .damp { color:#ff9e5a; }
+
+  .grid-main { flex:1; min-height:0;
+    display:grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 3fr) minmax(0, 1fr);
+    gap:10px; }
+  .panel { border:1px solid var(--border); border-radius:6px;
+    background:var(--panel); display:flex; flex-direction:column;
+    min-height:0; min-width:0; overflow:hidden; }
+  .panel-head { display:flex; align-items:baseline; gap:10px;
+    padding:6px 10px 4px; border-bottom:1px solid #161a20; }
+  .panel-title { font-size:12px; font-weight:500; letter-spacing:0.3px; }
+  .panel-sub { color:var(--muted); font-size:10.5px; }
+  .panel-body { flex:1; min-height:0; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+
+  .axis path, .axis line { stroke:#3a4049; }
+  .axis text { fill:var(--muted); font-size:10px; }
+  .axis-label { fill:var(--ink); font-size:11px; }
+  .legend-lbl { fill:var(--muted); font-size:10px; }
+  .annot { fill:var(--muted); font-size:10px; }
+  .annot.ink { fill:var(--ink); }
+
+  .inject-marker { fill:none; stroke:#ff7a59; stroke-width:1.5; }
+  .inject-marker.inner { fill:#ff7a59; stroke:none; }
+
+  .tok-label { fill:var(--muted); font-family:"SF Mono",Menlo,monospace;
+    font-size:9px; }
+  .tok-label.inject { fill:var(--accent); font-weight:600; }
+
+  .frontline { stroke:#ff7a59; stroke-width:1.2; fill:none;
+    stroke-dasharray:4 3; opacity:0.9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Activation ripple — a perturbation traveling through Qwen3.5 2B</h1>
+  <div class="sub">Inject a 1% activation nudge at one layer, one token. Watch it propagate through the stack. Shallow injections contract; deep injections amplify. (Independent replication of Li et al. 2025 on Qwen3.5 2B)</div>
+
+  <div class="controls">
+    <span class="label">INJECT AT LAYER</span>
+    <div id="pills" style="display:flex;gap:4px;"></div>
+    <div class="divider"></div>
+    <button class="btn" id="playBtn">▶ play</button>
+    <button class="btn" id="restartBtn">⟲ restart</button>
+    <span class="label">SPEED</span>
+    <input type="range" id="speed" min="1" max="20" step="0.5" value="6">
+    <span id="speedVal" class="label" style="min-width:40px">6 /s</span>
+    <div class="readout" id="readout"></div>
+  </div>
+
+  <div class="grid-main">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Ripple map · layer × token</span>
+        <span class="panel-sub">rows fill top-to-bottom as the wave propagates through the stack; inferno = normalized L2 delta</span>
+      </div>
+      <div class="panel-body" id="heatmap"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Current-frame cross-section · ripple magnitude per token</span>
+        <span class="panel-sub">the wave's shape at the layer currently being revealed</span>
+      </div>
+      <div class="panel-body" id="profile"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const INJECT_FRAC = 0.01;
+const GAMMA = 0.6;
+
+// Color scale: inferno, with domain set globally from all data
+let COLOR_DOMAIN_MAX = 0.05;
+const COLOR = v => {
+  const t = Math.pow(Math.max(0, Math.min(1, v / COLOR_DOMAIN_MAX)), GAMMA);
+  return d3.interpolateInferno(t);
+};
+
+const state = {
+  data: null,
+  selectedIdx: 0,         // index into data.injections
+  frame: 0,               // how many downstream layers are revealed (1..nDown)
+  playing: false,
+  speed: 6,               // rows/sec
+  timer: null,
+};
+
+function fmt(n, d=4) { return (n==null||isNaN(n))?"—":(+n).toFixed(d); }
+function mean(arr) { let s=0,n=0; for (const v of arr) { if (isFinite(v)) { s+=v; n++; } } return n?s/n:0; }
+function maxAbs(arr) { let m=0; for (const v of arr) if (Math.abs(v)>m) m=Math.abs(v); return m; }
+
+fetch("data/activation_ripple.json").then(r=>r.json()).then(data => {
+  state.data = data;
+
+  // Compute global color domain max across all ripples (excluding zeros at pre-inject layers)
+  let gmax = 0;
+  for (const inj of data.injections) {
+    for (const row of inj.ripple) {
+      for (const v of row) if (v > gmax) gmax = v;
+    }
+  }
+  COLOR_DOMAIN_MAX = gmax * 1.02;
+
+  // Build tier pills
+  const pills = d3.select("#pills");
+  data.injections.forEach((inj, i) => {
+    pills.append("button")
+      .attr("class", "pill" + (i === state.selectedIdx ? " active" : ""))
+      .attr("data-idx", i)
+      .html(`<span class="num">${i+1}.</span>L${inj.inject_layer}`)
+      .on("click", function() {
+        pills.selectAll(".pill").classed("active", false);
+        d3.select(this).classed("active", true);
+        state.selectedIdx = i;
+        restartAnim(true);
+      });
+  });
+
+  d3.select("#playBtn").on("click", togglePlay);
+  d3.select("#restartBtn").on("click", () => restartAnim(true));
+  d3.select("#speed").on("input", function() {
+    state.speed = +this.value;
+    d3.select("#speedVal").text(state.speed + " /s");
+    if (state.playing) { stopTimer(); startTimer(); }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    const n = parseInt(e.key, 10);
+    if (n>=1 && n<=data.injections.length) {
+      state.selectedIdx = n-1;
+      pills.selectAll(".pill").classed("active", function(){ return +d3.select(this).attr("data-idx")===state.selectedIdx; });
+      restartAnim(true);
+    } else if (e.key === " ") {
+      e.preventDefault(); togglePlay();
+    }
+  });
+
+  buildHeat(); buildProfile();
+  restartAnim(true);
+  window.addEventListener("resize", () => { buildHeat(); buildProfile(); renderAll(); });
+});
+
+function currentInjection() { return state.data.injections[state.selectedIdx]; }
+function nDown() { return currentInjection().ripple.length; }
+
+function stopTimer() { if (state.timer) { clearInterval(state.timer); state.timer = null; } }
+function startTimer() {
+  stopTimer();
+  state.timer = setInterval(() => {
+    if (state.frame < nDown()) {
+      state.frame++;
+      renderAll();
+    } else {
+      stopTimer();
+      state.playing = false;
+      d3.select("#playBtn").text("▶ play");
+    }
+  }, Math.max(30, 1000 / state.speed));
+}
+function togglePlay() {
+  if (state.frame >= nDown()) { state.frame = 0; }
+  state.playing = !state.playing;
+  d3.select("#playBtn").text(state.playing ? "⏸ pause" : "▶ play");
+  if (state.playing) startTimer(); else stopTimer();
+}
+function restartAnim(autoplay) {
+  stopTimer();
+  state.frame = 0;
+  state.playing = !!autoplay;
+  d3.select("#playBtn").text(state.playing ? "⏸ pause" : "▶ play");
+  renderAll();
+  if (state.playing) startTimer();
+}
+
+function renderAll() { renderHeat(); renderProfile(); renderReadout(); }
+
+// =========== HEATMAP ============
+let HM = {};
+function buildHeat() {
+  const root = d3.select("#heatmap"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:18, right:28, bottom:58, left:58 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+
+  // color bar
+  const cbW = 180, cbH = 6;
+  const cbG = svg.append("g").attr("transform", `translate(${W-cbW-margin.right}, 6)`);
+  const grad = svg.append("defs").append("linearGradient")
+    .attr("id","act-rip-grad").attr("x1","0").attr("x2","1");
+  d3.range(0, 1.001, 0.05).forEach(t => {
+    grad.append("stop").attr("offset", (t*100)+"%")
+      .attr("stop-color", d3.interpolateInferno(Math.pow(t, GAMMA)));
+  });
+  cbG.append("rect").attr("width",cbW).attr("height",cbH)
+    .attr("fill","url(#act-rip-grad)").attr("rx",2);
+  cbG.append("text").attr("y",-2).attr("class","legend-lbl")
+    .text("normalized ripple magnitude  (‖Δresid‖ / ‖resid‖)");
+  cbG.append("text").attr("y",cbH+10).attr("x",0).attr("class","legend-lbl").text("0");
+  cbG.append("text").attr("y",cbH+10).attr("x",cbW).attr("class","legend-lbl")
+    .attr("text-anchor","end").text(COLOR_DOMAIN_MAX.toFixed(3));
+
+  g.append("g").attr("class","cells");
+  g.append("g").attr("class","y-axis axis");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  g.append("g").attr("class","tok-strip").attr("transform",`translate(0,${ih+18})`);
+  g.append("text").attr("class","axis-label")
+    .attr("transform",`translate(-42, ${ih/2}) rotate(-90)`)
+    .attr("text-anchor","middle").text("layer index  (shallow → deep)");
+  g.append("text").attr("class","axis-label")
+    .attr("x", iw/2).attr("y", ih+48).attr("text-anchor","middle")
+    .text("token index");
+  g.append("line").attr("class","frontline");
+  g.append("circle").attr("class","inject-marker outer").attr("r",8);
+  g.append("circle").attr("class","inject-marker inner").attr("r",2.5);
+  HM = { svg, g, iw, ih, margin, W, H };
+}
+
+function renderHeat() {
+  if (!HM.g) return;
+  const data = state.data;
+  const inj = currentInjection();
+  const nL = data.n_layers + 1;  // 0..n_layers
+  const nT = data.seq_len;
+  const injL = inj.inject_layer;
+  const injT = inj.inject_token;
+
+  const x = d3.scaleLinear().domain([-0.5, nT-0.5]).range([0, HM.iw]);
+  const y = d3.scaleLinear().domain([-0.5, nL-0.5]).range([0, HM.ih]);
+  const cw = HM.iw / nT;
+  const rh = HM.ih / nL;
+
+  // axes
+  HM.g.select(".y-axis").call(
+    d3.axisLeft(y).tickValues([0, 4, 8, 12, 16, 20, 24]).tickFormat(d=>d)
+  ).call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+  const stride = Math.max(1, Math.floor(nT/10));
+  const xTicks = d3.range(0, nT, stride);
+  HM.g.select(".x-axis").call(
+    d3.axisBottom(x).tickValues(xTicks).tickFormat(d=>d).tickSize(4)
+  ).call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  // token strip labels (short)
+  const tokStrip = HM.g.select(".tok-strip");
+  const tokSel = tokStrip.selectAll("text.tok-label").data(data.token_strs);
+  tokSel.enter().append("text").attr("class","tok-label")
+    .merge(tokSel)
+    .attr("x", (d,i) => x(i))
+    .attr("y", 0)
+    .attr("text-anchor","middle")
+    .classed("inject", (d,i) => i === injT)
+    .text(d => {
+      const s = String(d).replace(/\n/g,"⏎").trim();
+      return s.length > 6 ? s.slice(0,6) : s;
+    });
+  tokSel.exit().remove();
+
+  // Build cell data: only up to frame
+  const cells = [];
+  const frameEnd = Math.min(state.frame, inj.ripple.length);
+  for (let k = 0; k < frameEnd; k++) {
+    const L = injL + k;
+    const row = inj.ripple[k];
+    for (let t = 0; t < row.length; t++) {
+      cells.push({ L, t, v: row[t], k });
+    }
+  }
+
+  const sel = HM.g.select(".cells").selectAll("rect").data(cells, d => `${d.L}-${d.t}`);
+  sel.enter().append("rect")
+    .attr("width", cw + 0.5).attr("height", rh + 0.5)
+    .attr("stroke", "none")
+    .merge(sel)
+      .attr("x", d => x(d.t - 0.5))
+      .attr("y", d => y(d.L - 0.5))
+      .attr("width", cw + 0.5).attr("height", rh + 0.5)
+      .attr("fill", d => COLOR(d.v));
+  sel.exit().remove();
+
+  // frontline: horizontal line at current bottom layer
+  if (state.frame > 0 && state.frame < inj.ripple.length) {
+    const curL = injL + state.frame - 1;
+    const fy = y(curL + 0.5);
+    HM.g.select(".frontline")
+      .attr("x1", 0).attr("x2", HM.iw)
+      .attr("y1", fy).attr("y2", fy)
+      .attr("opacity", 1);
+  } else {
+    HM.g.select(".frontline").attr("opacity", 0);
+  }
+
+  // injection marker
+  HM.g.select(".inject-marker.outer")
+    .attr("cx", x(injT)).attr("cy", y(injL));
+  HM.g.select(".inject-marker.inner")
+    .attr("cx", x(injT)).attr("cy", y(injL));
+}
+
+// =========== PROFILE ===========
+let PF = {};
+function buildProfile() {
+  const root = d3.select("#profile"); root.selectAll("*").remove();
+  const bb = root.node().getBoundingClientRect();
+  const W = bb.width, H = bb.height;
+  const margin = { top:16, right:28, bottom:28, left:58 };
+  const iw = Math.max(10, W - margin.left - margin.right);
+  const ih = Math.max(10, H - margin.top - margin.bottom);
+  const svg = root.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+  g.append("g").attr("class","y-axis axis");
+  g.append("g").attr("class","x-axis axis").attr("transform",`translate(0,${ih})`);
+  g.append("line").attr("class","inject-baseline")
+    .attr("stroke","#ff7a59").attr("stroke-dasharray","3 3")
+    .attr("stroke-width",1).attr("opacity",0.5);
+  g.append("path").attr("class","profile-area")
+    .attr("fill","#ff7a59").attr("fill-opacity",0.25);
+  g.append("path").attr("class","profile-line")
+    .attr("fill","none").attr("stroke","#ff7a59").attr("stroke-width",1.6);
+  g.append("line").attr("class","inject-tok-line")
+    .attr("stroke","#6cc4ff").attr("stroke-width",1)
+    .attr("stroke-dasharray","2 3").attr("opacity",0.6);
+  g.append("text").attr("class","axis-label")
+    .attr("transform",`translate(-42, ${ih/2}) rotate(-90)`)
+    .attr("text-anchor","middle").text("ripple magnitude");
+  g.append("text").attr("class","axis-label")
+    .attr("x", iw/2).attr("y", ih+22).attr("text-anchor","middle")
+    .text("token index");
+  PF = { svg, g, iw, ih };
+}
+
+function renderProfile() {
+  if (!PF.g) return;
+  const data = state.data;
+  const inj = currentInjection();
+  const nT = data.seq_len;
+  const injL = inj.inject_layer;
+  const injT = inj.inject_token;
+
+  // Current frame's row (or full if finished)
+  const k = Math.max(0, Math.min(state.frame - 1, inj.ripple.length - 1));
+  const row = inj.ripple[k] || new Array(nT).fill(0);
+
+  const x = d3.scaleLinear().domain([0, nT-1]).range([0, PF.iw]);
+  const yMax = Math.max(COLOR_DOMAIN_MAX * 1.05, 0.01);
+  const y = d3.scaleLinear().domain([0, yMax]).range([PF.ih, 0]);
+
+  PF.g.select(".y-axis")
+    .call(d3.axisLeft(y).ticks(4).tickFormat(d3.format(".3f")))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+  const stride = Math.max(1, Math.floor(nT/10));
+  PF.g.select(".x-axis")
+    .call(d3.axisBottom(x).tickValues(d3.range(0,nT,stride)).tickFormat(d=>d))
+    .call(sel => sel.select(".domain").attr("stroke","#3a4049"));
+
+  const yInj = y(INJECT_FRAC);
+  PF.g.select(".inject-baseline")
+    .attr("x1", 0).attr("x2", PF.iw)
+    .attr("y1", yInj).attr("y2", yInj);
+
+  PF.g.select(".inject-tok-line")
+    .attr("x1", x(injT)).attr("x2", x(injT))
+    .attr("y1", 0).attr("y2", PF.ih);
+
+  const area = d3.area()
+    .x((d,i)=>x(i))
+    .y0(PF.ih)
+    .y1(d => y(Math.max(0, d)))
+    .curve(d3.curveMonotoneX);
+  const line = d3.line()
+    .x((d,i)=>x(i))
+    .y(d => y(Math.max(0, d)))
+    .curve(d3.curveMonotoneX);
+
+  PF.g.select(".profile-area").datum(row).attr("d", area);
+  PF.g.select(".profile-line").datum(row).attr("d", line);
+
+  // baseline label
+  PF.g.selectAll(".baseline-lbl").remove();
+  PF.g.append("text").attr("class","baseline-lbl annot")
+    .attr("x", PF.iw - 4).attr("y", yInj - 4)
+    .attr("text-anchor","end")
+    .attr("fill","#ff7a59")
+    .text(`injection magnitude (0.01)`);
+}
+
+// =========== READOUT ===========
+function renderReadout() {
+  const data = state.data;
+  const inj = currentInjection();
+  const k = Math.max(0, Math.min(state.frame - 1, inj.ripple.length - 1));
+  const curLayer = inj.inject_layer + k;
+  const row = inj.ripple[k] || [];
+  const rMean = mean(row.filter(v => v > 0));
+  const rMax = maxAbs(row);
+  const ratio = rMean / INJECT_FRAC;
+  const ratioClass = ratio >= 1 ? "amp" : "damp";
+  const totalRows = inj.ripple.length;
+  const progress = state.frame >= totalRows ? "complete" : `${state.frame}/${totalRows}`;
+
+  d3.select("#readout").html(
+    `frame <b>${progress}</b>
+     · layer <b>${curLayer}</b>
+     · ripple mean <b>${fmt(rMean, 4)}</b>
+     · max <b>${fmt(rMax, 4)}</b>
+     · Δ vs injection: <b class="${ratioClass}">${fmt(ratio, 2)}×</b>`
+  );
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Probability landscape — when do distributions fork?</title>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --wing-a: #6cc4ff; --wing-b: #ff9e5a;
+    --axis: #5a6270; --border: #1c2026; --panel: #0e1116;
+    --accent: #ff7a59;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:20px 32px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:21px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin:2px 0 10px; max-width:1100px; line-height:1.5; }
+  .sub .caveat { color:#b58c44; }
+  .controls { display:flex; gap:10px; align-items:center; padding:6px 0 12px; flex-wrap:wrap; }
+  .btn { background:#2a3240; color:var(--ink); border:1px solid #3a4560;
+    padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .btn:hover { background:#34404f; }
+  .legend { display:flex; gap:14px; margin-left:12px; color:var(--muted); font-size:11px; align-items:center; }
+  .legend .sw { display:inline-block; width:14px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .panels { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:18px; min-height:0; }
+  .panel {
+    display:flex; flex-direction:column; min-height:0;
+    border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+    background:var(--panel); position:relative;
+  }
+  .panel-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .panel-title { font-size:14px; font-weight:500; }
+  .panel-tag { font-size:11px; padding:2px 8px; border-radius:3px; margin-left:8px; }
+  .panel-tag.brittle { background:rgba(255,107,107,0.15); color:#ff6b6b; }
+  .panel-tag.stable  { background:rgba(108,196,255,0.15); color:#6cc4ff; }
+  .canvas-host { flex:1; position:relative; min-height:0; }
+  .canvas-host canvas { display:block; width:100%; height:100%; }
+  .tooltip {
+    position:absolute; pointer-events:none; background:#141820; color:var(--ink);
+    border:1px solid #2e343d; border-radius:5px; padding:6px 9px;
+    font-size:11px; font-family:"SF Mono",Menlo,monospace;
+    opacity:0; transition:opacity 0.12s; z-index:3; white-space:nowrap;
+    transform:translate(-50%, -115%);
+  }
+  .tooltip b { color:var(--ink); }
+  .tooltip .a { color:var(--wing-a); }
+  .tooltip .b { color:var(--wing-b); }
+  .callout {
+    position:absolute; background:rgba(20,24,32,0.92);
+    border:1px solid #3a4560; border-left:2px solid #ffcc44;
+    padding:5px 9px; border-radius:4px; font-size:11px;
+    color:var(--ink); opacity:0; transition:opacity 0.4s; z-index:2;
+    pointer-events:none; white-space:nowrap;
+  }
+  .callout b { color:#ffcc44; }
+  .corner-note {
+    position:absolute; bottom:10px; right:12px; color:var(--muted);
+    font-size:10px; opacity:0.7; font-style:italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Probability landscape — when do distributions fork?</h1>
+  <div class="sub">
+    Signed log-odds gap per token: A's wing above the axis, B's wing below. The gap grows when A and B's next-token distributions disagree — decoupling in probability space <i>precedes</i> the actual sampled-token fork.
+    <span class="caveat">Synthetic data — real logit capture pending.</span>
+  </div>
+  <div class="controls">
+    <button class="btn" id="play">▶ play</button>
+    <button class="btn" id="reset">↺ reset</button>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--wing-a)"></span>Prompt A (log P_A / P_B, clipped ≥0)</span>
+      <span><span class="sw" style="background:var(--wing-b)"></span>Prompt B (mirrored)</span>
+      <span><span class="sw" style="background:#ffcc44"></span>probability fork threshold</span>
+    </div>
+  </div>
+  <div class="panels">
+    <div class="panel" id="pLeft">
+      <div class="panel-head">
+        <div class="panel-title">Qwen 3.5 — 0.8B</div>
+      </div>
+      <div class="canvas-host" id="hostLeft">
+        <div class="tooltip" id="tipLeft"></div>
+        <div class="callout" id="calloutLeft"></div>
+        <div class="corner-note">synthetic</div>
+      </div>
+    </div>
+    <div class="panel" id="pRight">
+      <div class="panel-head">
+        <div class="panel-title">Qwen 3.5 — 4B (thinkoff)</div>
+      </div>
+      <div class="canvas-host" id="hostRight">
+        <div class="tooltip" id="tipRight"></div>
+        <div class="callout" id="calloutRight"></div>
+        <div class="corner-note">synthetic</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------------- seeded PRNG + synthetic data ---------------- */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const N = 64;
+const FORK_THRESHOLD = 1.5;
+
+function genBrittle(seed) {
+  const rng = mulberry32(seed);
+  const a = new Array(N), b = new Array(N);
+  // smooth OU-like noise + sigmoid ramp that kicks in around t=2..5
+  let na = 0, nb = 0;
+  for (let i = 0; i < N; i++) {
+    const t = i + 1;
+    // ramp: near 0 before t=2, rising to ~3.5 by t=6, then stays elevated
+    const ramp = 4.2 / (1 + Math.exp(-(t - 3.5) * 1.1));
+    // chaotic oscillation once ramped
+    const osc = ramp > 0.5 ? Math.sin(t * 0.9 + seed) * 1.1 + Math.sin(t * 2.3 - seed * 0.7) * 0.6 : 0;
+    na = na * 0.55 + (rng() - 0.5) * 1.4;
+    nb = nb * 0.55 + (rng() - 0.5) * 1.4;
+    // slight shared drift so wings rhyme
+    const shared = Math.sin(t * 0.45) * 0.35;
+    a[i] = Math.max(0.02, ramp + osc + na + shared);
+    b[i] = Math.max(0.02, ramp + osc * 0.85 + nb + shared);
+  }
+  return { a, b };
+}
+
+function genStable(seed) {
+  const rng = mulberry32(seed + 999);
+  const a = new Array(N), b = new Array(N);
+  let na = 0, nb = 0;
+  for (let i = 0; i < N; i++) {
+    const t = i + 1;
+    // flat scaffold through ~20 tokens, gentle rise afterwards
+    let base;
+    if (t < 20) base = 0.1;
+    else if (t < 40) base = 0.1 + ((t - 20) / 20) * 1.4;
+    else base = 1.5 + Math.sin((t - 40) * 0.2) * 0.25;
+    na = na * 0.7 + (rng() - 0.5) * 0.35;
+    nb = nb * 0.7 + (rng() - 0.5) * 0.35;
+    const shared = Math.sin(t * 0.3) * 0.08;
+    a[i] = Math.max(0.01, base + na + shared);
+    b[i] = Math.max(0.01, base + nb + shared);
+  }
+  return { a, b };
+}
+
+const brittle = genBrittle(7);
+const stable  = genStable(42);
+
+/* ---------------- Scene builder ---------------- */
+const COLOR_A = new THREE.Color('#6cc4ff');
+const COLOR_B = new THREE.Color('#ff9e5a');
+const COLOR_AXIS = new THREE.Color('#5a6270');
+const COLOR_STRUT = new THREE.Color('#3a4452');
+const COLOR_NOW = new THREE.Color('#e8e8e8');
+
+function makeScene(host, data, tooltipEl, calloutEl, orbitPhase = 0) {
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x0b0d10, 0);
+  host.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+
+  // Orthographic "world" camera in data space. We'll map: x in [0, N+1], y in [-YMAX, YMAX].
+  const YMAX = 6.5;
+  const viewW = N + 2;
+  const viewH = YMAX * 2.2;
+
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
+  // We'll position camera looking at center (N/2, 0, 0)
+  const center = new THREE.Vector3(N / 2, 0, 0);
+
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+
+  // camera distance chosen so viewW fits horizontally
+  // fov_horiz = 2 atan(tan(fovy/2) * aspect). We'll just pick z and rely on resize.
+  function placeCamera(angle) {
+    const dist = 55;
+    const tilt = 0.22; // radians, ~12.5°
+    camera.position.set(
+      center.x + Math.sin(angle) * 4,
+      Math.sin(tilt) * dist * 0.35,
+      dist * Math.cos(tilt)
+    );
+    camera.lookAt(center);
+  }
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.4);
+  dir.position.set(10, 20, 30);
+  scene.add(dir);
+
+  /* ----- Axis ----- */
+  const axisGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0.5, 0, 0),
+    new THREE.Vector3(N + 0.5, 0, 0),
+  ]);
+  const axisLine = new THREE.Line(axisGeom, new THREE.LineBasicMaterial({ color: COLOR_AXIS }));
+  scene.add(axisLine);
+
+  // Y gridlines (subtle)
+  const gridMat = new THREE.LineBasicMaterial({ color: 0x1c2026 });
+  for (let y = -6; y <= 6; y += 2) {
+    if (y === 0) continue;
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0.5, y, -0.1),
+      new THREE.Vector3(N + 0.5, y, -0.1),
+    ]);
+    scene.add(new THREE.Line(g, gridMat));
+  }
+
+  // Tick labels on x (sparse)
+  const labelGroup = new THREE.Group();
+  scene.add(labelGroup);
+  function makeTextSprite(text, color = '#8a8f98', size = 64) {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = size;
+    const ctx = cv.getContext('2d');
+    ctx.font = '500 36px -apple-system, Inter, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, size / 2);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sp = new THREE.Sprite(mat);
+    sp.scale.set(6, 1.5, 1);
+    return sp;
+  }
+  [1, 16, 32, 48, 64].forEach(x => {
+    const s = makeTextSprite(`t=${x}`);
+    s.position.set(x, -YMAX * 1.0, 0);
+    labelGroup.add(s);
+  });
+
+  /* ----- Struts (widening probability lines at each token) ----- */
+  const strutMat = new THREE.LineBasicMaterial({ color: COLOR_STRUT, transparent: true, opacity: 0.35 });
+  const strutLines = [];
+  for (let i = 0; i < N; i++) {
+    const g = new THREE.BufferGeometry();
+    const pos = new Float32Array(6);
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const line = new THREE.Line(g, strutMat.clone());
+    line.material.opacity = 0;
+    scene.add(line);
+    strutLines.push(line);
+  }
+
+  /* ----- Butterfly wing meshes (extruded) ----- */
+  // Build wings as extruded shapes. We'll rebuild the shape up to `revealT` each frame.
+  function buildWingGeom(values, upward) {
+    // values: array of y-magnitudes (>=0). Build a ribbon from (x=1,0) to (x=N,0)
+    // with top at y = ±value, extruded in Z.
+    const topPoints = [];
+    for (let i = 0; i < values.length; i++) {
+      const x = i + 1;
+      const y = (upward ? 1 : -1) * values[i];
+      topPoints.push(new THREE.Vector2(x, y));
+    }
+    if (topPoints.length < 2) return null;
+    const shape = new THREE.Shape();
+    shape.moveTo(topPoints[0].x, 0);
+    for (const p of topPoints) shape.lineTo(p.x, p.y);
+    shape.lineTo(topPoints[topPoints.length - 1].x, 0);
+    shape.lineTo(topPoints[0].x, 0);
+    const geom = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.6,
+      bevelEnabled: false,
+      curveSegments: 1,
+    });
+    geom.translate(0, 0, -0.3);
+    return geom;
+  }
+
+  const wingAMat = new THREE.MeshLambertMaterial({
+    color: COLOR_A, transparent: true, opacity: 0.82,
+    emissive: COLOR_A, emissiveIntensity: 0.1,
+  });
+  const wingBMat = new THREE.MeshLambertMaterial({
+    color: COLOR_B, transparent: true, opacity: 0.82,
+    emissive: COLOR_B, emissiveIntensity: 0.1,
+  });
+
+  let wingAMesh = null, wingBMesh = null;
+  // Outline (curve line on top)
+  const outAMat = new THREE.LineBasicMaterial({ color: COLOR_A });
+  const outBMat = new THREE.LineBasicMaterial({ color: COLOR_B });
+  let outA = null, outB = null;
+
+  function rebuildWings(upTo) {
+    const aSlice = data.a.slice(0, upTo);
+    const bSlice = data.b.slice(0, upTo);
+
+    [wingAMesh, wingBMesh, outA, outB].forEach(m => { if (m) { scene.remove(m); m.geometry.dispose(); } });
+
+    const gA = buildWingGeom(aSlice, true);
+    const gB = buildWingGeom(bSlice, false);
+    if (gA) { wingAMesh = new THREE.Mesh(gA, wingAMat); scene.add(wingAMesh); }
+    if (gB) { wingBMesh = new THREE.Mesh(gB, wingBMat); scene.add(wingBMesh); }
+
+    // outlines
+    const ptsA = [new THREE.Vector3(1, 0, 0.31)];
+    for (let i = 0; i < aSlice.length; i++) ptsA.push(new THREE.Vector3(i + 1, aSlice[i], 0.31));
+    const ptsB = [new THREE.Vector3(1, 0, 0.31)];
+    for (let i = 0; i < bSlice.length; i++) ptsB.push(new THREE.Vector3(i + 1, -bSlice[i], 0.31));
+    if (ptsA.length > 1) {
+      outA = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsA), outAMat);
+      scene.add(outA);
+    }
+    if (ptsB.length > 1) {
+      outB = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsB), outBMat);
+      scene.add(outB);
+    }
+  }
+
+  /* ----- "now" line ----- */
+  const nowGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, -YMAX, 0.5),
+    new THREE.Vector3(0, YMAX, 0.5),
+  ]);
+  const nowLine = new THREE.Line(nowGeom, new THREE.LineDashedMaterial({
+    color: COLOR_NOW, dashSize: 0.4, gapSize: 0.3, transparent: true, opacity: 0.6,
+  }));
+  nowLine.computeLineDistances();
+  nowLine.visible = false;
+  scene.add(nowLine);
+
+  /* ----- Fork marker (vertical line at first threshold crossing) ----- */
+  const forkMat = new THREE.LineDashedMaterial({
+    color: 0xffcc44, dashSize: 0.5, gapSize: 0.3, transparent: true, opacity: 0,
+  });
+  const forkLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -YMAX, 0.5), new THREE.Vector3(0, YMAX, 0.5),
+    ]),
+    forkMat
+  );
+  forkLine.computeLineDistances();
+  scene.add(forkLine);
+
+  // find first fork index
+  function firstFork() {
+    for (let i = 0; i < N; i++) {
+      if (data.a[i] > FORK_THRESHOLD || data.b[i] > FORK_THRESHOLD) return i + 1;
+    }
+    return -1;
+  }
+  const forkAt = firstFork();
+
+  /* ----- reveal animation state ----- */
+  let reveal = 0; // 0..N (float)
+  let playing = false;
+  let startTs = 0;
+  const DURATION_MS = 4000;
+
+  function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+
+  function setReveal(upTo) {
+    upTo = Math.max(0, Math.min(N, upTo));
+    reveal = upTo;
+    const upToInt = Math.ceil(upTo);
+    rebuildWings(upToInt);
+
+    // struts
+    for (let i = 0; i < N; i++) {
+      const line = strutLines[i];
+      if (i < upToInt) {
+        const x = i + 1;
+        const pos = line.geometry.attributes.position.array;
+        pos[0] = x; pos[1] = data.a[i]; pos[2] = 0;
+        pos[3] = x; pos[4] = -data.b[i]; pos[5] = 0;
+        line.geometry.attributes.position.needsUpdate = true;
+        const gap = data.a[i] + data.b[i];
+        line.material.opacity = Math.min(0.55, 0.1 + gap * 0.08);
+      } else {
+        line.material.opacity = 0;
+      }
+    }
+
+    // now line
+    if (upTo > 0 && upTo < N) {
+      nowLine.visible = true;
+      nowLine.position.x = upTo;
+    } else {
+      nowLine.visible = false;
+    }
+
+    // fork line + callout
+    if (forkAt > 0 && upTo >= forkAt) {
+      forkLine.position.x = forkAt;
+      forkLine.material.opacity = 0.7;
+      showCallout(forkAt);
+    } else {
+      forkLine.material.opacity = 0;
+      calloutEl.style.opacity = 0;
+    }
+  }
+
+  function showCallout(t) {
+    const p = worldToScreen(t, Math.max(data.a[t-1], data.b[t-1]) + 0.5);
+    calloutEl.innerHTML = `<b>probability fork</b> @ t=${t}`;
+    calloutEl.style.left = p.x + 'px';
+    calloutEl.style.top = p.y + 'px';
+    calloutEl.style.opacity = 1;
+  }
+
+  function worldToScreen(wx, wy) {
+    const v = new THREE.Vector3(wx, wy, 0);
+    v.project(camera);
+    const w = host.clientWidth, h = host.clientHeight;
+    return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h };
+  }
+  function screenToTokenIdx(sx, sy) {
+    // Inverse-ish: cast a ray from camera through screen point onto z=0 plane.
+    const w = host.clientWidth, h = host.clientHeight;
+    const ndc = new THREE.Vector2((sx / w) * 2 - 1, -((sy / h) * 2 - 1));
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    const hit = new THREE.Vector3();
+    ray.ray.intersectPlane(plane, hit);
+    if (!hit) return null;
+    const idx = Math.round(hit.x) - 1;
+    if (idx < 0 || idx >= N) return null;
+    return { idx, worldY: hit.y };
+  }
+
+  /* ----- hover tooltip ----- */
+  renderer.domElement.addEventListener('mousemove', (e) => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    const hit = screenToTokenIdx(sx, sy);
+    if (!hit || hit.idx >= Math.ceil(reveal)) { tooltipEl.style.opacity = 0; return; }
+    const i = hit.idx;
+    const gap = data.a[i] + data.b[i];
+    tooltipEl.innerHTML = `t=<b>${i+1}</b> · <span class="a">A=${data.a[i].toFixed(2)}</span> · <span class="b">B=${data.b[i].toFixed(2)}</span> · gap=<b>${gap.toFixed(2)}</b>`;
+    tooltipEl.style.left = sx + 'px';
+    tooltipEl.style.top = sy + 'px';
+    tooltipEl.style.opacity = 1;
+  });
+  renderer.domElement.addEventListener('mouseleave', () => { tooltipEl.style.opacity = 0; });
+
+  /* ----- animation loop ----- */
+  let orbitT = orbitPhase;
+  function tick(ts) {
+    if (playing) {
+      if (!startTs) startTs = ts;
+      const p = Math.min(1, (ts - startTs) / DURATION_MS);
+      setReveal(easeOutCubic(p) * N);
+      if (p >= 1) playing = false;
+    }
+    orbitT += 0.003;
+    const orbitAngle = Math.sin(orbitT) * 0.15; // small oscillating orbit
+    placeCamera(orbitAngle);
+    // reposition callout if visible
+    if (forkAt > 0 && reveal >= forkAt) showCallout(forkAt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  resize();
+  placeCamera(0);
+  setReveal(0);
+  requestAnimationFrame(tick);
+
+  window.addEventListener('resize', resize);
+
+  return {
+    play() { playing = true; startTs = 0; setReveal(0); },
+    reset() { playing = false; startTs = 0; setReveal(0); calloutEl.style.opacity = 0; },
+    revealAll() { playing = false; setReveal(N); },
+  };
+}
+
+const sceneL = makeScene(
+  document.getElementById('hostLeft'),
+  brittle,
+  document.getElementById('tipLeft'),
+  document.getElementById('calloutLeft'),
+  0
+);
+const sceneR = makeScene(
+  document.getElementById('hostRight'),
+  stable,
+  document.getElementById('tipRight'),
+  document.getElementById('calloutRight'),
+  Math.PI / 2
+);
+
+document.getElementById('play').addEventListener('click', () => {
+  sceneL.play(); sceneR.play();
+});
+document.getElementById('reset').addEventListener('click', () => {
+  sceneL.reset(); sceneR.reset();
+});
+
+// auto-play once on load after a beat
+setTimeout(() => { sceneL.play(); sceneR.play(); }, 500);
+</script>
+</body>
+</html>

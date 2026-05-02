@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Qwen stability × perturbation strength</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --stable: #6cc4ff; --brittle: #ff6b6b; --grid: #1c2026;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:24px 40px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:22px; margin:0; letter-spacing:0.2px; }
+  .sub { color:var(--muted); font-size:13px; margin:2px 0 12px; }
+  .chart { flex:1; min-height:0; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+  .axis path, .axis line { stroke:#3a4049; }
+  .axis text { fill:var(--muted); font-size:13px; }
+  .axis-label { fill:var(--ink); font-size:14px; }
+  .grid line { stroke:var(--grid); stroke-dasharray:2 3; }
+  .grid path { stroke:none; }
+  .curve { fill:none; stroke-width:3; }
+  .sample-dot { opacity:0.35; }
+  .mean-dot { stroke:#0b0d10; stroke-width:2; }
+  .dot-label { fill:var(--ink); font-size:12px; text-anchor:middle;
+    font-variant-numeric:tabular-nums; }
+  .xtick { fill:var(--muted); font-size:13px; text-anchor:middle; }
+  .controls { display:flex; align-items:center; gap:16px; padding:12px 0 0; }
+  .cat-pill {
+    background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:6px 10px; border-radius:6px; font-size:12px; cursor:pointer;
+    font-family:inherit; transition:all .15s;
+    font-variant-numeric:tabular-nums;
+  }
+  .cat-pill.active { background:#ff7a59; color:#0b0d10; border-color:#ff7a59; font-weight:600; }
+  .cat-pill:hover:not(.active) { border-color:#555; color:var(--ink); }
+  .readout { color:var(--muted); font-size:12px; margin-left:auto; font-variant-numeric:tabular-nums; }
+  .readout b { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Qwen 3.5 ladder — stability vs perturbation strength</h1>
+  <div class="sub">Each point = mean semantic cosine distance over prompt pairs. 4B and 9B use thinkoff variants so every model emits answers directly (no reasoning scaffold).</div>
+  <div class="chart"><svg id="chart"></svg></div>
+  <div class="controls" id="pills"></div>
+</div>
+
+<script>
+const CATS = [
+  { key:"control_identical", label:"control",       desc:"identical prompt" },
+  { key:"noop_format",       label:"noop",          desc:"whitespace only" },
+  { key:"punctuation",       label:"punctuation",   desc:"comma/period swap" },
+  { key:"synonym",           label:"synonym",       desc:"one word swap" },
+  { key:"paraphrase",        label:"paraphrase",    desc:"rewording" },
+  { key:"semantic_small",    label:"semantic",      desc:"small meaning shift" },
+  { key:"positive_control",  label:"pos control",   desc:"unrelated prompt" },
+];
+
+fetch("data/scrubber.json").then(r => r.json()).then(data => {
+  const models = data.models.sort((a,b)=>a.params-b.params);
+  const svg = d3.select("#chart");
+
+  const pills = d3.select("#pills");
+  CATS.forEach((c,i) => {
+    pills.append("button")
+      .attr("class", "cat-pill" + (i===3 ? " active" : ""))
+      .attr("data-key", c.key)
+      .html(`<span style="opacity:0.6">${i+1}.</span> ${c.label}`)
+      .on("click", function() {
+        pills.selectAll(".cat-pill").classed("active", false);
+        d3.select(this).classed("active", true);
+        update(c.key);
+      });
+  });
+  pills.append("div").attr("class","readout").attr("id","readout");
+
+  let W, H, G, x, y, margin;
+
+  function build() {
+    svg.selectAll("*").remove();
+    const bb = svg.node().getBoundingClientRect();
+    W = bb.width; H = bb.height;
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
+    margin = { top:24, right:40, bottom:54, left:84 };
+    const iw = W - margin.left - margin.right;
+    const ih = H - margin.top - margin.bottom;
+    G = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    x = d3.scaleLog().domain([0.6, 12]).range([0, iw]);
+    y = d3.scaleLinear().domain([0, 1.15]).range([ih, 0]);
+
+    G.append("g").attr("class","grid")
+      .call(d3.axisLeft(y).tickSize(-iw).tickFormat(""));
+
+    G.append("g").attr("class","axis")
+      .attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).tickValues([0.8,2,4,9]).tickFormat(""));
+
+    G.append("g").attr("class","axis")
+      .call(d3.axisLeft(y).ticks(6));
+
+    G.append("text").attr("class","axis-label")
+      .attr("x", iw/2).attr("y", ih+42).attr("text-anchor","middle")
+      .text("Model parameters (log)");
+
+    G.append("text").attr("class","axis-label")
+      .attr("transform", `translate(-58, ${ih/2}) rotate(-90)`)
+      .attr("text-anchor","middle")
+      .text("Semantic divergence");
+
+    G.append("g").attr("class","samples");
+    G.append("path").attr("class","curve");
+    G.append("g").attr("class","dots");
+    G.append("g").attr("class","labels");
+    G.iw = iw; G.ih = ih;
+  }
+
+  function update(catKey) {
+    const cat = CATS.find(c=>c.key===catKey);
+    const rows = models.map(m => ({
+      name: m.name, params: m.params,
+      mean: m.by_category[catKey].mean,
+      values: m.by_category[catKey].values,
+    }));
+
+    const maxMean = d3.max(rows, r=>r.mean);
+    const color = maxMean > 0.5 ? "#ff9e5a" : (maxMean > 0.1 ? "#ff6b6b" : "#6cc4ff");
+
+    // samples (individual prompt dots)
+    const samples = G.select(".samples").selectAll("circle")
+      .data(rows.flatMap(r => r.values.map(v => ({params:r.params, v}))));
+    samples.enter().append("circle")
+      .attr("class","sample-dot")
+      .attr("r", 3)
+      .attr("fill", color)
+      .merge(samples)
+      .transition().duration(600).ease(d3.easeCubicInOut)
+      .attr("cx", d => x(d.params))
+      .attr("cy", d => y(d.v))
+      .attr("fill", color);
+    samples.exit().remove();
+
+    // curve
+    const line = d3.line()
+      .x(d => x(d.params))
+      .y(d => y(d.mean))
+      .curve(d3.curveMonotoneX);
+
+    G.select(".curve")
+      .attr("stroke", color)
+      .transition().duration(600).ease(d3.easeCubicInOut)
+      .attr("d", line(rows));
+
+    // mean dots
+    const dots = G.select(".dots").selectAll("circle").data(rows, d=>d.name);
+    dots.enter().append("circle")
+      .attr("class","mean-dot")
+      .attr("r", 8)
+      .attr("fill", color)
+      .attr("cx", d=>x(d.params))
+      .attr("cy", d=>y(d.mean))
+      .merge(dots)
+      .transition().duration(600).ease(d3.easeCubicInOut)
+      .attr("cx", d=>x(d.params))
+      .attr("cy", d=>y(d.mean))
+      .attr("fill", color);
+    dots.exit().remove();
+
+    // labels (model name below axis + mean value above dot)
+    const labels = G.select(".labels").selectAll("g.lg").data(rows, d=>d.name);
+    const le = labels.enter().append("g").attr("class","lg");
+    le.append("text").attr("class","xtick").attr("y", G.ih + 22)
+      .text(d=>d.name);
+    le.append("text").attr("class","dot-label");
+
+    const merged = le.merge(labels);
+    merged.select(".xtick")
+      .transition().duration(600)
+      .attr("x", d=>x(d.params));
+    merged.select(".dot-label")
+      .transition().duration(600).ease(d3.easeCubicInOut)
+      .attr("x", d=>x(d.params))
+      .attr("y", d=>y(d.mean) - 14)
+      .tween("text", function(d) {
+        const self = d3.select(this);
+        const prev = +self.attr("data-v") || 0;
+        const i = d3.interpolateNumber(prev, d.mean);
+        return t => {
+          const v = i(t);
+          self.text(v.toFixed(3));
+          self.attr("data-v", v);
+        };
+      });
+    labels.exit().remove();
+
+    // Readout: cliff factor 2B / 4B
+    const r2 = rows.find(r=>r.name==="2B").mean;
+    const r4 = rows.find(r=>r.name==="4B").mean;
+    const ratio = r4 > 1e-6 ? (r2/r4) : Infinity;
+    const readout = d3.select("#readout");
+    readout.html(`<b>${cat.label}</b> · <span style="opacity:0.6">${cat.desc}</span> &nbsp;·&nbsp; 2B/4B ratio: <b>${isFinite(ratio) ? ratio.toFixed(1)+"×" : "—"}</b>`);
+  }
+
+  build();
+  update("synonym");
+  window.addEventListener("resize", () => { build(); const active = pills.select(".active").attr("data-key"); update(active); });
+});
+</script>
+</body>
+</html>

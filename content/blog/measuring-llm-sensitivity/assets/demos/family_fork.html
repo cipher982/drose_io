@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Divergence signatures across model families</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --qwen_ladder: #ff9e5a; --instruct: #6cc4ff; --legacy: #a98bff;
+    --grid: #1c2026;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:22px 36px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:22px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin:2px 0 8px; }
+  .legend { display:flex; gap:18px; font-size:12px; color:var(--muted); padding:4px 0 10px; }
+  .legend .swatch { display:inline-block; width:22px; height:3px; vertical-align:middle; margin-right:6px; border-radius:1px; }
+  .legend b { color:var(--ink); font-weight:500; }
+  .chart { flex:1; min-height:0; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+  .axis path, .axis line { stroke:#3a4049; }
+  .axis text { fill:var(--muted); font-size:12px; }
+  .axis-label { fill:var(--ink); font-size:13px; }
+  .grid line { stroke:var(--grid); stroke-dasharray:2 3; }
+  .grid path { stroke:none; }
+  .curve { fill:none; stroke-width:2; }
+  .curve.qwen_ladder { stroke:var(--qwen_ladder); }
+  .curve.instruct { stroke:var(--instruct); }
+  .curve.legacy { stroke:var(--legacy); }
+  .curve.mean { stroke-width:3.5; }
+  .model-label {
+    font-size:11px; font-variant-numeric:tabular-nums;
+    pointer-events:none;
+  }
+  .controls { display:flex; gap:10px; align-items:center; padding:8px 0 0; flex-wrap:wrap; }
+  .cat-pill {
+    background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer;
+    font-family:inherit;
+  }
+  .cat-pill.active { background:#ff7a59; color:#0b0d10; border-color:#ff7a59; font-weight:600; }
+  .cat-pill:hover:not(.active) { border-color:#555; color:var(--ink); }
+  .readout { color:var(--muted); font-size:12px; margin-left:auto; font-variant-numeric:tabular-nums; }
+  .readout b.a { color:var(--qwen_ladder); } .readout b.b { color:var(--instruct); } .readout b.c { color:var(--legacy); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Divergence signatures across model families — same prompt, one-word perturbation</h1>
+  <div class="sub">x = generated token index · y = normalized token edit distance (mean over prompt pairs). All models emit answers directly (Qwen 4B/9B use thinkoff variants).</div>
+  <div class="legend">
+    <div><span class="swatch" style="background:var(--qwen_ladder)"></span><b>Qwen ladder</b> (0.8B, 2B, 4B-thinkoff, 9B-thinkoff)</div>
+    <div><span class="swatch" style="background:var(--instruct)"></span><b>Non-reasoning instruct</b> (Mistral 7B, OLMo-3 7B, Granite 3.3 8B, Gemma 4 E4B it, Falcon 3 10B)</div>
+    <div><span class="swatch" style="background:var(--legacy)"></span><b>Legacy</b> (GPT-2 XL, GPT-J 6B, OPT 6.7B, Pythia 6.9B, LLaMA-1 7B)</div>
+  </div>
+  <div class="chart"><svg id="chart"></svg></div>
+  <div class="controls" id="pills"></div>
+</div>
+
+<script>
+const CATS = [
+  { key:"noop_format",     label:"noop",        desc:"whitespace only" },
+  { key:"punctuation",     label:"punctuation", desc:"comma/period swap" },
+  { key:"synonym",         label:"synonym",     desc:"one word swap" },
+  { key:"paraphrase",      label:"paraphrase",  desc:"rewording" },
+  { key:"semantic_small",  label:"semantic",    desc:"small meaning shift" },
+  { key:"positive_control",label:"pos control", desc:"unrelated prompt" },
+];
+const ALL_KEY = "__all__";
+// opacity ramp from light (noop) to dark (semantic); pos control excluded from the fan
+const FAN_TIERS = ["noop_format","punctuation","synonym","paraphrase","semantic_small"];
+
+fetch("data/family_curves.json").then(r=>r.json()).then(data => {
+  const svg = d3.select("#chart");
+  const pills = d3.select("#pills");
+
+  CATS.forEach((c,i) => {
+    pills.append("button")
+      .attr("class","cat-pill" + (i===2 ? " active" : ""))
+      .attr("data-key",c.key)
+      .html(`<span style="opacity:0.6">${i+1}.</span> ${c.label}`)
+      .on("click", function() {
+        pills.selectAll(".cat-pill").classed("active",false);
+        d3.select(this).classed("active",true);
+        update(c.key);
+      });
+  });
+  pills.append("button")
+    .attr("class","cat-pill")
+    .attr("data-key", ALL_KEY)
+    .html(`<span style="opacity:0.6">⇶</span> all tiers`)
+    .on("click", function() {
+      pills.selectAll(".cat-pill").classed("active",false);
+      d3.select(this).classed("active",true);
+      update(ALL_KEY);
+    });
+  pills.append("div").attr("class","readout").attr("id","readout");
+
+  let layout = null;
+
+  function build() {
+    svg.selectAll("*").remove();
+    const bb = svg.node().getBoundingClientRect();
+    const W = bb.width, H = bb.height;
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
+    const margin = { top:18, right:130, bottom:46, left:64 };
+    const iw = W - margin.left - margin.right;
+    const ih = H - margin.top - margin.bottom;
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const x = d3.scaleLinear().domain([1, 64]).range([0, iw]);
+    const y = d3.scaleLinear().domain([0, 1]).range([ih, 0]);
+
+    g.append("g").attr("class","grid")
+      .call(d3.axisLeft(y).tickSize(-iw).tickFormat(""));
+
+    g.append("g").attr("class","axis")
+      .attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).ticks(8));
+
+    g.append("g").attr("class","axis")
+      .call(d3.axisLeft(y).ticks(5));
+
+    g.append("text").attr("class","axis-label")
+      .attr("x", iw/2).attr("y", ih+38).attr("text-anchor","middle")
+      .text("Generated token index");
+
+    g.append("text").attr("class","axis-label")
+      .attr("transform", `translate(-44, ${ih/2}) rotate(-90)`)
+      .attr("text-anchor","middle")
+      .text("Token edit distance");
+
+    g.append("g").attr("class","curves");
+    g.append("g").attr("class","labels");
+
+    layout = { svg, g, x, y, iw, ih };
+  }
+
+  const FAMILIES = ["qwen_ladder","instruct","legacy"];
+  function familyMean(catKey, panel) {
+    const TMAX = 64;
+    const clip = arr => (arr || []).filter(pt => pt.t <= TMAX);
+    return FAMILIES.map(fam => {
+      const famModels = panel.filter(p => p.family === fam);
+      const byT = {};
+      famModels.forEach(m => {
+        const c = clip(m.categories[catKey] || []);
+        c.forEach(pt => {
+          if (!byT[pt.t]) byT[pt.t] = [];
+          byT[pt.t].push(pt.edit_mean);
+        });
+      });
+      const fullN = famModels.length;
+      const ts = Object.keys(byT).map(Number).sort((a,b)=>a-b)
+        .filter(t => byT[t].length === fullN);
+      return {
+        family: fam,
+        curve: ts.map(t => ({ t, edit_mean: d3.mean(byT[t]) })),
+        atT20: byT[20] ? d3.mean(byT[20]) : null,
+        atT60: byT[60] ? d3.mean(byT[60]) : null,
+      };
+    });
+  }
+
+  function update(catKey) {
+    const { g, x, y, iw, ih } = layout;
+    const panel = data.panel;
+
+    const TMAX = 64;
+    const clip = arr => (arr || []).filter(pt => pt.t <= TMAX);
+
+    const line = d3.line()
+      .x(d => x(d.t))
+      .y(d => y(Math.min(1, d.edit_mean)))
+      .curve(d3.curveMonotoneX);
+
+    const isAll = (catKey === ALL_KEY);
+
+    // Build the per-model/per-tier curve dataset.
+    //   single-tier: one curve per model (tier = catKey)
+    //   all-tiers:   one curve per (model, tier) — opacity ramped by tier
+    let indivData;
+    if (isAll) {
+      indivData = [];
+      panel.forEach(m => {
+        FAN_TIERS.forEach((tierKey, i) => {
+          const opacity = 0.2 + 0.55 * (i / (FAN_TIERS.length - 1));
+          indivData.push({ model: m, tier: tierKey, tierIdx: i, opacity });
+        });
+      });
+    } else {
+      indivData = panel.map(m => ({ model: m, tier: catKey, opacity: 0.55 }));
+    }
+
+    const curves = g.select(".curves").selectAll("path.indiv")
+      .data(indivData, d => d.model.name + ":" + d.tier);
+    curves.enter().append("path")
+      .attr("class", d => "curve indiv " + d.model.family)
+      .merge(curves)
+      .transition().duration(500)
+      .attr("opacity", d => d.opacity)
+      .attr("d", d => {
+        const c = clip(d.model.categories[d.tier]);
+        return c.length ? line(c) : null;
+      });
+    curves.exit().remove();
+
+    // Family mean curves (thick) — keep these in all-tier mode too; one set
+    // per tier, opacity ramped. These are the "family signature" lines.
+    let meanData;
+    if (isAll) {
+      meanData = [];
+      FAN_TIERS.forEach((tierKey, i) => {
+        const opacity = 0.4 + 0.55 * (i / (FAN_TIERS.length - 1));
+        familyMean(tierKey, panel).forEach(m => {
+          meanData.push({ ...m, tier: tierKey, tierIdx: i, opacity });
+        });
+      });
+    } else {
+      meanData = familyMean(catKey, panel).map(m => ({ ...m, tier: catKey, opacity: 1 }));
+    }
+
+    const meanSel = g.select(".curves").selectAll("path.mean")
+      .data(meanData, d => d.family + ":" + d.tier);
+    meanSel.enter().append("path")
+      .attr("class", d => "curve mean " + d.family)
+      .merge(meanSel)
+      .transition().duration(500)
+      .attr("opacity", d => d.opacity)
+      .attr("stroke-width", d => isAll ? 2.5 : 3.5)
+      .attr("d", d => line(d.curve));
+    meanSel.exit().remove();
+
+    // Per-model labels — only in single-tier mode; too crowded in all-mode.
+    const modelLabelData = isAll ? [] : panel;
+    const labels = g.select(".labels").selectAll("text.model-label-indiv")
+      .data(modelLabelData, d => d.name);
+    labels.enter().append("text")
+      .attr("class","model-label-indiv model-label")
+      .attr("fill", d => `var(--${d.family})`)
+      .merge(labels)
+      .transition().duration(500)
+      .attr("x", d => {
+        const c = clip(d.categories[catKey]);
+        return c.length ? x(c[c.length-1].t) + 6 : x(TMAX);
+      })
+      .attr("y", d => {
+        const c = clip(d.categories[catKey]);
+        return c.length ? y(Math.min(1, c[c.length-1].edit_mean)) + 4 : y(0);
+      })
+      .text(d => d.name);
+    labels.exit().remove();
+    // Clear tier-labels from earlier iteration
+    g.select(".labels").selectAll("text.tier-label").remove();
+
+    // Readout
+    const fmt = v => v==null ? "—" : v.toFixed(3);
+    if (isAll) {
+      d3.select("#readout").html(
+        `<b>all tiers</b> · <span style="opacity:0.6">family means per perturbation strength</span> &nbsp;·&nbsp; ` +
+        `light→dark = noop→semantic &nbsp;·&nbsp; ` +
+        `<span style="opacity:0.55">window clipped to t≤${TMAX}, pos-control excluded</span>`
+      );
+    } else {
+      const means = familyMean(catKey, panel);
+      const a = means.find(m=>m.family==="qwen_ladder");
+      const b = means.find(m=>m.family==="instruct");
+      const c = means.find(m=>m.family==="legacy");
+      const cat = CATS.find(c=>c.key===catKey);
+      d3.select("#readout").html(
+        `<b>${cat.label}</b> · <span style="opacity:0.6">${cat.desc}</span> &nbsp;·&nbsp; ` +
+        `t=60: <b class="a">Qwen ${fmt(a && a.atT60)}</b> · <b class="b">instruct ${fmt(b && b.atT60)}</b> · <b class="c">legacy ${fmt(c && c.atT60)}</b> &nbsp;·&nbsp; ` +
+        `<span style="opacity:0.55">window clipped to t≤${TMAX}</span>`
+      );
+    }
+  }
+
+  build();
+  update("synonym");
+  window.addEventListener("resize", () => {
+    build();
+    const k = pills.select(".active").attr("data-key");
+    update(k);
+  });
+});
+</script>
+</body>
+</html>

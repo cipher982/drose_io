@@ -1,0 +1,16 @@
+{
+  "title": "Nearby Prompts, Distant Trajectories",
+  "slug": "nearby-prompts-distant-trajectories",
+  "summary": "Chaos isn't randomness. It's deterministic amplification of small differences. I spent a few weeks asking how far that lens gets us with modern LLMs at inference time. Part 1: the framing.",
+  "publishedAt": "2026-05-02T12:00:00.000Z",
+  "updatedAt": "2026-05-02T12:00:00.000Z",
+  "tags": [
+    "llm",
+    "chaos-theory",
+    "interpretability",
+    "dynamical-systems",
+    "research"
+  ],
+  "status": "published",
+  "heroImage": "/blog/nearby-prompts-distant-trajectories/assets/figures/lorenz-state-space.png"
+}

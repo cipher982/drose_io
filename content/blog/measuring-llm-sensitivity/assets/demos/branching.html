@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coupled → branching generations</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --coupled: #5a6270; --fork-a: #6cc4ff; --fork-b: #ff9e5a;
+    --grid: #1c2026; --brittle: #ff6b6b; --stable: #6cc4ff;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:20px 32px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:21px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin:2px 0 10px; }
+  .controls { display:flex; gap:12px; align-items:center; padding:6px 0 10px; flex-wrap:wrap; }
+  .pill { background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer;
+    font-family:inherit; }
+  .pill.active { background:#ff7a59; color:#0b0d10; border-color:#ff7a59; font-weight:600; }
+  .play { background:#2a3240; color:var(--ink); border:1px solid #3a4560;
+    padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .play:hover { background:#34404f; }
+  .panels { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:20px; min-height:0; }
+  .panel {
+    display:flex; flex-direction:column; min-height:0;
+    border:1px solid #1c2026; border-radius:8px; padding:14px 16px;
+    background:#0e1116;
+  }
+  .panel-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .panel-title { font-size:14px; font-weight:500; }
+  .panel-metric { color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums; }
+  .panel-metric b { color:var(--ink); }
+  .streams { display:grid; grid-template-rows:1fr 1fr; gap:8px; min-height:0; flex:1; }
+  .stream {
+    background:#0b0d10; border:1px solid #1a1e25; border-radius:6px;
+    padding:10px 12px; font-family:"SF Mono","Menlo",monospace; font-size:12.5px;
+    line-height:1.55; overflow:hidden; min-height:0;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .stream .coupled { color:var(--coupled); }
+  .stream.a .fork { color:var(--fork-a); font-weight:500; }
+  .stream.b .fork { color:var(--fork-b); font-weight:500; }
+  .stream .tag { font-family:-apple-system,system-ui,sans-serif; font-size:10px;
+    letter-spacing:0.8px; opacity:0.75; margin-right:8px; font-weight:600; }
+  .stream.a .tag { color:var(--fork-a); }
+  .stream.b .tag { color:var(--fork-b); }
+  .cursor { display:inline-block; width:7px; height:14px; background:var(--ink);
+    vertical-align:-2px; opacity:0; }
+  .cursor.on { opacity:1; animation:blink 0.7s infinite; }
+  @keyframes blink { 50% { opacity:0.2; } }
+  .chart-wrap { height:110px; margin-top:10px; }
+  .chart-wrap svg { width:100%; height:100%; display:block; }
+  .chart-wrap .axis path, .chart-wrap .axis line { stroke:#2a3038; }
+  .chart-wrap .axis text { fill:var(--muted); font-size:10px; }
+  .chart-wrap .div-curve { fill:none; stroke-width:2; }
+  .chart-wrap .now-line { stroke:var(--ink); stroke-width:1; stroke-dasharray:2 3; opacity:0.5; }
+  .chart-wrap .fork-line { stroke:#ffcc44; stroke-dasharray:4 3; opacity:0; }
+  .chart-wrap .fork-label { fill:#ffcc44; font-size:10px; opacity:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Same prompt, one-word perturbation — when do generations fork?</h1>
+  <div class="sub">Left: Qwen 0.8B. Right: Qwen 4B. Top = Prompt A, bottom = Prompt B (one-word perturbed). Gray = word appears in both generations (LCS aligned); color intensity = length of the unique run — speckles mean reshuffling, solid blocks mean true divergence.</div>
+  <div class="controls">
+    <button class="play" id="play">▶ play</button>
+    <button class="play" id="reset" style="margin-right:12px">↺ reset</button>
+    <span id="pair-pills"></span>
+  </div>
+  <div class="panels">
+    <div class="panel" id="pLeft">
+      <div class="panel-head">
+        <div class="panel-title">Qwen 3.5 — 0.8B</div>
+        <div class="panel-metric"><span id="mLeft">coupled: 0 / 0 tokens</span></div>
+      </div>
+      <div class="streams">
+        <div class="stream a" id="sLa"></div>
+        <div class="stream b" id="sLb"></div>
+      </div>
+      <div class="chart-wrap"><svg id="chartL"></svg></div>
+    </div>
+    <div class="panel" id="pRight">
+      <div class="panel-head">
+        <div class="panel-title">Qwen 3.5 — 4B (thinkoff)</div>
+        <div class="panel-metric"><span id="mRight">coupled: 0 / 0 tokens</span></div>
+      </div>
+      <div class="streams">
+        <div class="stream a" id="sRa"></div>
+        <div class="stream b" id="sRb"></div>
+      </div>
+      <div class="chart-wrap"><svg id="chartR"></svg></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LEFT_MODEL = "0.8B";
+const RIGHT_MODEL = "4B";
+
+fetch("data/branching.json").then(r=>r.json()).then(data => {
+  const PAIR_ORDER = [
+    ["control_identical", "control"],
+    ["noop_format",       "noop"],
+    ["punctuation",       "punctuation"],
+    ["synonym",           "synonym"],
+    ["paraphrase",        "paraphrase"],
+    ["semantic_small",    "semantic"],
+    ["positive_control",  "pos control"],
+  ];
+  const pairs = PAIR_ORDER.filter(([k]) => data[LEFT_MODEL][k]).map(([k]) => k);
+  const pairLabel = Object.fromEntries(PAIR_ORDER);
+
+  const pillsHost = d3.select("#pair-pills");
+  pairs.forEach((p,i) => {
+    pillsHost.append("button")
+      .attr("class", "pill" + (i===2 ? " active" : ""))
+      .attr("data-pair", p)
+      .text(pairLabel[p] || p)
+      .on("click", function() {
+        pillsHost.selectAll(".pill").classed("active", false);
+        d3.select(this).classed("active", true);
+        loadPair(p);
+      });
+  });
+
+  let state = { playing:false, raf:null, tokenRate:8, started:null, pausedAt:0, duration:0,
+                left:null, right:null };
+
+  function setupChart(svgId) {
+    const svg = d3.select(svgId);
+    svg.selectAll("*").remove();
+    const bb = svg.node().getBoundingClientRect();
+    const W = bb.width, H = bb.height;
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
+    const m = { top:8, right:14, bottom:22, left:34 };
+    const iw = W - m.left - m.right, ih = H - m.top - m.bottom;
+    const g = svg.append("g").attr("transform", `translate(${m.left},${m.top})`);
+    const x = d3.scaleLinear().domain([1,64]).range([0, iw]);
+    const y = d3.scaleLinear().domain([0, 1]).range([ih, 0]);
+    g.append("g").attr("class","axis")
+      .attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).ticks(6).tickSize(3));
+    g.append("g").attr("class","axis")
+      .call(d3.axisLeft(y).ticks(3).tickSize(3).tickFormat(d3.format(".1f")));
+    g.append("text").attr("fill","var(--muted)").attr("font-size",10)
+      .attr("x", iw/2).attr("y", ih+18).attr("text-anchor","middle")
+      .text("token index");
+    g.append("path").attr("class","div-curve");
+    g.append("line").attr("class","fork-line").attr("y1",0).attr("y2",ih);
+    g.append("text").attr("class","fork-label");
+    g.append("line").attr("class","now-line").attr("y1",0).attr("y2",ih);
+    return { g, x, y, iw, ih };
+  }
+
+  function lcp(a,b) {
+    let i=0; const n=Math.min(a.length,b.length);
+    while (i<n && a[i]===b[i]) i++;
+    return i;
+  }
+
+  // Split into (whitespace | word) tokens so we can reassemble with original spacing.
+  function tokenize(text) {
+    const parts = [];
+    const re = /(\s+|\S+)/g;
+    let m;
+    while ((m = re.exec(text)) !== null) parts.push(m[0]);
+    return parts;
+  }
+
+  // Myers-ish LCS on word tokens (ignoring whitespace chunks for matching,
+  // but we keep whitespace in the output). Returns, for each token in A and B,
+  // whether it matches an LCS element. Quadratic, fine for <512 tokens.
+  function alignWords(partsA, partsB) {
+    const wordIdxA = [], wordIdxB = [];
+    partsA.forEach((p,i) => { if (/\S/.test(p)) wordIdxA.push(i); });
+    partsB.forEach((p,i) => { if (/\S/.test(p)) wordIdxB.push(i); });
+    const A = wordIdxA.map(i => partsA[i]);
+    const B = wordIdxB.map(i => partsB[i]);
+    const n = A.length, m = B.length;
+    // DP table
+    const dp = Array.from({length: n+1}, () => new Int32Array(m+1));
+    for (let i=0; i<n; i++) for (let j=0; j<m; j++) {
+      dp[i+1][j+1] = A[i] === B[j] ? dp[i][j]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+    const matchA = new Array(n).fill(false);
+    const matchB = new Array(m).fill(false);
+    let i=n, j=m;
+    while (i>0 && j>0) {
+      if (A[i-1] === B[j-1]) { matchA[i-1]=true; matchB[j-1]=true; i--; j--; }
+      else if (dp[i-1][j] >= dp[i][j-1]) i--;
+      else j--;
+    }
+    // Map back to parts arrays; whitespace inherits match=true (neutral)
+    const flagA = partsA.map(() => true), flagB = partsB.map(() => true);
+    wordIdxA.forEach((pi, k) => flagA[pi] = matchA[k]);
+    wordIdxB.forEach((pi, k) => flagB[pi] = matchB[k]);
+    // Run-length per token — length of the contiguous unique run it belongs to (0 if matched)
+    function runLens(parts, flags) {
+      const out = new Array(parts.length).fill(0);
+      let i = 0;
+      while (i < parts.length) {
+        if (flags[i] || !/\S/.test(parts[i])) { i++; continue; }
+        let j = i;
+        let words = 0;
+        while (j < parts.length && (!flags[j] || !/\S/.test(parts[j]))) {
+          if (!flags[j] && /\S/.test(parts[j])) words++;
+          j++;
+        }
+        // Trim trailing whitespace from run
+        let end = j;
+        while (end > i && !/\S/.test(parts[end-1])) end--;
+        for (let k=i; k<end; k++) out[k] = words;
+        i = j;
+      }
+      return out;
+    }
+    return {
+      partsA, partsB, flagA, flagB,
+      runA: runLens(partsA, flagA),
+      runB: runLens(partsB, flagB),
+    };
+  }
+
+  function buildPanel(side, modelKey, pairId) {
+    const d = data[modelKey][pairId];
+    const textA = d.text_a, textB = d.text_b;
+    const branchChar = lcp(textA, textB);
+    const align = alignWords(tokenize(textA), tokenize(textB));
+    // Precompute cumulative character offsets for each part, so we can map
+    // "reveal up to N chars" back to a part index quickly.
+    function cumOffsets(parts) {
+      const offs = new Array(parts.length + 1);
+      offs[0] = 0;
+      for (let i=0; i<parts.length; i++) offs[i+1] = offs[i] + parts[i].length;
+      return offs;
+    }
+    align.offA = cumOffsets(align.partsA);
+    align.offB = cumOffsets(align.partsB);
+    const curve = d.curve; // [{t, common_prefix, edit}]
+    const totalTokens = Math.max(...curve.map(c=>c.t));
+    const finalCommon = curve[curve.length-1].common_prefix;
+    // char length for "coupled" region — use branchChar; tokens for the readout
+    const ch = setupChart(side === "L" ? "#chartL" : "#chartR");
+    const color = modelKey === LEFT_MODEL ? "var(--brittle)" : "var(--stable)";
+    const line = d3.line()
+      .x(c => ch.x(c.t))
+      .y(c => ch.y(Math.min(1, c.edit)))
+      .curve(d3.curveMonotoneX);
+    ch.g.select(".div-curve")
+      .attr("stroke", color)
+      .attr("d", line(curve));
+    // fork marker
+    if (finalCommon < totalTokens) {
+      ch.g.select(".fork-line")
+        .attr("x1", ch.x(finalCommon+1))
+        .attr("x2", ch.x(finalCommon+1))
+        .attr("opacity", 0.9);
+      ch.g.select(".fork-label")
+        .attr("x", ch.x(finalCommon+1) + 4)
+        .attr("y", 12)
+        .text(`fork @ t=${finalCommon}`)
+        .attr("opacity", 0.9);
+    }
+    return { textA, textB, branchChar, align, totalTokens, finalCommon, curve, ch, color,
+             aLen: textA.length, bLen: textB.length };
+  }
+
+  function loadPair(pairId) {
+    stop();
+    state.left  = buildPanel("L", LEFT_MODEL,  pairId);
+    state.right = buildPanel("R", RIGHT_MODEL, pairId);
+    // total animation duration driven by max chars
+    const maxChars = Math.max(state.left.aLen, state.left.bLen, state.right.aLen, state.right.bLen);
+    state.duration = (maxChars / state.tokenRate) / 3.5 * 1000; // ~3.5 chars/token, tokenRate tok/sec
+    state.pausedAt = 0;
+    render(0);
+  }
+
+  // Map a unique-run length to a saturation level (0..1). Short runs (1-2 words)
+  // are near-neutral; long runs saturate to the fork color. Log-ish scale.
+  function runSat(runLen) {
+    if (runLen <= 0) return 0;
+    return Math.min(1, 0.35 + 0.15 * Math.log2(runLen + 1));
+  }
+
+  function renderStream(el, pane, upto, sideClass) {
+    const text = sideClass === "a" ? pane.textA : pane.textB;
+    const parts = sideClass === "a" ? pane.align.partsA : pane.align.partsB;
+    const flags = sideClass === "a" ? pane.align.flagA  : pane.align.flagB;
+    const runs  = sideClass === "a" ? pane.align.runA   : pane.align.runB;
+    const offs  = sideClass === "a" ? pane.align.offA   : pane.align.offB;
+    const forkColor = sideClass === "a" ? "#6cc4ff" : "#ff9e5a";
+    const matchColor = "#5a6270"; // gray, like old coupled
+
+    const reveal = Math.min(upto, text.length);
+    const cursorOn = upto < text.length;
+    const tag = sideClass === "a" ? "PROMPT A" : "PROMPT B";
+    let html = `<span class="tag">${tag}</span>`;
+    for (let i=0; i<parts.length; i++) {
+      const start = offs[i], end = offs[i+1];
+      if (start >= reveal) break;
+      const slice = parts[i].slice(0, reveal - start);
+      const esc = escape(slice);
+      if (flags[i] || !/\S/.test(parts[i])) {
+        html += `<span style="color:${matchColor}">${esc}</span>`;
+      } else {
+        const sat = runSat(runs[i]);
+        html += `<span style="color:${forkColor};opacity:${(0.45 + 0.55*sat).toFixed(2)}">${esc}</span>`;
+      }
+    }
+    html += `<span class="cursor ${cursorOn ? 'on' : ''}"></span>`;
+    el.innerHTML = html;
+  }
+  function escape(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function updateMetric(id, coupledTokens, total, elapsedT) {
+    const el = document.getElementById(id);
+    el.innerHTML = `coupled: <b>${coupledTokens}</b> / ${total} tokens · at t=${elapsedT}`;
+  }
+
+  function render(t) {
+    // t = ms since start (0..duration)
+    const frac = state.duration > 0 ? Math.min(1, t/state.duration) : 1;
+    const revealChars = function(len) { return Math.floor(frac * len); };
+
+    for (const [pane, metricId, ids] of [
+      [state.left, "mLeft", ["sLa","sLb"]],
+      [state.right, "mRight", ["sRa","sRb"]],
+    ]) {
+      const aUpto = revealChars(pane.aLen);
+      const bUpto = revealChars(pane.bLen);
+      renderStream(document.getElementById(ids[0]), pane, aUpto, "a");
+      renderStream(document.getElementById(ids[1]), pane, bUpto, "b");
+
+      // approximate current token index from proportion
+      const approxT = Math.max(1, Math.round(frac * pane.totalTokens));
+      // find coupled-so-far: look up curve at approxT
+      const c = pane.curve[Math.min(approxT, pane.curve.length) - 1];
+      const coupledNow = c ? c.common_prefix : 0;
+      updateMetric(metricId, coupledNow, pane.totalTokens, approxT);
+
+      // move now-line
+      pane.ch.g.select(".now-line")
+        .attr("x1", pane.ch.x(approxT))
+        .attr("x2", pane.ch.x(approxT));
+    }
+  }
+
+  function tick(ts) {
+    if (!state.playing) return;
+    if (!state.started) state.started = ts - state.pausedAt;
+    const t = ts - state.started;
+    render(t);
+    if (t >= state.duration) {
+      state.playing = false;
+      state.pausedAt = state.duration;
+      document.getElementById("play").textContent = "▶ replay";
+      return;
+    }
+    state.raf = requestAnimationFrame(tick);
+  }
+
+  function play() {
+    if (state.pausedAt >= state.duration) { state.pausedAt = 0; }
+    state.playing = true;
+    state.started = null;
+    document.getElementById("play").textContent = "❚❚ pause";
+    state.raf = requestAnimationFrame(tick);
+  }
+  function stop() {
+    if (state.raf) cancelAnimationFrame(state.raf);
+    if (state.playing) {
+      // pause
+      const now = performance.now();
+      state.pausedAt = Math.min(state.duration, now - (state.started || now));
+    }
+    state.playing = false;
+    document.getElementById("play").textContent = state.pausedAt > 0 ? "▶ resume" : "▶ play";
+  }
+
+  document.getElementById("play").addEventListener("click", () => {
+    if (state.playing) stop(); else play();
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    stop(); state.pausedAt = 0; render(0);
+    document.getElementById("play").textContent = "▶ play";
+  });
+
+  loadPair(pairs[2] || pairs[0]);
+  window.addEventListener("resize", () => {
+    const active = d3.select("#pair-pills .active").attr("data-pair");
+    const wasPaused = state.pausedAt;
+    const wasPlaying = state.playing;
+    stop();
+    loadPair(active);
+    state.pausedAt = wasPaused;
+    render(wasPaused);
+    if (wasPlaying) play();
+  });
+});
+</script>
+</body>
+</html>

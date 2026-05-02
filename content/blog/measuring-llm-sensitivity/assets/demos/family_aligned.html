@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scaffold ≠ stability</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --reasoning: #ff9e5a; --nonreasoning: #6cc4ff; --thinkoff: #c28bff;
+    --grid: #1c2026;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:16px 28px 10px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:22px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin:3px 0 6px; max-width: 1200px; line-height:1.45; }
+  .legend { display:flex; gap:18px; font-size:12px; color:var(--muted); padding:2px 0 6px; flex-wrap:wrap; }
+  .legend .swatch { display:inline-block; width:22px; height:3px; vertical-align:middle; margin-right:6px; border-radius:1px; }
+  .legend b { color:var(--ink); font-weight:500; }
+  .body-row { display:flex; flex:1; min-height:0; gap: 14px; }
+  .chart-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .chart { flex:1; min-height:0; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+  .axis path, .axis line { stroke:#3a4049; }
+  .axis text { fill:var(--muted); font-size:12px; }
+  .axis-label { fill:var(--ink); font-size:13px; }
+  .grid line { stroke:var(--grid); stroke-dasharray:2 3; }
+  .grid path { stroke:none; }
+  .curve { fill:none; stroke-width:1.5; }
+  .curve.reasoning { stroke:var(--reasoning); }
+  .curve.nonreasoning { stroke:var(--nonreasoning); }
+  .curve.thinkoff { stroke:var(--thinkoff); }
+  .curve.mean { stroke-width:3.5; }
+  .curve.dim { opacity: 0.18 !important; stroke-dasharray: 3 3; }
+  .divider { stroke:#d0d5de; stroke-width:1.5; stroke-dasharray:6 5; opacity:0.75; }
+  .divider-label { fill:#d0d5de; font-size:12px; font-weight:500; letter-spacing:.3px; }
+  .scaffold-shade { fill:#ff9e5a; opacity:0.055; }
+  .scaffold-zone-label { fill:var(--reasoning); font-size:11px; opacity:0.85; letter-spacing:.3px; }
+  .answer-zone-label { fill:var(--nonreasoning); font-size:11px; opacity:0.85; letter-spacing:.3px; }
+  .callout { font-size:11px; fill:var(--ink); opacity:0.85; }
+  .callout .lead { fill:var(--muted); }
+  .callout-line { stroke:var(--muted); stroke-width:1; opacity:0.5; }
+  .dynamic-note { font-size:12px; fill:var(--reasoning); opacity:0.9; font-weight:500; }
+  .dynamic-note-muted { font-size:11px; fill:var(--muted); opacity:0.9; }
+  .model-label { font-size:10.5px; font-variant-numeric:tabular-nums; pointer-events:none; }
+  .controls { display:flex; gap:10px; align-items:center; padding:6px 0 0; flex-wrap:wrap; }
+  .pill {
+    background:#1c2026; color:var(--muted); border:1px solid #2e343d;
+    padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer;
+    font-family:inherit;
+  }
+  .pill.active { background:#ff7a59; color:#0b0d10; border-color:#ff7a59; font-weight:600; }
+  .pill:hover:not(.active) { border-color:#555; color:var(--ink); }
+  .readout {
+    color:var(--muted); font-size:12px; margin-left:auto;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout b.r { color:var(--reasoning); }
+  .readout b.n { color:var(--nonreasoning); }
+  .readout b.t { color:var(--thinkoff); }
+  .inset-box {
+    width: 260px; background:#0e1116; border:1px solid #2e343d;
+    border-radius:8px; padding:10px 12px; font-size:12px;
+  }
+  .inset-box h3 { margin:0 0 6px; font-weight:500; font-size:12px; color:var(--ink); letter-spacing:.3px; }
+  .inset-box .row {
+    display:flex; align-items:center; gap:8px; margin:3px 0; color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .inset-box .row .name { flex:1.5; color:var(--ink); font-size:11px; }
+  .inset-box .row.dim .name { color: var(--muted); opacity: 0.7; }
+  .inset-box .row .num { min-width: 38px; text-align:right; color:var(--muted); font-size:11px; }
+  .bar-track { flex: 2; height:8px; background:#1c2026; border-radius:3px; position:relative; overflow:visible; }
+  .bar-iqr { position:absolute; height:100%; background:#ff9e5a44; border-radius:3px; }
+  .bar-median { position:absolute; width:2px; height:14px; background:var(--reasoning); top:-3px; }
+  .corner-note {
+    color:var(--muted); font-size:11px; margin-top:8px; line-height:1.4;
+    border-top:1px solid #222830; padding-top:6px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Scaffold ≠ stability</h1>
+  <div class="sub">
+    Per-pair token alignment: final-answer markers land at x=0. Negative x = scaffold tokens, positive x = answer tokens.
+    Drafting headings are treated as scaffold, not answers. Many reasoning outputs never reach a final answer within 512 tokens, so
+    answer-side reasoning curves only appear when enough final-answer pairs survive. The raw token-index stability mostly reflected
+    scaffold template structure, not clean answer-content robustness.
+  </div>
+  <div class="legend">
+    <div><span class="swatch" style="background:var(--reasoning)"></span><b>Reasoning-tuned</b> (Qwen 4B/9B, DeepSeek-R1, SmolLM3)</div>
+    <div><span class="swatch" style="background:var(--thinkoff)"></span><b>Reasoning (think-off)</b> (Qwen 0.8B/2B/4B/9B)</div>
+    <div><span class="swatch" style="background:var(--nonreasoning)"></span><b>Non-reasoning</b> (Qwen 0.8B/2B, Mistral, OLMo, Granite, Gemma)</div>
+  </div>
+  <div class="body-row">
+    <div class="chart-col">
+      <div class="chart"><svg id="chart"></svg></div>
+      <div class="controls" id="pills"></div>
+    </div>
+    <div class="inset-box" id="inset">
+      <h3>Scaffold length (tokens, reasoning only)</h3>
+      <div id="inset-body"></div>
+      <div class="corner-note" id="corner-note"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS = [
+  { key:"noop_format",     label:"noop" },
+  { key:"punctuation",     label:"punctuation" },
+  { key:"synonym",         label:"synonym" },
+  { key:"paraphrase",      label:"paraphrase" },
+  { key:"semantic_small",  label:"semantic" },
+  { key:"positive_control",label:"pos control" },
+];
+
+const X_MIN = -180;
+const X_MAX = 80;
+const DIM_THRESHOLD = 10; // n<10 aligned pairs gets dimmed
+const MIN_CATEGORY_N = 2; // hide answer curves from a single surviving pair
+const EXCLUDE = new Set(["Phi-4 reasoning+"]);
+
+let state = { cat: "synonym" };
+
+fetch("data/family_aligned.json?v=20260430-1010", { cache: "no-store" }).then(r=>r.json()).then(raw => {
+  // Filter Phi-4
+  raw.panel = raw.panel.filter(m => !EXCLUDE.has(m.name));
+
+  const svg = d3.select("#chart");
+  const pills = d3.select("#pills");
+
+  CATS.forEach((c,i) => {
+    pills.append("button")
+      .attr("class","pill" + (c.key === state.cat ? " active" : ""))
+      .attr("data-key",c.key)
+      .html(`<span style="opacity:0.6">${i+1}.</span> ${c.label}`)
+      .on("click", function() {
+        pills.selectAll(".pill").classed("active",false);
+        d3.select(this).classed("active",true);
+        state.cat = c.key;
+        update();
+      });
+  });
+  pills.append("div").attr("class","readout").attr("id","readout");
+
+  let layout = null;
+
+  function build() {
+    svg.selectAll("*").remove();
+    const bb = svg.node().getBoundingClientRect();
+    const W = bb.width, H = bb.height;
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
+    const margin = { top: 24, right: 120, bottom: 46, left: 58 };
+    const iw = W - margin.left - margin.right;
+    const ih = H - margin.top - margin.bottom;
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const x = d3.scaleLinear().domain([X_MIN, X_MAX]).range([0, iw]);
+    const y = d3.scaleLinear().domain([0, 1]).range([ih, 0]);
+
+    g.append("g").attr("class","grid")
+      .call(d3.axisLeft(y).tickSize(-iw).tickFormat(""));
+
+    // Scaffold shaded region (x<0)
+    g.append("rect").attr("class","scaffold-shade")
+      .attr("x", x(X_MIN)).attr("y", 0)
+      .attr("width", x(0) - x(X_MIN)).attr("height", ih);
+
+    // Zone labels at top
+    g.append("text").attr("class","scaffold-zone-label")
+      .attr("x", x(X_MIN) + 8).attr("y", 14)
+      .text("◀  scaffold tokens (reasoning preamble)");
+    g.append("text").attr("class","answer-zone-label")
+      .attr("x", x(X_MAX) - 8).attr("y", 14).attr("text-anchor","end")
+      .text("answer tokens  ▶");
+
+    // X and Y axes
+    g.append("g").attr("class","axis")
+      .attr("transform", `translate(0,${ih})`)
+      .call(d3.axisBottom(x).tickValues([-160,-120,-80,-40,0,20,40,60,80])
+        .tickFormat(d => d === 0 ? "0" : d));
+    g.append("g").attr("class","axis")
+      .call(d3.axisLeft(y).ticks(5));
+
+    g.append("text").attr("class","axis-label")
+      .attr("x", iw/2).attr("y", ih+38).attr("text-anchor","middle")
+      .text("Token offset from start of answer (negative = scaffold, positive = answer)");
+    g.append("text").attr("class","axis-label")
+      .attr("transform", `translate(-42, ${ih/2}) rotate(-90)`)
+      .attr("text-anchor","middle")
+      .text("Token edit distance");
+
+    // Divider at x=0
+    g.append("line").attr("class","divider")
+      .attr("x1", x(0)).attr("x2", x(0))
+      .attr("y1", 0).attr("y2", ih);
+    g.append("text").attr("class","divider-label")
+      .attr("x", x(0)).attr("y", -6)
+      .attr("text-anchor","middle")
+      .text("answer starts");
+
+    // Callouts
+    const calloutG = g.append("g").attr("class","callouts");
+    // Left callout
+    const lc = calloutG.append("g").attr("transform", `translate(${x(-100)}, ${y(0.5)})`);
+    lc.append("line").attr("class","callout-line")
+      .attr("x1", 0).attr("x2", 0).attr("y1", 0).attr("y2", y(0.04) - y(0.5));
+    lc.append("text").attr("class","callout")
+      .attr("x", 0).attr("y", -6).attr("text-anchor","middle")
+      .text("reasoning preamble — divergence ≈ 0");
+    lc.append("text").attr("class","callout lead")
+      .attr("x", 0).attr("y", 8).attr("text-anchor","middle")
+      .text("(makes the model *look* stable)");
+
+    g.append("g").attr("class","curves");
+    g.append("g").attr("class","labels");
+    g.append("g").attr("class","mean-curves");
+    g.append("g").attr("class","dynamic-notes");
+    layout = { svg, g, x, y, iw, ih };
+  }
+
+  function groupClass(group) {
+    if (group === "reasoning") return "reasoning";
+    if (group === "reasoning-thinkoff") return "thinkoff";
+    return "nonreasoning";
+  }
+
+  // Build a model's "scaffold + answer" curve in the new x-coordinate system.
+  // Scaffold side uses `scaffold_categories` — per-pair aligned so every pair's
+  // scaffold-end lands at x=0 individually, then averaged across pairs at
+  // each discrete x. No population-median smearing.
+  // Answer side uses `aligned_categories` — per-pair sliced at each pair's
+  // detected answer-start, then averaged.
+  // Non-reasoning / thinkoff: no scaffold, just raw at x=t on positive side.
+  function modelCurve(m, catKey) {
+    const scaffoldRaw = m.scaffold_categories && m.scaffold_categories[catKey] || [];
+    const aligned = m.aligned_categories[catKey] || [];
+    const raw = m.raw_categories[catKey] || [];
+
+    const scaffoldPts = [];
+    const answerPts = [];
+
+    if (m.group === "reasoning") {
+      // scaffold_categories is already in x-space (x <= 0)
+      scaffoldRaw.forEach(p => {
+        if (p.x >= X_MIN && p.x <= 0) scaffoldPts.push({ x: p.x, y: p.edit_mean });
+      });
+      // Answer side from aligned_categories (t=1 -> x=1, t=0 maps to x=0)
+      if (!(m.group === "reasoning" && isDim(m))) {
+        aligned.forEach(p => {
+          if (p.t >= 0 && p.t <= X_MAX && (p.n || 0) >= MIN_CATEGORY_N) {
+            answerPts.push({ x: p.t, y: p.edit_mean });
+          }
+        });
+      }
+    } else {
+      // Non-reasoning / thinkoff: no scaffold, raw at x=t
+      raw.forEach(p => {
+        if (p.t <= X_MAX && (p.n || 0) >= MIN_CATEGORY_N) {
+          answerPts.push({ x: p.t, y: p.edit_mean });
+        }
+      });
+    }
+
+    scaffoldPts.sort((a,b)=>a.x-b.x);
+    answerPts.sort((a,b)=>a.x-b.x);
+    return { scaffoldPts, answerPts };
+  }
+
+  function isDim(m) {
+    return (m.meta.pairs_aligned || 0) < DIM_THRESHOLD;
+  }
+
+  function familyMean(catKey, panel, group) {
+    const ms = panel.filter(p => p.group === group && !isDim(p));
+    if (!ms.length) return { scaffoldPts: [], answerPts: [] };
+    const binBy = (pick) => {
+      const byX = {};
+      ms.forEach(m => {
+        const curve = modelCurve(m, catKey);
+        pick(curve).forEach(p => {
+          const xi = Math.round(p.x);
+          (byX[xi] = byX[xi] || []).push(p.y);
+        });
+      });
+      const xs = Object.keys(byX).map(Number).sort((a,b)=>a-b);
+      const need = Math.max(1, Math.ceil(ms.length / 2));
+      return xs
+        .filter(xi => byX[xi].length >= need)
+        .map(xi => ({ x: xi, y: d3.mean(byX[xi]) }));
+    };
+    return {
+      scaffoldPts: binBy(c => c.scaffoldPts),
+      answerPts:   binBy(c => c.answerPts),
+    };
+  }
+
+  function zoneMean(catKey, panel, group, xLow, xHigh) {
+    const ms = panel.filter(p => p.group === group && !isDim(p));
+    const vals = [];
+    ms.forEach(m => {
+      const c = modelCurve(m, catKey);
+      c.scaffoldPts.concat(c.answerPts).forEach(p => {
+        if (p.x >= xLow && p.x <= xHigh) vals.push(p.y);
+      });
+    });
+    return vals.length ? d3.mean(vals) : null;
+  }
+
+  function update() {
+    const { g, x, y, iw, ih } = layout;
+    const panel = raw.panel;
+    const catKey = state.cat;
+
+    const line = d3.line()
+      .x(d => x(d.x))
+      .y(d => y(Math.min(1, d.y)))
+      .curve(d3.curveMonotoneX);
+
+    // Per-model curves: expand each model into up to 3 path segments
+    // (scaffold, connector, answer) keyed by model+segment.
+    const curveSegs = [];
+    panel.forEach(m => {
+      const c = modelCurve(m, catKey);
+      const dim = isDim(m);
+      if (c.scaffoldPts.length >= 2) {
+        curveSegs.push({ key: m.name + ":s", model: m, pts: c.scaffoldPts, dim, kind: "solid" });
+      }
+      if (c.answerPts.length >= 2) {
+        curveSegs.push({ key: m.name + ":a", model: m, pts: c.answerPts, dim, kind: "solid" });
+      }
+      // Connector: last scaffold point to first answer point, dashed
+      if (c.scaffoldPts.length && c.answerPts.length) {
+        const s = c.scaffoldPts[c.scaffoldPts.length - 1];
+        const a = c.answerPts[0];
+        curveSegs.push({
+          key: m.name + ":c", model: m, dim,
+          pts: [s, a], kind: "dashed",
+        });
+      }
+    });
+
+    const curves = g.select(".curves").selectAll("path.indiv")
+      .data(curveSegs, d => d.key);
+    curves.enter().append("path")
+      .merge(curves)
+      .attr("class", d => "curve indiv " + groupClass(d.model.group) + (d.dim ? " dim" : ""))
+      .attr("stroke-dasharray", d => d.kind === "dashed" ? "2 3" : null)
+      .transition().duration(400)
+      .attr("opacity", d => d.pts.length ? (d.dim ? 0.2 : (d.kind === "dashed" ? 0.3 : 0.5)) : 0)
+      .attr("d", d => d.pts.length ? line(d.pts) : null);
+    curves.exit().remove();
+
+    // Family means: one scaffold path + one answer path per group, plus dashed connector
+    const groups = ["reasoning", "reasoning-thinkoff", "non-reasoning"];
+    const meanSegs = [];
+    groups.forEach(grp => {
+      const fm = familyMean(catKey, panel, grp);
+      if (fm.scaffoldPts.length >= 2) {
+        meanSegs.push({ key: grp + ":s", group: grp, pts: fm.scaffoldPts, kind: "solid" });
+      }
+      if (fm.answerPts.length >= 2) {
+        meanSegs.push({ key: grp + ":a", group: grp, pts: fm.answerPts, kind: "solid" });
+      }
+      if (fm.scaffoldPts.length && fm.answerPts.length) {
+        const s = fm.scaffoldPts[fm.scaffoldPts.length - 1];
+        const a = fm.answerPts[0];
+        meanSegs.push({ key: grp + ":c", group: grp, pts: [s, a], kind: "dashed" });
+      }
+    });
+    const meanSel = g.select(".mean-curves").selectAll("path.mean")
+      .data(meanSegs, d => d.key);
+    meanSel.enter().append("path")
+      .merge(meanSel)
+      .attr("class", d => "curve mean " + groupClass(d.group))
+      .attr("stroke-dasharray", d => d.kind === "dashed" ? "4 4" : null)
+      .transition().duration(400)
+      .attr("opacity", d => d.pts.length ? (d.kind === "dashed" ? 0.55 : 0.95) : 0)
+      .attr("d", d => d.pts.length ? line(d.pts) : null);
+    meanSel.exit().remove();
+
+    // Per-model end labels — anchor to the rightmost available point
+    const labelData = panel.map(m => {
+      const c = modelCurve(m, catKey);
+      const last = c.answerPts.length ? c.answerPts[c.answerPts.length - 1]
+                 : c.scaffoldPts.length ? c.scaffoldPts[c.scaffoldPts.length - 1]
+                 : null;
+      return { model: m, last, dim: isDim(m) };
+    });
+    const labels = g.select(".labels").selectAll("text.model-label-indiv")
+      .data(labelData, d => d.model.name);
+    labels.enter().append("text")
+      .attr("class","model-label-indiv model-label")
+      .merge(labels)
+      .attr("fill", d => {
+        const cls = groupClass(d.model.group);
+        return cls === "reasoning" ? "var(--reasoning)" :
+               cls === "thinkoff"  ? "var(--thinkoff)"  : "var(--nonreasoning)";
+      })
+      .transition().duration(400)
+      .attr("opacity", d => d.last ? (d.dim ? 0.35 : 0.85) : 0)
+      .attr("x", d => d.last ? x(Math.min(d.last.x, X_MAX)) + 5 : x(X_MAX))
+      .attr("y", d => d.last ? y(Math.min(1, d.last.y)) + 4 : y(0))
+      .text(d => d.model.name);
+    labels.exit().remove();
+
+    // Readout numerical comparison
+    const fmt = v => v == null || !isFinite(v) ? "—" : v.toFixed(2);
+    const rScaffold  = zoneMean(catKey, panel, "reasoning",          X_MIN, -5);
+    const rAnswer    = zoneMean(catKey, panel, "reasoning",          1, 60);
+    const nAnswer    = zoneMean(catKey, panel, "non-reasoning",      1, 60);
+    const tAnswer    = zoneMean(catKey, panel, "reasoning-thinkoff", 1, 60);
+    const reasoningFinalCounts = panel
+      .filter(m => m.group === "reasoning")
+      .map(m => d3.max((m.aligned_categories[catKey] || []).map(p => p.n || 0)) || 0);
+    const reasoningFinalPairs = d3.sum(reasoningFinalCounts);
+
+    const cat = CATS.find(c => c.key === catKey);
+    d3.select("#readout").html(
+      `<b>${cat.label}</b> · mean edit distance · ` +
+      `<b class="r">Reasoning scaffold: ${fmt(rScaffold)}</b> &nbsp;│&nbsp; ` +
+      `<b class="r">Reasoning final answer: ${fmt(rAnswer)}</b> &nbsp;·&nbsp; ` +
+      `<b class="t">Think-off answer: ${fmt(tAnswer)}</b> &nbsp;·&nbsp; ` +
+      `<b class="n">Non-reasoning answer: ${fmt(nAnswer)}</b>`
+    );
+
+    const notes = g.select(".dynamic-notes");
+    notes.selectAll("*").remove();
+    if (rAnswer == null) {
+      const note = notes.append("g").attr("transform", `translate(${x(34)}, ${y(0.24)})`);
+      note.append("text").attr("class","dynamic-note")
+        .attr("text-anchor","middle")
+        .text("reasoning-full runs did not produce enough final answers here");
+      note.append("text").attr("class","dynamic-note-muted")
+        .attr("y", 16).attr("text-anchor","middle")
+        .text("they stayed in visible draft/scaffold, so answer-aligned comparison uses think-off vs non-reasoning");
+    } else {
+      const note = notes.append("g").attr("transform", `translate(${x(42)}, ${y(0.25)})`);
+      note.append("text").attr("class","callout")
+        .attr("text-anchor","middle")
+        .text("final-answer region");
+      note.append("text").attr("class","callout lead")
+        .attr("y", 14).attr("text-anchor","middle")
+        .text("strictly aligned after detected final-answer marker");
+    }
+
+    // Inset: scaffold distribution
+    const reasoningModels = panel.filter(p => p.group === "reasoning");
+    const maxScaffold = d3.max(reasoningModels, m => (m.meta.scaffold_p75 || 0)) || 1;
+    const insetBody = d3.select("#inset-body");
+    insetBody.selectAll("*").remove();
+    reasoningModels.forEach(m => {
+      const dim = isDim(m);
+      const catN = d3.max((m.aligned_categories[catKey] || []).map(p => p.n || 0)) || 0;
+      const row = insetBody.append("div").attr("class","row" + (dim ? " dim" : ""));
+      row.append("div").attr("class","name").text(m.name + ` (${catN} final)`);
+      const track = row.append("div").attr("class","bar-track");
+      const med = m.meta.median_scaffold_tokens || 0;
+      const p25 = m.meta.scaffold_p25 || med;
+      const p75 = m.meta.scaffold_p75 || med;
+      if (p75 > 0) {
+        track.append("div").attr("class","bar-iqr")
+          .style("left", (100 * p25 / maxScaffold) + "%")
+          .style("width", (100 * (p75 - p25) / maxScaffold) + "%");
+        track.append("div").attr("class","bar-median")
+          .style("left", `calc(${(100 * med / maxScaffold)}% - 1px)`);
+      }
+      row.append("div").attr("class","num").text(med ? med.toFixed(0) : "—");
+    });
+    d3.select("#corner-note").html(
+      `<b style="color:var(--ink)">Phi-4 reasoning+</b> excluded — never finishes reasoning within 512 tokens at temp 0. ` +
+      `Right-side orange curves require enough detected final-answer pairs for the selected category.`
+    );
+  }
+
+  build();
+  update();
+  window.addEventListener("resize", () => { build(); update(); });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pond — layer-wise cosine distance propagation</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --bg: #0b0d10; --ink: #e8e8e8; --muted: #8a8f98;
+    --accent: #ff7a59; --grid: #1c2026; --panel:#0e1116;
+    --border:#1c2026;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;
+    height:100%; overflow:hidden; font-size:13px; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:12px 18px 8px; box-sizing:border-box; }
+  h1 { font-weight:500; font-size:17px; margin:0; letter-spacing:0.2px; }
+  .sub { color:var(--muted); font-size:11px; margin:2px 0 6px; max-width:1400px; line-height:1.45; }
+
+  .topbar { display:flex; gap:10px; align-items:center; padding:6px 0 8px; flex-wrap:wrap; }
+  .topbar button, .topbar select {
+    background:#151921; color:var(--ink); border:1px solid #262c35;
+    padding:5px 11px; border-radius:5px; font-size:11.5px; cursor:pointer;
+    font-family:inherit;
+  }
+  .topbar button:hover { border-color:#3b434f; }
+  .topbar button.primary { background:var(--accent); color:#0b0d10; border-color:var(--accent); font-weight:600; }
+  .chan-group { display:flex; gap:3px; }
+  .chan { background:#151921; color:var(--muted); border:1px solid #262c35;
+    padding:5px 10px; border-radius:4px; font-size:11px; cursor:pointer;
+    font-family:inherit; letter-spacing:0.5px; }
+  .chan.active { background:#2a2f38; color:var(--ink); border-color:#3b434f; }
+  .scrub-wrap { display:flex; align-items:center; gap:8px; flex:1; min-width:340px; }
+  .scrub-wrap input[type=range] { flex:1; }
+  .layer-readout { color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums; min-width:120px; }
+  .layer-readout b { color:var(--ink); }
+  .divider { width:1px; height:20px; background:#2a2f38; margin:0 2px; }
+
+  .progress-bar { position:relative; height:16px; border:1px solid #262c35; border-radius:3px;
+    background:#101318; margin:0 0 8px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#2a3340,#3a4a5d); transition:width 0.08s linear; }
+  .progress-marker { position:absolute; top:0; bottom:0; width:1px; background:#ff7a59; opacity:0.5; }
+  .progress-label { position:absolute; top:0; bottom:0; display:flex; align-items:center;
+    font-size:9.5px; color:var(--muted); padding-left:4px; pointer-events:none; }
+
+  .pond-panel { flex:1; min-height:0; border:1px solid var(--border); border-radius:6px;
+    background:var(--panel); position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  svg { width:100%; height:100%; display:block; }
+
+  .row-label { fill:var(--ink); font-size:11px; font-weight:500; }
+  .row-sublabel { fill:var(--muted); font-size:9.5px; font-variant-numeric:tabular-nums; }
+  .row-mean { fill:var(--accent); font-size:13px; font-variant-numeric:tabular-nums; font-weight:500; }
+  .row-peak { fill:var(--muted); font-size:10px; font-family:"SF Mono",Menlo,monospace; }
+  .row-peak b { fill:var(--ink); }
+  .tok-lbl { fill:var(--muted); font-size:9px; font-family:"SF Mono",Menlo,monospace; }
+  .annot { fill:var(--muted); font-size:10px; }
+  .annot.ink { fill:var(--ink); }
+  .divider-line { stroke:#1c2026; stroke-width:1; }
+
+  .tooltip { position:absolute; pointer-events:none; background:#11151b;
+    border:1px solid #2a2f38; border-radius:5px; padding:6px 9px;
+    font-size:11px; color:var(--ink); max-width:260px;
+    font-variant-numeric:tabular-nums; opacity:0; transition:opacity 0.1s;
+    z-index:10; }
+  .tooltip .tok { color:var(--accent); font-family:"SF Mono",Menlo,monospace; }
+  .tooltip .dim { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pond — layer-wise cosine distance propagation across 7 perturbation tiers</h1>
+  <div class="sub">Each row is a "pond surface" for one perturbation strength. Each cell is a token's layer-wise hidden-state divergence. Animation plays layer depth as time — watch the wave arrive at different tokens at different depths.</div>
+
+  <div class="topbar">
+    <button id="playBtn" class="primary">Pause</button>
+    <div class="divider"></div>
+    <div class="scrub-wrap">
+      <span class="layer-readout">layer <b id="layerNum">0</b> / 23</span>
+      <input type="range" id="scrub" min="0" max="23" step="1" value="0">
+    </div>
+    <div class="divider"></div>
+    <label style="color:var(--muted); font-size:11px;">speed</label>
+    <select id="speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+      <option value="4">4x</option>
+    </select>
+    <div class="divider"></div>
+    <div class="chan-group">
+      <button class="chan active" data-chan="resid_cos">RESID</button>
+      <button class="chan" data-chan="attn_cos">ATTN</button>
+      <button class="chan" data-chan="mlp_cos">MLP</button>
+    </div>
+  </div>
+
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    <div class="progress-marker" id="progressMarker" style="left:0%"></div>
+    <div class="progress-label" id="progressLabel"></div>
+  </div>
+
+  <div class="pond-panel">
+    <svg id="pondSvg"></svg>
+    <div class="tooltip" id="tip"></div>
+  </div>
+</div>
+
+<script>
+const DATA_URL = "data/ripple.json";
+
+// Inferno-ish colormap with gamma 0.6, tuned for dark bg.
+function infernoGamma(t) {
+  t = Math.max(0, Math.min(1, t));
+  t = Math.pow(t, 0.6);
+  return d3.interpolateInferno(t);
+}
+
+const state = {
+  data: null,
+  channel: "resid_cos",
+  layer: 0,
+  playing: true,
+  speed: 1,
+  lastTime: 0,
+  maxVal: 1.0, // computed per channel
+};
+
+const CATEGORY_LABELS = {
+  control_identical: "control_identical",
+  noop_format:       "noop_format",
+  punctuation:       "punctuation",
+  synonym:           "synonym",
+  paraphrase:        "paraphrase",
+  semantic_small:    "semantic_small",
+  positive_control:  "positive_control",
+};
+
+d3.json(DATA_URL).then(data => {
+  state.data = data;
+  computeMax();
+  buildStatic();
+  window.addEventListener("resize", () => { buildStatic(); render(); });
+  render();
+  requestAnimationFrame(tick);
+});
+
+function computeMax() {
+  // Per-channel max across all tiers, layers, tokens.
+  const chans = ["resid_cos","attn_cos","mlp_cos"];
+  state.maxPerChan = {};
+  for (const ch of chans) {
+    let m = 0;
+    for (const cat of state.data.categories) {
+      const grid = state.data.pairs[cat][ch];
+      for (const row of grid) for (const v of row) if (v > m) m = v;
+    }
+    state.maxPerChan[ch] = m || 1;
+  }
+  state.maxVal = state.maxPerChan[state.channel];
+}
+
+// ===== Static layout build =====
+let LAYOUT = null;
+
+function buildStatic() {
+  const svg = d3.select("#pondSvg");
+  const el = document.getElementById("pondSvg");
+  const W = el.clientWidth, H = el.clientHeight;
+  svg.selectAll("*").remove();
+
+  const d = state.data;
+  const cats = d.categories;
+  const nTokens = d.pairs[cats[0]].n_tokens;
+  const tokens = d.pairs[cats[0]].tokens_a;
+
+  const marginL = 210, marginR = 250, marginT = 10, marginB = 56;
+  const plotW = Math.max(100, W - marginL - marginR);
+  const plotH = Math.max(100, H - marginT - marginB);
+  const rowH = plotH / cats.length;
+  const cellW = plotW / nTokens;
+  const cellGap = 1;
+  // Bar height: up to ~80% of row
+  const barMaxH = rowH * 0.78;
+
+  const root = svg.append("g").attr("transform",`translate(0,0)`);
+
+  // Token labels along bottom
+  const tokG = root.append("g").attr("transform",`translate(${marginL},${marginT + plotH + 6})`);
+  // Rotate labels; draw every token but stagger if tight
+  tokG.selectAll("text.tok-lbl")
+    .data(tokens)
+    .join("text")
+      .attr("class","tok-lbl")
+      .attr("x", (d,i)=> i*cellW + cellW/2)
+      .attr("y", 0)
+      .attr("text-anchor","end")
+      .attr("transform",(d,i)=> `rotate(-55 ${i*cellW + cellW/2} 0)`)
+      .attr("dx","-2")
+      .text(d => d.replace(/^ /,"·").slice(0,12));
+
+  // Per-row groups
+  const rows = [];
+  cats.forEach((cat, ri) => {
+    const y0 = marginT + ri*rowH;
+    const rowG = root.append("g").attr("transform",`translate(0,${y0})`);
+
+    // Row divider
+    rowG.append("line")
+      .attr("class","divider-line")
+      .attr("x1",0).attr("x2",W)
+      .attr("y1", rowH-0.5).attr("y2", rowH-0.5);
+
+    // Label left
+    rowG.append("text")
+      .attr("class","row-label")
+      .attr("x", 14).attr("y", rowH/2 - 4)
+      .text(CATEGORY_LABELS[cat]);
+    rowG.append("text")
+      .attr("class","row-sublabel")
+      .attr("x", 14).attr("y", rowH/2 + 10)
+      .text("mean cos-dist @ layer");
+    const meanText = rowG.append("text")
+      .attr("class","row-mean")
+      .attr("x", 14).attr("y", rowH/2 + 26)
+      .text("0.000");
+
+    // Cells container
+    const cellsG = rowG.append("g")
+      .attr("transform",`translate(${marginL},0)`);
+
+    // Baseline for bars (at bottom of row)
+    const baseline = rowH - 4;
+    const cellRects = cellsG.selectAll("rect.base")
+      .data(tokens)
+      .join("rect")
+        .attr("class","base")
+        .attr("x", (d,i)=> i*cellW + cellGap/2)
+        .attr("y", 0)
+        .attr("width", Math.max(1, cellW - cellGap))
+        .attr("height", rowH - 1)
+        .attr("fill","#0a0c10")
+        .attr("stroke","none");
+
+    // Bars (rise from baseline)
+    const bars = cellsG.selectAll("rect.bar")
+      .data(tokens.map((t,i)=> ({tok:t, i})))
+      .join("rect")
+        .attr("class","bar")
+        .attr("x", (d)=> d.i*cellW + cellGap/2)
+        .attr("width", Math.max(1, cellW - cellGap))
+        .attr("y", baseline)
+        .attr("height", 0)
+        .attr("fill","#222");
+
+    // Hit-targets for tooltip
+    const hits = cellsG.selectAll("rect.hit")
+      .data(tokens.map((t,i)=> ({tok:t, i})))
+      .join("rect")
+        .attr("class","hit")
+        .attr("x", (d)=> d.i*cellW)
+        .attr("y", 0)
+        .attr("width", cellW)
+        .attr("height", rowH)
+        .attr("fill","transparent")
+        .on("mousemove", (ev,d)=> showTip(ev, cat, d.i))
+        .on("mouseleave", hideTip);
+
+    // Right side: peak-depth token for this tier at current layer
+    const peakG = rowG.append("g")
+      .attr("transform",`translate(${marginL + plotW + 12}, 0)`);
+    peakG.append("text")
+      .attr("class","row-sublabel")
+      .attr("x",0).attr("y", rowH/2 - 4)
+      .text("peak token @ layer:");
+    const peakText = peakG.append("text")
+      .attr("class","row-peak")
+      .attr("x",0).attr("y", rowH/2 + 14)
+      .text("—");
+
+    rows.push({ cat, meanText, bars, peakText, baseline, cellW, rowH });
+  });
+
+  // Layer progress bar annotations
+  updateProgressLabel();
+
+  LAYOUT = { W, H, marginL, marginR, marginT, marginB, plotW, plotH,
+    rowH, cellW, cellGap, barMaxH, rows, nTokens, tokens, cats };
+}
+
+// ===== Per-frame render =====
+function render() {
+  if (!LAYOUT) return;
+  const L = state.layer;
+  const ch = state.channel;
+  const d = state.data;
+  const maxV = state.maxPerChan[ch];
+
+  document.getElementById("layerNum").textContent = L;
+  document.getElementById("scrub").value = L;
+  const pct = (L/23)*100;
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressMarker").style.left = pct + "%";
+
+  LAYOUT.rows.forEach(r => {
+    const grid = d.pairs[r.cat][ch]; // [n_layers][n_tokens]
+    const layerRow = grid[L];
+    // mean
+    let sum = 0;
+    for (const v of layerRow) sum += v;
+    const mean = sum / layerRow.length;
+    r.meanText.text(mean.toFixed(3));
+
+    // peak token
+    let peakIdx = 0, peakVal = -Infinity;
+    for (let i = 0; i < layerRow.length; i++) {
+      if (layerRow[i] > peakVal) { peakVal = layerRow[i]; peakIdx = i; }
+    }
+    const tokStr = (LAYOUT.tokens[peakIdx] || "").replace(/^ /,"·").slice(0,14);
+    r.peakText.html("");
+    r.peakText.append("tspan").text("#"+peakIdx+" ");
+    r.peakText.append("tspan").attr("fill","#e8e8e8").text(tokStr);
+    r.peakText.append("tspan").attr("fill","#8a8f98").text("  "+peakVal.toFixed(3));
+
+    // bars + colors
+    r.bars
+      .attr("fill", (dd)=> infernoGamma(layerRow[dd.i] / maxV))
+      .attr("height", (dd)=> {
+        const t = Math.max(0, Math.min(1, layerRow[dd.i] / maxV));
+        return t * LAYOUT.barMaxH;
+      })
+      .attr("y", (dd)=> {
+        const t = Math.max(0, Math.min(1, layerRow[dd.i] / maxV));
+        return r.baseline - t * LAYOUT.barMaxH;
+      });
+  });
+}
+
+// ===== Anim loop =====
+function tick(now) {
+  if (!state.lastTime) state.lastTime = now;
+  const dt = (now - state.lastTime) / 1000;
+  state.lastTime = now;
+  if (state.playing && state.data) {
+    // One full pass (0->23) in 6 seconds at 1x.
+    const perSec = (24/6) * state.speed;
+    state._accum = (state._accum || 0) + dt * perSec;
+    while (state._accum >= 1) {
+      state.layer = (state.layer + 1) % 24;
+      state._accum -= 1;
+      render();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ===== Controls =====
+document.getElementById("playBtn").addEventListener("click", () => {
+  state.playing = !state.playing;
+  const btn = document.getElementById("playBtn");
+  btn.textContent = state.playing ? "Pause" : "Play";
+  btn.classList.toggle("primary", state.playing);
+});
+document.getElementById("scrub").addEventListener("input", (e) => {
+  state.layer = +e.target.value;
+  state.playing = false;
+  const btn = document.getElementById("playBtn");
+  btn.textContent = "Play";
+  btn.classList.remove("primary");
+  render();
+});
+document.getElementById("speed").addEventListener("change", (e) => {
+  state.speed = +e.target.value;
+});
+document.querySelectorAll(".chan").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".chan").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    state.channel = b.dataset.chan;
+    state.maxVal = state.maxPerChan[state.channel];
+    render();
+  });
+});
+
+function updateProgressLabel() {
+  // Put an annotation near layer 10 marker on the progress bar.
+  const lbl = document.getElementById("progressLabel");
+  const pct = (10/23)*100;
+  lbl.innerHTML = `<span style="position:absolute; left:${pct}%; transform:translateX(-50%); color:#ff7a59;">↓ layer 10 — deep stack begins (Li et al.)</span>`;
+}
+
+// ===== Tooltip =====
+const tip = document.getElementById("tip");
+function showTip(ev, cat, tokIdx) {
+  const d = state.data;
+  const L = state.layer;
+  const ch = state.channel;
+  const val = d.pairs[cat][ch][L][tokIdx];
+  const tok = d.pairs[cat].tokens_a[tokIdx];
+  const col = d3.interpolateInferno(Math.pow(val/state.maxPerChan[ch], 0.6));
+  tip.innerHTML =
+    `<div><span class="dim">tier</span> ${cat}</div>`+
+    `<div><span class="dim">token #${tokIdx}</span> <span class="tok">${(tok||"").replace(/^ /,"·")}</span></div>`+
+    `<div><span class="dim">layer</span> ${L} &nbsp; <span class="dim">chan</span> ${ch.replace("_cos","")}</div>`+
+    `<div><span class="dim">cos-dist</span> <b style="color:${col}">${val.toFixed(4)}</b></div>`;
+  const rect = document.querySelector(".pond-panel").getBoundingClientRect();
+  tip.style.left = (ev.clientX - rect.left + 12) + "px";
+  tip.style.top  = (ev.clientY - rect.top  + 12) + "px";
+  tip.style.opacity = 1;
+}
+function hideTip() { tip.style.opacity = 0; }
+</script>
+</body>
+</html>

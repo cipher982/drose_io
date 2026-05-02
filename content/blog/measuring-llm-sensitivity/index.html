@@ -1,0 +1,303 @@
+<p>This is the second of two posts. The first one, <a href="/blog/nearby-prompts-distant-trajectories">Nearby Prompts, Distant Trajectories</a>, lays out the framing: why chaos vocabulary (fixed points, attractors, Lyapunov exponents, edge of chaos) is a useful way to think about what happens when a small input change produces a big output change in a language model. If you haven't read it and you want context for why any of this matters, start there.</p>
+
+<p>This post is the experiment. What I actually measured, how I measured it, what moved, what didn't, and the ways the measurement itself tried to lie to me. I ran about 21 models, a ladder of tiny prompt perturbations, deterministic decode, a stack of metrics, and I want to walk through the findings roughly in the order I was surprised by them.</p>
+
+<p>Fair warning: the most important conclusions in this post are about the <em>measurement</em>, not about the models. Short-output stability of reasoning models is mostly a metric artifact. Low-perturbation-distance can be collapse wearing a stability costume. Confident prompt-end logits do not mean a stable trajectory. The point of this work isn't to rank models, it's to name failure modes of stability probes before the field starts quoting numbers from them.</p>
+
+<h2>The setup</h2>
+
+<p>I wanted to cover a meaningful slice of modern open-weight models, plus a handful of legacy models for era comparison.</p>
+
+<p>The current-generation panel is roughly: Qwen 3.5 at 0.8B, 2B, 4B, and 9B; Gemma 2B and 4B in base and instruct flavors; Phi-4, including Phi-4 reasoning+; DeepSeek-R1 (Qwen 7B distilled); Mistral 7B v0.3; Granite; Falcon; SmolLM3 at 3B; OLMo 2 7B; OLMo 3 7B.</p>
+
+<p>The legacy panel is GPT-2 XL, GPT-J, Pythia, OPT, and LLaMA-1 7B. These aren't there as competitive comparisons, they're there because I wanted a reference for "what does a pre-instruction-tuning era model look like on this probe."</p>
+
+<p>All models run with deterministic decode, <code>do_sample=False</code>. Pinned HuggingFace revisions. bf16 weights. Chat templates handled explicitly per model, because the template is part of the input and can absolutely change the tokens the model sees (more on that later, it's a whole mess). No RAG. No tools. Single-turn prompting.</p>
+
+<p>The prompt ladder has seven rungs, from tightest control to loosest:</p>
+
+<ol>
+  <li><strong>Identical prompt.</strong> Same string, twice. Should produce zero divergence under deterministic decode. It does. This is the zero-signal control that tells you the probe is clean.</li>
+  <li><strong>No-op formatting.</strong> Trailing space, leading newline, invisible unicode normalization artifacts. Some of these get erased by the chat template before they reach the model; more on that later.</li>
+  <li><strong>Punctuation.</strong> Duplicating a period, swapping a comma for a semicolon, adding parentheses around a word.</li>
+  <li><strong>Synonym swap.</strong> One word exchanged for a near-equivalent.</li>
+  <li><strong>Paraphrase.</strong> Same meaning, different phrasing.</li>
+  <li><strong>Small semantic change.</strong> A minor but real shift in what's being asked.</li>
+  <li><strong>Positive control.</strong> A meaning-flipping edit (negation, complete topic change). Should produce huge divergence. It always does. If it didn't, something is broken.</li>
+</ol>
+
+<p>The primary metric is sentence-embedding cosine distance between the two output strings. The supporting metrics are Levenshtein token edit distance (for path-level shape), final-layer hidden-state distance for the emitted outputs, and Jensen-Shannon and KL divergences on the next-token distribution at the prompt-end position. No metric is ground truth. They disagree in interesting ways, which is part of the finding.</p>
+
+<p>Sample sizes: 9 prompt pairs per cell in the main panel, 24 pairs in a "hardened" Qwen wave where I wanted tighter statistics on the within-family contrast. Bootstrap CIs, paired permutation tests. I report cluster memberships, not ranks, because the within-cluster ordering is not reliable at these n's.</p>
+
+<p>Okay. That's the machine. Here's what it spat out.</p>
+
+<h2>What actually matters is more structured than you'd think</h2>
+
+<p>My original plan was to do this at the character level. Just sweep every single-character edit I could think of, across every model, and see which characters move things. I made a chart. It looked great. It was mostly broken, and I want to own that up front because it's the slide where I walk back a previous result.</p>
+
+<p>The problem: a lot of the character-level edits I was making produced strings that, once wrapped in the chat template and tokenized, were byte-identical at the token level. Two different-looking strings, same token IDs going into the model. The model had no way to distinguish them. Green cells (low divergence) were often not the model being robust, they were the template and tokenizer normalizing my edit before the model saw it. I was measuring tokenizer behavior, not model behavior.</p>
+
+<p>A concrete example of the bug: take a prompt <code>"Write a palindrome function."</code> and add a leading space to get <code>" Write a palindrome function."</code>. Two obviously different strings. Run them through a typical chat template, which wraps the user content in <code>&lt;|user|&gt;\n{content}\n&lt;|end|&gt;</code> style markup and strips edge whitespace from the inside, and the resulting token sequences are identical. The model sees one input. My "edit" produced a 0.00 divergence, and I had a green cell. That's not the model being robust. That's the template erasing the edit. The character-level sweep was full of cases like that, especially for edge whitespace, and some punctuation at prompt boundaries.</p>
+
+<p>I threw that chart out. What's in the current chart is the token-audited subset: every prompt pair shown actually produced different token IDs after the template. The model saw different inputs. The signal is real.</p>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/token_micro_v2_category_heatmap.png" alt="Model x edit-category heatmap of output divergence">
+  <figcaption>Rows are models, columns are edit categories, cell brightness is average output divergence on token-audited pairs. The row-wise pattern is the real finding.</figcaption>
+</figure>
+
+<p>The surprising thing about this chart isn't the columns. It's the rows. The column sort (edit categories, ranked by average effect) is noisy: on average, internal structural edits (line breaks inside a sentence, duplicated punctuation, parenthesizing one word, internal whitespace) produce more divergence than other categories. But column-level ordering isn't stable across models. What <em>is</em> stable is that some models are much more sensitive than others to the same edit set.</p>
+
+<p>Edits that survive tokenization and move outputs tend to be what I'd call structural: things that change the shape of the token sequence even though they don't change what a human reader takes away. Inserting a newline mid-sentence, wrapping a word in parentheses, duplicating a period. Not random bytes. Not leading whitespace at the very edges of the prompt, because the chat template often strips that.</p>
+
+<p>The headline I'd take from this chart is: it is not "any byte flips the model." It's more structured than that. Some edits never reach the model as distinct input. Some survive the template, change tokens, and are enough to steer the model into a different basin. And the question of which models are sensitive to which category of edit is a real question, with a real answer that depends on the model.</p>
+
+<p>One caveat I can't cleanly get out of: tokenizer differences <em>across</em> models are part of what I'm measuring. Two models with different tokenizers will have different edits survive to them, and it's hard to separate "this model is sensitive to this edit" from "this model's tokenizer happens to expose more edits than another's." That's a real limitation, and a research direction for someone.</p>
+
+<h2>Same-looking prompt, different trajectory</h2>
+
+<p>There's a different kind of chart I want to show that makes the dynamical-systems framing concrete. Instead of averaging output divergence into a single number, you can look at the token-by-token path itself.</p>
+
+<p>For a given prompt pair, run both prompts, generate token by token, and at each generation step compute the Levenshtein distance between the two token prefixes. Plot that distance over time.</p>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/03_branching_trajectories_compact.png" alt="Token-prefix Levenshtein distance over generation step, for several prompt pairs">
+  <figcaption>Token-prefix Levenshtein distance over generation, several prompt pairs. <code>y = 0</code> means the prefixes are token-identical. A curve staying above zero means the paths genuinely diverged, not just shifted by one token.</figcaption>
+</figure>
+
+<p>If <code>y</code> equals zero, the generated token sequences are identical so far. If <code>y</code> is rising, more edits are needed to align them. I use Levenshtein specifically because it's robust to simple insertions: if the problem were "same output, shifted by one token," Levenshtein would eat that and return near-zero. The dashed reference line on charts like this shows what "trivial shift" looks like. The real trajectories stay high, meaning the paths actually diverged, not just shifted.</p>
+
+<p>This is a token-path diagnostic. It's not a semantic claim. Two outputs that diverge in token space might still be semantically close (both defensible answers, just phrased differently), or they might not. That's what the sentence-embedding metric is for.</p>
+
+<p>Here's the demo version of the same idea, where you can watch the branching happen.</p>
+
+<figure>
+  <iframe src="/blog/measuring-llm-sensitivity/assets/demos/branching.html" width="100%" height="640" loading="lazy" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);"></iframe>
+  <figcaption>Interactive branching trajectories. Real data from the experiment. Each pair is a prompt and its perturbation.</figcaption>
+</figure>
+
+<h2>Within Qwen, one clean contrast</h2>
+
+<p>The cleanest within-family comparison in the dataset is Qwen 3.5, running 0.8B, 2B, 4B, and 9B at 24 prompt pairs each.</p>
+
+<p>0.8B is meaningfully more sensitive than 4B, <code>p &lt; 0.001</code>. 2B also separates from 4B, <code>p = 0.012</code>. So inside one family, with one tokenizer, one training recipe, one set of hyperparameters varying only by size, the smaller models are more sensitive on this probe.</p>
+
+<p>I want to be careful here. 4B versus 9B is indistinguishable at this sample size, <code>p = 0.78</code>. They're clustered together. I am not claiming bigger equals stable. I'm saying that within Qwen 3.5, below some size, sensitivity goes up. Whether that's a scaling law or a peculiarity of the 0.8B training run, I cannot tell you.</p>
+
+<p>There's also a caveat I owe you on this contrast. Qwen 4B and 9B emit a "Thinking Process:" preamble before answering. 0.8B and 2B don't. The preamble is a scaffold, and scaffolds do something to these measurements that I didn't catch at first.</p>
+
+<figure>
+  <iframe src="/blog/measuring-llm-sensitivity/assets/demos/family_fork.html" width="100%" height="560" loading="lazy" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);"></iframe>
+  <figcaption>Within-Qwen divergence, interactive. 0.8B separates from 4B clearly. 4B and 9B are in the same cluster.</figcaption>
+</figure>
+
+<h2>Scaffold stability is mostly a metric artifact</h2>
+
+<p>This is the self-audit section. This is where I walk back something I was briefly excited about.</p>
+
+<p>Here's the short version so I don't accidentally leave the wrong number in your head: at 64 tokens of output, scaffolded models looked about four times more stable than non-scaffolded models. That number is real, and it's also almost entirely an artifact of the metric, not a property of the models. The rest of this section is why.</p>
+
+<p>The long version. At 64 tokens of output, scaffolded models (the ones that start every answer with a <code>&lt;think&gt;</code> block, or "Thinking Process:", or some other deterministic preamble) looked about four times more stable than non-scaffolded models on the sentence-embedding divergence metric. I ran with that result for a few days. It felt like a finding.</p>
+
+<p>Then I actually looked at what the metric was measuring.</p>
+
+<p>Sentence embeddings of short outputs are dominated by the <em>content</em> of those outputs. If the first 40 tokens of the output are an identical <code>&lt;think&gt;</code> preamble across every prompt, then any two outputs on any two prompts share 40 tokens of common content before the actual answer even begins. The embedding sees mostly the preamble. The divergence looks small. But the <em>answer</em>, the part after the preamble, hasn't started yet, or has only barely started.</p>
+
+<p>So "scaffolded models are more stable at 64 tokens" is really "sentence embeddings are dominated by scaffold content when the scaffold is longer than the answer." That's a warning about the metric, not a property of the models.</p>
+
+<p>The fix is to push output length. At 512 tokens, the scaffold is a smaller fraction of the embedded content, and the actual answer dominates. When I do that, the picture shifts a lot.</p>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide15_collapse.png" alt="Short vs long output stability for scaffolded models">
+  <figcaption>Scaffolded models at 64 tokens vs 512 tokens. The 64-token advantage is mostly the scaffold dominating the embedding. At 512 it's a mixed bag.</figcaption>
+</figure>
+
+<p>Here are the 512-token numbers for the scaffolded models:</p>
+
+<ul>
+  <li>DeepSeek-R1 7B: <strong>0.027</strong>. Genuinely stable.</li>
+  <li>Qwen 4B: <strong>0.050</strong>.</li>
+  <li>Qwen 9B: <strong>0.057</strong>.</li>
+  <li>SmolLM3 3B: <strong>0.080</strong>. Middle of the pack.</li>
+  <li>Phi-4 reasoning+: <strong>0.160</strong>.</li>
+</ul>
+
+<p>Phi-4 reasoning+ at 512 tokens is more brittle than GPT-2 XL. Let that sit for a second. A 2024 reasoning model with a <code>&lt;think&gt;</code> scaffold, on a text divergence metric at 512 tokens of output, is less stable than a 2019 base model with no scaffold at all. Scaffold does not equal stable. The headline out of this section is narrow and worth saying cleanly: short-output stability of scaffolded models is mostly a metric artifact. Push output past the scaffold and the artifact goes away. I'm going to come back to Phi-4 in a minute, because its dissociation is the cleanest one in the panel.</p>
+
+<h3>Thinking-off, as a separate question</h3>
+
+<p>A different question lives nearby, and I want to keep it separate because it's easy to conflate. Once we've ruled out the metric artifact, does the scaffold <em>itself</em> stabilize trajectories? That is: if I turn the <code>&lt;think&gt;</code> block off and score the same prompt pairs at 512 tokens, does divergence go up (the scaffold was helping) or down (the scaffold was hurting)?</p>
+
+<p>I ran that control on Qwen, <code>enable_thinking=False</code>. The effect is not monotonic across sizes.</p>
+
+<ul>
+  <li>Qwen 4B: 0.050 → 0.067 with thinking off. Scaffold helps, about 25%.</li>
+  <li>Qwen 9B: 0.057 → 0.072 with thinking off. Scaffold helps, about 20%.</li>
+  <li>Qwen 2B: 0.075 → 0.072 with thinking off. A wash.</li>
+  <li>Qwen 0.8B: 0.103 → 0.079 with thinking off. Scaffold <em>hurts</em>.</li>
+</ul>
+
+<p>For the bigger Qwens, the scaffold is a mild stabilizer. For 0.8B, the scaffold is itself wobbly enough that turning it off actually reduces divergence. The preamble at small sizes is less deterministic, more prompt-dependent, and it brings its own variance along for the ride. So the effect of "add a <code>&lt;think&gt;</code> scaffold to your model" is size and recipe dependent, not a universal win.</p>
+
+<p>The combined conclusion, putting the artifact question and the mechanism question together: "reasoning models are more stable" doesn't hold as a law. DeepSeek-R1 7B really is stable at 512 tokens, credit where due. Phi-4 reasoning+ really isn't. The scaffold is a factor, but it's neither a guarantee of stability nor a reliable artifact of one.</p>
+
+<h2>Era doesn't predict sensitivity</h2>
+
+<p>I was also curious whether newer models are systematically more stable than older ones. The intuition would be something like: modern instruction tuning, RLHF, better data, should produce more stable response functions.</p>
+
+<p>The intuition was wrong, or at least a lot noisier than I expected. Here's the cross-family 512-token picture, scaffold-free models only, from the bootstrap readout:</p>
+
+<ul>
+  <li><strong>LLaMA-1 7B: 0.053.</strong> A 2023 base model. Cleanly in the stable cluster.</li>
+  <li>Gemma E2B instruct: 0.056.</li>
+  <li>Mistral 7B v0.3: 0.068.</li>
+  <li>Gemma E4B instruct: 0.072.</li>
+  <li>Gemma E4B base: 0.119. The base version is much less stable than the instruct.</li>
+  <li>Gemma E2B base: 0.199. Same story, even sharper.</li>
+  <li>Legacy base models (GPT-2 XL, OPT, Pythia, GPT-J): 0.14 to 0.22.</li>
+</ul>
+
+<p>The LLaMA-1 result surprised me. A 2023 base model, no instruction tuning in the original Meta release, sitting in the stable cluster on my probe at 512 tokens. Candidates I can't rule out for why: its tokenizer happens to expose fewer of my perturbations than newer tokenizers do; its pretraining corpus makes the token distribution unusually flat in the regions my prompts touch; what I'm looking at is an artifact of the community-converted weights commonly used with that model. I ran what checks I could and it held up. I don't want to over-interpret one data point, but I want to leave it on the table for someone with more compute to chase.</p>
+
+<p>The more solid finding in this same chart, and honestly the most robust result in the whole study, is the Gemma instruct-versus-base gap. At 2B: instruct 0.056, base 0.199. At 4B: instruct 0.072, base 0.119. Same family, same size, same architecture. The only difference is the post-training recipe, and the effect is enormous. At 2B the base model is nearly four times more sensitive than its instruction-tuned sibling on the exact same prompt ladder.</p>
+
+<p>That's the cleanest argument in this data for "recipe over calendar." The era a model was released in tells you little. The post-training recipe tells you a lot. Instruction tuning does more than sharpen the model's conversational manners; it narrows the response function enough that small prompt changes stop sliding the output across the manifold quite so freely. That tracks with the intuition that base models live closer to "any prefix could continue any which way," whereas instruction-tuned models have been shaped to route nearby prompts toward nearby answers. The size of the effect, though, was bigger than I expected before I ran it.</p>
+
+<p>The safer narrower claim I'd make about the era question overall is this: older models are not uniformly less sensitive than newer ones on this probe. LLaMA-1 is an existence proof for the failure of a naive era law. The instruct-vs-base gap is the real structural driver. Within that, newer calendars haven't bought us obvious stability at the output-text level.</p>
+
+<p>Also worth naming: token edit distance gives a <em>different</em> ordering than sentence-embedding distance. Metrics disagree. A model that's stable on one might not be on another. No single measurement is safe.</p>
+
+<h2>Stability and responsiveness are different things</h2>
+
+<p>This is the most principled point I want to make, and I walked into it almost by accident.</p>
+
+<p>I ran a quantization sweep on Qwen 0.8B. BF16, 8-bit, 4-bit. For each quant, I measured perturbation divergence on the same prompt ladder. At 4-bit, the perturbation divergence dropped from <strong>0.138 (BF16)</strong> to <strong>0.091 (4-bit)</strong>. If I'd only looked at that number, I'd have called 4-bit "more stable" and shipped it.</p>
+
+<p>Then I ran the drift check. Same model, 4-bit, on the <em>same</em> prompts as the BF16 reference. How far did the outputs move, just from quantization, with no prompt perturbation at all? <strong>0.132.</strong> Huge.</p>
+
+<p>So the 4-bit model's outputs on identical prompts are 0.132 away from the BF16 reference. And on perturbed prompts, the 4-bit model moves another 0.091 from its own baseline. The model is already far from BF16, and it's not moving much further under perturbation.</p>
+
+<p>That is not robustness. That is collapse. The model has moved onto a narrower output manifold: it's less responsive to input changes, not more stable in any useful sense. If I had a model that output "the the the" forever, regardless of prompt, its perturbation divergence would be zero. It would also be useless. Low perturbation distance with high baseline drift is collapse wearing a stability costume.</p>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/collapse-attractor-basin.png" alt="Diagram of an attractor basin narrowing into collapse">
+  <figcaption>Collapse. Outputs become more similar across <em>different</em> prompts, and also more different from the reference system on the <em>same</em> prompts.</figcaption>
+</figure>
+
+<p>The fix is operational and I think it's the single most practically useful thing in this post. Whenever you measure stability, you have to measure it on two axes:</p>
+
+<ol>
+  <li><strong>Perturbation distance.</strong> How much the output moves when the prompt changes slightly.</li>
+  <li><strong>Baseline drift.</strong> How much the output moves when <em>nothing about the prompt changes</em> but some system variable does (quantization, kernel version, framework update, LoRA swap).</li>
+</ol>
+
+<p>A genuinely stable model has low perturbation distance <em>and</em> low baseline drift. A collapsed model has low perturbation distance because it's stopped responding meaningfully. A responsive model may have higher perturbation distance because it's actually differentiating across meaningful changes in the prompt, and that's fine. Report both axes, or you can't tell the three apart.</p>
+
+<p>I should also be honest about the Qwen 0.8B quant case specifically. The sample size is small, <code>n = 9</code> prompt pairs per cell, and the within-system flip test is <code>p = 0.19</code>. I am using this case as an existence example of the <em>confound</em>, not as a verdict on 4-bit quantization broadly. The point is principled: any one-axis stability metric will confuse collapse with robustness. Qwen 0.8B at 4-bit is just where I caught it.</p>
+
+<p>Quantize freely. Measure what you're buying.</p>
+
+<h2>Boundary beats bulk</h2>
+
+<p>If you take one thing from the measurement side of this work, I'd take this. It's the conceptual claim I think most deserves surviving the data wobbles, and it's organized around the cleanest dissociation in the dataset. It is a claim about <em>what to look for</em>, not a fully-proven mechanism. I want to set up the vocabulary first, then lay out the Phi-4 case and what it does and doesn't show.</p>
+
+<p>Mechanism first. The logit vector at a given generation step defines a distribution over vocabulary. Call its <em>bulk</em> the whole distribution, the full mass over all tokens. Call its <em>boundary</em> the margin between the top-1 and top-2 logits: how confident the argmax is about winning.</p>
+
+<p>Bulk and boundary move somewhat independently. The whole distribution can barely move (low JS divergence between original and perturbed prompts) and still have a razor-thin boundary between top-1 and top-2, waiting for any small perturbation to flip the argmax. Conversely, you can shove a lot of mass around and still have such a high-margin top-1 that the argmax doesn't flip.</p>
+
+<p>For autoregressive generation, what matters is whether the top-1 flips. Because if top-1 flips on any single step, the output token is different, the prefix for every subsequent forward pass is different, and the generation runs on a different context from there forward. One flip, autoregression does the rest. The boundary is the fragile point, not the bulk.</p>
+
+<p>Here's the Phi-4 case, which I want you to remember because it's the cleanest counterexample to "sharp logits mean stable output" that I have.</p>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide_boundary_vs_bulk.png" alt="Phi-4 dissociation between prompt-end confidence and trajectory stability">
+  <figcaption>Phi-4 reasoning+. Maximally confident prompt-end logits, essentially frozen bulk distribution, and the 512-token output still diverges more than GPT-2 XL.</figcaption>
+</figure>
+
+<table>
+  <thead>
+    <tr><th>Metric</th><th>Phi-4 reasoning+</th><th>What it means</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Top-1 probability at prompt end</td><td>0.99999996</td><td>Most confident model in the panel</td></tr>
+    <tr><td>JS divergence at prompt end</td><td>1.4 × 10⁻⁹</td><td>Bulk distribution is essentially unchanged</td></tr>
+    <tr><td>512-token semantic divergence</td><td>0.160</td><td>Second-most brittle in the panel</td></tr>
+    <tr><td>Compare: GPT-2 XL at 512 tokens</td><td>0.144</td><td>Phi-4 is <em>more</em> brittle than a 2019 base model</td></tr>
+  </tbody>
+</table>
+
+<p>Read those four rows together. At the prompt end, the bulk distribution is essentially frozen and the top-1 is effectively certain. No visible instability at position one. And yet over 512 tokens of output, the model diverges more than GPT-2 XL. What that demonstrates cleanly is a single narrow claim: prompt-end confidence does not imply trajectory stability. The weaker version of the claim is certain; the stronger version ("boundary beats bulk right here, at the position we measured") I can't make from these numbers alone.</p>
+
+<p>There are several stories consistent with the four rows. One: somewhere deeper in the generation, a low-margin decision flipped and the autoregressive amplifier carried the two trajectories apart. That's the boundary-beats-bulk reading, and it's the one I lean toward, but it's a hypothesis about a decision I didn't directly observe. Two: the model's accumulation of small distributional differences across many high-confidence-but-not-identical steps eventually diverges even without a single dramatic flip, in which case "bulk that moves a little, repeatedly, across many steps" is the driver and my framing understates the role of bulk. Three: the whole thing is a metric artifact (register shift, formatting drift, sentence-embedding weirdness), in which case the cleanest response is to pair this probe with a per-step margin trace before leaning too hard on a mechanistic claim. I think story one is likeliest. But I have to keep the other two on the table.</p>
+
+<p>A mechanism story for Phi-4 specifically, which I want to label as speculation because I haven't traced it directly: Phi-4's <code>&lt;think&gt;</code> tag frequently fails to close in my runs. The model ends up in a kind of repetition loop inside the scaffold, and inside that loop there are plausibly low-margin boundary decisions that don't exist at the prompt end. A small prompt perturbation flips one, and from there the trajectory is different. I'm confident in the dissociation (the numbers are the numbers), but I am not yet claiming I've proven the mechanism. The per-step margin trace is the experiment that would actually demonstrate it, and I haven't run that yet. Treat the mechanism paragraph as a hypothesis, not a finding.</p>
+
+<p>The practical implication of all this: prompt-end metrics miss most of the phenomenon. If you measure JS at the prompt end and call it a day, you'll miss fragile models like Phi-4 that are confident at position one and unstable at position 400. The mature version of the measurement is multi-scale: prompt-end logits, plus longer-window text divergence, plus eventually per-step margin tracking during generation.</p>
+
+<h2>Traps, named and numbered</h2>
+
+<p>Let me consolidate. A naive stability probe has at least three failure modes, and they all show up concretely in the data above.</p>
+
+<ol>
+  <li><strong>Collapse.</strong> A degenerate model (canned responses, narrow manifold, over-quantized) scores as stable because outputs stop responding to input. Qwen 0.8B 4-bit is my example. Caught by measuring distance from a baseline system on identical prompts.</li>
+  <li><strong>Scaffold.</strong> Short-output score is dominated by a deterministic preamble. Qwen 4B and 9B, SmolLM3, DeepSeek-R1, Phi-4. Caught by pushing output length past the scaffold, or by stripping the scaffold before scoring.</li>
+  <li><strong>Confident-but-unstable.</strong> Phi-4. Top-1 probability 0.99999996 at prompt end, JS divergence <code>1.4 × 10⁻⁹</code> on the bulk distribution, and yet 512-token semantic divergence of 0.160. Sharp logits do not mean a stable trajectory. Caught by multi-scale measurement, and eventually by per-step margin tracking.</li>
+</ol>
+
+<figure>
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide18_correlations.png" alt="Correlations between prompt-end confidence and long-horizon stability">
+  <figcaption>Prompt-end confidence vs long-horizon stability. They're not the same thing, and sometimes they move in opposite directions.</figcaption>
+</figure>
+
+<p>Honestly the most useful output of this work, from a "will anyone cite this in a year" standpoint, is the named failure modes, not the specific numbers. The numbers will move as people run more prompts, more models, better tokenizer audits. The traps are what the field will keep hitting if it doesn't know to look for them.</p>
+
+<h2>A question I can't answer, that the lens suggests</h2>
+
+<p>There's an open question that fell out of this work that I don't know how to resolve, and I think someone else should chase it.</p>
+
+<p>Compression has a well-studied static floor: how few bits of weight precision you need before you can't store the model. Rate-distortion bounds, work like TurboQuant and KIVI characterize this pretty well, and the floor is surprisingly low in many cases. Four bits is fine for a lot of things. Sometimes fewer.</p>
+
+<p>The open question is whether there's a <em>dynamical</em> floor: how few bits before the <em>behavior</em> drifts, in the sense of moving off the response manifold in ways that wouldn't show up in a static quality benchmark but would show up in a sensitivity probe. And I'd expect that floor to depend on how sensitive the model was to begin with. A stable model (low Li-style per-layer stretching) should have more headroom to compress without drifting. A highly sensitive model should collapse earlier.</p>
+
+<p>I ran a tiny Qwen 0.8B quant sweep that brushes up against this question, but I want to be careful not to over-read it. 0.8B is sensitive, it compressed fine by static metrics, and its behavior collapsed under 4-bit quantization on my probe. That's one data point, <code>n = 9</code>, one family. It's suggestive of "the dynamical floor and the static floor are not the same number," but it is not evidence for any particular relationship between sensitivity and that gap. I'm leaving the conjecture open, I'm not attempting to rescue it with my own data, and if it matters to anyone reading this, the experiment worth running is a proper sweep of stable-vs-sensitive models across several quantization levels, with drift-from-baseline measured in both directions.</p>
+
+<h2>Practitioner upshot</h2>
+
+<p>If you're shipping LLMs in a product, here's what I'd actually do with this work.</p>
+
+<p>Stop evaluating on a single prompt, a single decode, a single metric. For a reliability claim, you need to test prompt <em>neighborhoods</em>. Take your canonical prompt, generate a handful of meaning-preserving perturbations (trailing space, line break, comma-to-semicolon, synonym swap), run all of them through the model, and report the <em>range</em> of responses. If the range is tight, great. If it's wide, you have a prompt that sits near a fragile boundary, and a small user-side typo or autocorrect will move your output.</p>
+
+<p>For model comparison, report sensitivity ranges, not single-prompt scores. Cluster view. Two models whose means are 0.05 apart at <code>n = 9</code> are not meaningfully different.</p>
+
+<p>For output metrics, be paranoid about scaffolds. If your model emits a deterministic preamble, strip it before comparing, or run outputs long enough that the preamble is a minor fraction of what you're measuring. Compare answer spans, not raw outputs.</p>
+
+<p>For decoding, use deterministic decode (<code>do_sample=False</code>) when you want the sensitivity signal clean. Use sampling separately for deployment. They answer different questions.</p>
+
+<p>For quantization, lower perturbation divergence is not automatically a win. Pair it with drift from the unquantized baseline. If perturbation divergence dropped and baseline drift went up, you didn't buy stability, you bought collapse. Measure both.</p>
+
+<p>One line I keep coming back to: prompting is operating a high-gain branching system. Test neighborhoods, not single prompts. It's the practitioner-sized version of the whole thesis.</p>
+
+<h2>Honest accounting</h2>
+
+<p>A few things I'd want a peer reviewer to hold me to.</p>
+
+<p>Some of what follows has been flagged inline already. I'm pulling the limitations into one place so a skeptical reader can hold me to them.</p>
+
+<p><strong>Sample sizes are small.</strong> 9 prompt pairs per model cell in the main panel, 24 in the hardened Qwen wave. Enough to separate clusters (Qwen 4B vs 0.8B at <code>p &lt; 0.001</code>), not enough to confidently order within a cluster (Qwen 4B vs 9B at <code>p = 0.78</code>). Specific model orderings are underclaimed by design. Please don't cite a ranked list out of this.</p>
+
+<p><strong>Scaffold vs recipe is a confound I can't untangle.</strong> The models with scaffolds are also the models with reasoning-oriented post-training. To separate "scaffold itself stabilizes" from "whatever recipe gave the model a scaffold also gave it other stabilizers," you'd need a matched pair: same base, one post-trained with a scaffold and one without. I don't have that. Someone at a lab that trains these things does.</p>
+
+<p><strong>Sentence-embedding distance is a proxy.</strong> Known failure modes: short outputs, scaffold dominance, register effects. I pair it with token-path diagnostics and logit-level metrics precisely because no single metric is safe. When metrics disagree, I report the disagreement rather than collapsing them into one score.</p>
+
+<p><strong>Failed experiments.</strong> A few models didn't run for boring tooling reasons. <code>gpt-oss-20b</code> hit an MXFP4/Triton driver mismatch on the SageMaker image. Nemotron Nano 9B v2 needed <code>mamba-ssm</code> in the container and my image didn't have it. Phi-4 mini had a Transformers version clash with its custom-code import. These are tooling misses, not stability findings. The panel is smaller than I'd like, and it's not because those models are interesting or boring, it's because they didn't run.</p>
+
+<h2>Closing</h2>
+
+<p>This is a measurement proposal and a lens, not a benchmark paper. The finding I'd most want to survive is: stability is a property of a system, not a score. Low output divergence on a single probe is not automatically stability. It could be collapse. It could be a scaffold dominating your metric. It could be a prompt-end measurement missing a low-margin boundary crossing 400 tokens into the generation. Each of those failure modes shows up concretely in the data. All of them would have looked like "this model is stable" on a naive benchmark.</p>
+
+<p>The chaos lens, from <a href="/blog/nearby-prompts-distant-trajectories">the first post</a>, is what organizes this. LLMs are hybrid sequential systems. Continuous activations that stretch, feeding a discrete branching process that can flip at low-margin boundaries. Small input changes can either be absorbed (bulk moves a little, top-1 holds) or amplified (top-1 flips, autoregression runs with a different prefix, output diverges). Whether a given input/model pair does one or the other depends on the prompt, the model's stretching rate, the density of low-margin decisions in the generation, and the metric you're using to look at the output.</p>
+
+<p>I'd like to see more work on the per-step margin tracking idea, because I think that's where the next real progress is: direct observation of where boundary crossings happen, how often, and whether you can predict them from the prompt. That's the experiment that would upgrade the lens from a mechanism story to a measurable quantity at the text level. I don't have it yet. Somebody should.</p>
+
+<p>If you're doing LLM evaluation and any of this feels relevant, I'd love to hear about it. There's a lot more here than one person can run.</p>
