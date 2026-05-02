@@ -3,7 +3,7 @@
   "slug": "migrating-to-tensorflow-2",
   "summary": "Field notes from migrating a production TensorFlow 1.x project to TF 2.x — the traps, the compatibility shims, and what was actually worth the rewrite.",
   "publishedAt": "2020-09-29T22:49:20.941Z",
-  "updatedAt": "2020-09-29T22:49:20.941Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z",
   "tags": [
     "tensorflow",
     "machine-learning"

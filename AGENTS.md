@@ -16,6 +16,17 @@ Personal portfolio and blog site with Zerg glass theme aesthetic.
 - **Styling**: Injected CSS in `renderPage` combined with global `tokens.css`.
 - **Admin**: Full CRUD API in `server/api/blog.ts` with atomic writes to prevent corruption.
 
+### Updating Old Posts (2026+ refreshes)
+Many posts were migrated from Medium and pre-date 2022. When revising:
+
+- **Keep `publishedAt` unchanged.** Bump `updatedAt` in `meta.json` to the revision date (ISO 8601).
+- **Show both dates** in the rendered post: `Published … · Updated …`. SSR emits schema.org `datePublished` + `dateModified` from these.
+- **Preamble block** (`<aside class="post-update-preamble">`) at the top of any post with 2026+ additions. Contains a 2-5 bullet "What's new" changelog. Appears only if updates exist.
+- **Inline margin-note blocks** (`<aside class="post-update-inline">`) at the point where original prose would now mislead (e.g. "use GGML" before GGUF existed). Rendered like a margin note with `<hr>` separators. Labeled `Update · 2026`.
+- **Silent edits** are fine for typos, broken code, migration artifacts — no callout needed. Reserve callouts for content-level changes that affect reader decisions.
+- **Voice**: first person, matches original post tone (e.g. "Since I wrote this, X became the default…").
+- **After substantial edits**: bump sitemap `<lastmod>` for the touched URL so Google re-crawls.
+
 ### Messaging (Direct Message)
 - **Storage**: `data/threads/{visitorId}.jsonl` (one line per message).
 - **Real-time**: SSE via `server/api/sse.ts` and `server/sse/connection-manager.ts`.

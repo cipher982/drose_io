@@ -52,6 +52,19 @@ const BLOG_STYLES = `
   article.blog-post pre code { background: transparent; padding: 0; }
   article.blog-post blockquote { margin: var(--spacing-3xl) 0; padding: var(--spacing-lg) var(--spacing-2xl); border-left: var(--border-width-thick) solid var(--color-blog-blockquote-border); background: var(--color-blog-blockquote-bg); color: var(--color-blog-blockquote-text); }
   .medium-origin { margin-top: var(--spacing-4xl); padding-top: var(--spacing-2xl); border-top: var(--border-width-thin) solid var(--color-blog-card-border); color: var(--color-blog-meta); font-size: var(--font-size-base); font-style: italic; }
+  article.blog-post .post-meta-dates { display: flex; flex-wrap: wrap; gap: var(--spacing-md); align-items: center; }
+  article.blog-post .post-meta-dates .sep { opacity: 0.5; }
+  article.blog-post .post-meta-dates .updated-label { color: #a5b4fc; font-weight: var(--font-weight-semibold); }
+  article.blog-post aside.post-update-preamble { margin: var(--spacing-3xl) 0 var(--spacing-4xl); padding: var(--spacing-xl) var(--spacing-2xl); background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.05) 100%); border: var(--border-width-thin) solid rgba(99,102,241,0.25); border-radius: var(--border-radius-lg); }
+  article.blog-post aside.post-update-preamble .post-update-label { display: inline-block; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: #c7d2fe; background: rgba(99,102,241,0.2); padding: 2px 10px; border-radius: var(--border-radius-pill); margin-bottom: var(--spacing-md); }
+  article.blog-post aside.post-update-preamble ul { margin: 0; padding-left: var(--spacing-2xl); }
+  article.blog-post aside.post-update-preamble li { font-size: var(--font-size-xl); line-height: var(--line-height-comfortable); }
+  article.blog-post aside.post-update-inline { margin: var(--spacing-3xl) 0; padding: var(--spacing-lg) var(--spacing-2xl); border-left: 3px solid #6366f1; background: rgba(99,102,241,0.04); border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; position: relative; }
+  article.blog-post aside.post-update-inline::before { content: ""; display: block; height: 1px; background: linear-gradient(90deg, rgba(99,102,241,0.4), transparent); margin: calc(var(--spacing-lg) * -1) calc(var(--spacing-2xl) * -1) var(--spacing-lg) 0; }
+  article.blog-post aside.post-update-inline .post-update-label { display: inline-block; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: #a5b4fc; margin-bottom: var(--spacing-sm); }
+  article.blog-post aside.post-update-inline p { margin: 0 0 var(--spacing-md); font-size: var(--font-size-xl); font-style: italic; }
+  article.blog-post aside.post-update-inline p:last-child { margin-bottom: 0; }
+  article.blog-post aside.post-update-inline code { font-style: normal; }
   @media (max-width: 640px) {
     .blog-card { padding: var(--spacing-2xl); }
     article.blog-post { padding: var(--spacing-2xl) var(--spacing-xl); border-radius: var(--border-radius-none); }
@@ -162,7 +175,10 @@ export function renderPostPage(post: Post): string {
   <article class="blog-post">
     <h1>${esc(meta.title)}</h1>
     <div class="meta">
-      <time datetime="${esc(meta.publishedAt)}">${formatDate(meta.publishedAt)}</time>
+      <span class="post-meta-dates">
+        <span>Published <time datetime="${esc(meta.publishedAt)}">${formatDate(meta.publishedAt)}</time></span>
+        ${meta.updatedAt && meta.updatedAt !== meta.publishedAt ? `<span class="sep">·</span><span class="updated-label">Updated <time datetime="${esc(meta.updatedAt)}">${formatDate(meta.updatedAt)}</time></span>` : ''}
+      </span>
       ${tagsHtml ? ` · <span class="blog-tags" style="display:inline-flex">${tagsHtml}</span>` : ''}
     </div>
     ${html}
