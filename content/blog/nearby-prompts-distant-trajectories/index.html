@@ -29,7 +29,7 @@
 <p>Chaos, in the technical sense, is deterministic amplification of small differences. Take two pendulums. Same mass, same length, same gravity, same initial push, except one is released at an angle that's off by half a degree. In a simple single pendulum, that half-degree difference stays small forever. The two pendulums track each other. But in a double pendulum, where the second arm is attached to the first and free to swing, that half-degree difference grows. Within a few seconds the two pendulums are in completely different places. Not because of noise. Not because of a random kick. Because the equations of motion, running deterministically, take the tiny gap you started with and stretch it.</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/double-pendulum-divergence.png" alt="Two double pendulums released with angles differing by half a degree, diverging over time">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/double-pendulum-divergence.png" alt="Two double pendulums released with angles differing by half a degree, diverging over time" loading="lazy" decoding="async" width="1840" height="659">
   <figcaption>Two double pendulums, released at angles differing by half a degree. For a few seconds they track. Then they don't.</figcaption>
 </figure>
 
@@ -40,7 +40,7 @@
 <p>The cleanest teaching example of this is the logistic map. One equation, one knob, and the whole route to chaos sitting in a single chart.</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/logistic-bifurcation.png" alt="Bifurcation diagram of the logistic map">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/logistic-bifurcation.png" alt="Bifurcation diagram of the logistic map" loading="lazy" decoding="async" width="1840" height="911">
   <figcaption>The logistic map bifurcation diagram. The x-axis is the knob <code>r</code>, not time. Each vertical slice is a different, independent system.</figcaption>
 </figure>
 
@@ -81,7 +81,7 @@
 <p>A dynamical system is typically deterministic, at least when you want to analyze it. LLMs are deterministic under argmax decoding: <code>do_sample=False</code> in the HuggingFace transformers API, which picks the highest-logit token at every step. No sampling. The seed is inert. Run the same prompt through the same weights twice with argmax decode, and you get byte-identical output up to GPU kernel nondeterminism (which is tiny and not the source of the effects I'm measuring).</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/slide3_hybrid_system.png" alt="Diagram of an LLM as a hybrid continuous/discrete sequential system">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/slide3_hybrid_system.png" alt="Diagram of an LLM as a hybrid continuous/discrete sequential system" loading="lazy" decoding="async" width="1237" height="1574">
   <figcaption>An LLM at inference. Continuous activations through the stack, discrete token sampled at the output, fed back in as context.</figcaption>
 </figure>
 
@@ -133,7 +133,7 @@
 <p>It also tells me what the right quantity to measure is. Not just "how much did the output change," but output change per unit of <em>meaning-preserving</em> input change. If you stick the word "NOT" in front of the prompt, of course the output moves. The meaning changed. That's the model working correctly. The interesting case is when the meaning didn't change, and the output moved anyway. That's where the chaos lens starts to pay off.</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/branching-continuations.png" alt="Branching continuations from similar prompts">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/branching-continuations.png" alt="Branching continuations from similar prompts" loading="lazy" decoding="async" width="1376" height="768">
   <figcaption>Two nearby prompts, two trajectories. Both coherent. Both defensible. Different basins.</figcaption>
 </figure>
 
@@ -150,7 +150,7 @@
 <p>The sharper framing, though, is their residual-stream decomposition at the final layer. MLP contributes 55.8% of the final residual. Attention contributes 44.2%. The initial input embedding contributes 0.0009%. That's chaos in one line: we perturb the 0.0009% and watch the 100% move. Almost everything in the output is transformations done inside the network. The input is a tiny seed, and the network massively amplifies it.</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/slide10_compounding.png" alt="Compounding amplification across layers">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/slide10_compounding.png" alt="Compounding amplification across layers" loading="lazy" decoding="async" width="1840" height="895">
   <figcaption>Per-layer stretching, compounded across depth. Small input perturbations ride a very large amplification chain.</figcaption>
 </figure>
 
@@ -180,7 +180,7 @@
 <p>This is why I don't want to give you a single scalar "how chaotic is this LLM" number. The system doesn't have one. It has a stretching rate, and it has a boundary-density pattern over generation, and both of them matter. The headline from the second post is that they don't always move together, which is where the cleanest experimental dissociations come from.</p>
 
 <figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/token-decision-boundary.png" alt="Token decision boundary">
+  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/token-decision-boundary.png" alt="Token decision boundary" loading="lazy" decoding="async" width="1376" height="768">
   <figcaption>A thin boundary between top-1 and top-2 logits. A small perturbation elsewhere in the prompt can cross it. One flip, autoregression runs with the different prefix, output diverges.</figcaption>
 </figure>
 

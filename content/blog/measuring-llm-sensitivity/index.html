@@ -43,7 +43,7 @@
 <p>I threw that chart out. What's in the current chart is the token-audited subset: every prompt pair shown actually produced different token IDs after the template. The model saw different inputs. The signal is real.</p>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/token_micro_v2_category_heatmap.png" alt="Model x edit-category heatmap of output divergence">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/token_micro_v2_category_heatmap.png" alt="Model x edit-category heatmap of output divergence" loading="lazy" decoding="async" width="1840" height="805">
   <figcaption>Rows are models, columns are edit categories, cell brightness is average output divergence on token-audited pairs. The row-wise pattern is the real finding.</figcaption>
 </figure>
 
@@ -62,7 +62,7 @@
 <p>For a given prompt pair, run both prompts, generate token by token, and at each generation step compute the Levenshtein distance between the two token prefixes. Plot that distance over time.</p>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/03_branching_trajectories_compact.png" alt="Token-prefix Levenshtein distance over generation step, for several prompt pairs">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/03_branching_trajectories_compact.png" alt="Token-prefix Levenshtein distance over generation step, for several prompt pairs" loading="lazy" decoding="async" width="1840" height="575">
   <figcaption>Token-prefix Levenshtein distance over generation, several prompt pairs. <code>y = 0</code> means the prefixes are token-identical. A curve staying above zero means the paths genuinely diverged, not just shifted by one token.</figcaption>
 </figure>
 
@@ -109,7 +109,7 @@
 <p>The fix is to push output length. At 512 tokens, the scaffold is a smaller fraction of the embedded content, and the actual answer dominates. When I do that, the picture shifts a lot.</p>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide15_collapse.png" alt="Short vs long output stability for scaffolded models">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide15_collapse.png" alt="Short vs long output stability for scaffolded models" loading="lazy" decoding="async" width="1840" height="1077">
   <figcaption>Scaffolded models at 64 tokens vs 512 tokens. The 64-token advantage is mostly the scaffold dominating the embedding. At 512 it's a mixed bag.</figcaption>
 </figure>
 
@@ -181,7 +181,7 @@
 <p>That is not robustness. That is collapse. The model has moved onto a narrower output manifold: it's less responsive to input changes, not more stable in any useful sense. If I had a model that output "the the the" forever, regardless of prompt, its perturbation divergence would be zero. It would also be useless. Low perturbation distance with high baseline drift is collapse wearing a stability costume.</p>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/collapse-attractor-basin.png" alt="Diagram of an attractor basin narrowing into collapse">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/collapse-attractor-basin.png" alt="Diagram of an attractor basin narrowing into collapse" loading="lazy" decoding="async" width="1376" height="768">
   <figcaption>Collapse. Outputs become more similar across <em>different</em> prompts, and also more different from the reference system on the <em>same</em> prompts.</figcaption>
 </figure>
 
@@ -211,7 +211,7 @@
 <p>Here's the Phi-4 case, which I want you to remember because it's the cleanest counterexample to "sharp logits mean stable output" that I have.</p>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide_boundary_vs_bulk.png" alt="Phi-4 dissociation between prompt-end confidence and trajectory stability">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide_boundary_vs_bulk.png" alt="Phi-4 dissociation between prompt-end confidence and trajectory stability" loading="lazy" decoding="async" width="1840" height="1035">
   <figcaption>Phi-4 reasoning+. Maximally confident prompt-end logits, essentially frozen bulk distribution, and the 512-token output still diverges more than GPT-2 XL.</figcaption>
 </figure>
 
@@ -246,7 +246,7 @@
 </ol>
 
 <figure>
-  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide18_correlations.png" alt="Correlations between prompt-end confidence and long-horizon stability">
+  <img src="/blog/measuring-llm-sensitivity/assets/figures/slide18_correlations.png" alt="Correlations between prompt-end confidence and long-horizon stability" loading="lazy" decoding="async" width="1840" height="831">
   <figcaption>Prompt-end confidence vs long-horizon stability. They're not the same thing, and sometimes they move in opposite directions.</figcaption>
 </figure>
 
