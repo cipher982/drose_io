@@ -1,0 +1,18 @@
+{
+  "title": "Restoring HDR to AI-Edited iPhone Photos: The Long Version",
+  "slug": "restoring-hdr-to-ai-edited-photos",
+  "summary": "An iPhone HDR JPEG is two images hiding inside one file, stitched together by a spec war between Google and Apple. AI editors throw the second one away. This is the story of reconstructing it: gain maps, APP2 segments hand-assembled from iPhone hex dumps, a CNN from ICLR 2025, a 5 GB Docker build caused by a 7.4 MB model, and the iOS Safari bug that silently disables HDR rendering if your image lives inside the wrong CSS container.",
+  "publishedAt": "2026-05-02T22:00:00.000Z",
+  "updatedAt": "2026-05-02T22:00:00.000Z",
+  "tags": [
+    "hdr",
+    "image-processing",
+    "ai",
+    "ml",
+    "jpeg",
+    "ios",
+    "systems"
+  ],
+  "status": "published",
+  "heroImage": "/blog/restoring-hdr-to-ai-edited-photos/assets/examples/beach_ultrahdr.jpg"
+}

@@ -1,0 +1,206 @@
+<p>A while back I took a photo on my iPhone that had some nice late-afternoon light on it, ran it through one of the popular AI image editors to clean up a distracting person in the background, got the edited file back, and noticed the photo looked flat. Not in a way I could really point to, and not in a way that showed up in a screenshot. Just flat. The sky wasn't quite as bright, the glass of water on the table wasn't as specular, skin didn't have the same glow. Side by side with the original on the same phone, the edited version was subtly worse in a way that looked like a calibration problem more than an editing problem.</p>
+
+<p>It wasn't a calibration problem. It was that the AI editor had stripped the gain map.</p>
+
+<p>Most people don't know iPhone photos have a gain map. You take a picture, you send it, you post it, you never look at the bytes. But modern iPhone HDR photos are not normal JPEGs. They're two images smashed into one file: a regular SDR JPEG that any viewer can read, and a grayscale gain map appended behind it that tells HDR-capable displays how much brighter each pixel should become at render time. The two halves are linked by a stack of metadata that has to be correct in two different standards simultaneously, because Google and Apple have spent the last few years disagreeing about how the metadata should be shaped. When the system works, you get a photo that looks normal on a laptop and dazzling on an HDR display. When the system doesn't work, you get a fine-looking JPEG that is somehow, unplaceably, not quite right.</p>
+
+<p>The AI editors break the system. Most of them do. They decode the SDR half, run the edit on pixel tensors like any other image model, and write back a normal flat JPEG. The gain map doesn't survive the round trip. Whether you can reconstruct it after the fact, and whether that reconstruction can be good enough that nobody notices, is the thing I spent a few months on. This post is the builder's log.</p>
+
+<figure>
+  <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/beach_ultrahdr.jpg" alt="Beach photo after HDR gain-map restoration, rendered as an Ultra HDR JPEG" loading="lazy" decoding="async" width="1400" height="763">
+  <figcaption>A restored Ultra HDR JPEG. If you're viewing this on an HDR-capable browser and display, the sky and specular highlights sit above SDR white. If you're not, this looks like a normal JPEG. That's the whole point of the format.</figcaption>
+</figure>
+
+<h2>What HDR means in the iPhone sense, and what it doesn't</h2>
+
+<p>Before anything else, it's worth narrowing what "HDR" means here, because the word carries a lot of unrelated baggage.</p>
+
+<p>This post is not about HDR video. It's not about PQ or HLG transfer curves, not about 10-bit panels, not about tone-mapping a Rec.2100 master down to a Rec.709 container. Those are real and they're related, but the iPhone camera roll isn't doing any of them.</p>
+
+<p>This post is about HDR <em>photos</em>, specifically the flavor that iPhones have been shipping since iOS 14-ish and that Android 14 standardized as Ultra HDR. The shape is simple. A photo file holds two pieces. The first is a perfectly ordinary 8-bit SDR JPEG, the kind of file any software written in the last thirty years can decode. The second is a grayscale image called the <em>gain map</em>, stored as another JPEG appended to the first, which says, for each pixel of the SDR image, how many stops brighter that pixel should be rendered on a display that can go brighter than SDR white. Metadata in the file tells a compatible viewer how to combine them at display time. A non-compatible viewer just reads the SDR half and is none the wiser.</p>
+
+<p>This design is much more pragmatic than a full HDR format would be. You don't need new codecs. You don't need new color spaces. You don't even need a new file extension. It's still a <code>.jpg</code>. Your email client still shows the preview, your old photo viewer still opens it, your Slack upload still works. The HDR is opt-in for clients that understand it and invisible to clients that don't. Backward compatibility is the whole trick.</p>
+
+<p>The cost of that trick is that the format is a dance. The SDR bytes have to be right. The gain map bytes have to be right. Three different pieces of metadata have to be right, in the specific hex shape that two different standards bodies expect. If any of those are off, the file still opens fine, but the HDR silently doesn't engage. That's what makes this category of bug so annoying to debug: success looks like failure, because both of them render something.</p>
+
+<h2>Why AI editors strip it, and why it isn't really their fault</h2>
+
+<p>If you build an image-editing product and you don't care about HDR, you will strip HDR. It's not a decision you make. It's the default.</p>
+
+<p>Every AI image editor I've looked at has roughly the same shape. Incoming file gets decoded into an RGB tensor. That tensor runs through some model, maybe a diffusion model, maybe a segmentation-plus-inpainting pipeline, maybe a simple LUT. The output tensor gets encoded back to a JPEG or PNG and sent to the user. The piece that reads metadata, strips EXIF, applies orientation, and writes the output is a library call, and the library doesn't know anything about gain maps. The gain map is an extra JPEG stream sitting behind the primary one, referenced by XMP metadata that the image library either ignores or discards. When the new JPEG is written, that extra stream doesn't get carried through. It's gone.</p>
+
+<p>There's a stronger form of this that's worth naming. Even if the editor did preserve the gain map byte for byte, the gain map would no longer be correct, because the SDR pixels it was calibrated against are no longer the same pixels. The gain map is the luminance difference between the edited SDR and some implied brighter reality. If you change the SDR, the gain map is stale. You can't just drag the old one along.</p>
+
+<p>So the AI editor has two options that work. Either it has to be taught to preserve <em>and regenerate</em> the gain map, which means running an HDR-aware pipeline internally, which is a real piece of engineering. Or the editor does what all of them do, which is to drop the HDR path and return a plain SDR JPEG. That's the flat file you're looking at in your camera roll. It's not a bug. Nobody wrote it in. Nobody took it out. It was never there.</p>
+
+<p>This is also why screenshots don't help you diagnose the issue. iOS takes HDR screenshots sometimes, in limited conditions, but in general a screenshot of an HDR photo collapses both images down to the SDR half and hands you a flat file. Comparing an HDR original to its screenshot will always suggest that nothing was lost, because the screenshot path has already done the stripping for you. The only reliable comparison is opening the original and the edited file, side by side, in an app that actually renders HDR, on a device whose display can go brighter than SDR white. Anything else is measuring the screenshot tool.</p>
+
+<h2>The spec war inside the file</h2>
+
+<p>Here is where the format gets weird, because there are two standards for how the HDR metadata should be encoded, and a working file has to satisfy both of them.</p>
+
+<p>The first standard is the Google-Adobe one. Google defined it in the Ultra HDR spec that shipped with Android 14. The gain map parameters live in an XMP packet at the top of the primary JPEG, in an <code>hdrgm</code> namespace. There's a Container directory with a Primary item and a GainMap item, the GainMap item has a Length pointing at the size of the appended gain-map JPEG, and a Multi-Picture Format (MPF) marker in the primary JPEG points at where the second JPEG starts. Chrome on a capable display will parse this and render HDR. If any of the pieces are wrong, Chrome falls back to SDR.</p>
+
+<p>The second standard is the ISO 21496-1 one, which Apple follows. Apple's Preview.app on macOS and the Photos app on iOS don't look at the Google XMP. They look for a specific APP2 segment whose payload starts with <code>urn:iso:std:iso:ts:21496:-1</code>, and they expect it to appear in both the primary image and the gain-map image. Without those ISO markers, Preview just doesn't show HDR, even if Chrome on the same file does. For a long time my files rendered perfectly in Chrome and looked flat in Preview, and I spent the best part of a day convinced Preview was the one with the bug before I accepted that it just wanted a different flavor of the same metadata.</p>
+
+<p>So a working Ultra HDR JPEG has to carry both. The Google Container XMP for Chrome, the ISO 21496-1 markers for Apple, the hdrgm gain-map parameters in a place both can find them, the MPF offset table that links primary to gain map, and an ICC profile for color accuracy. All of this goes at the front of the file, in a specific order, before the actual image data starts. Get any piece wrong and at least one viewer silently disengages HDR.</p>
+
+<p>The file structure, for one of my actual outputs, looks like this.</p>
+
+<pre><code>PRIMARY IMAGE (~223 KB):
+  SOI (start of image)
+  APP0 JFIF                                 16 bytes
+  APP1 XMP + Container + hdrgm           1,486 bytes   &lt;- Chrome needs this
+  APP2 MPF (offset table)                   88 bytes   &lt;- links primary to gain map
+  APP2 ISO 21496-1 marker                   34 bytes   &lt;- Preview.app needs this
+  APP2 ICC_PROFILE                         604 bytes
+  DQT, SOF0, DHT, SOS, image data...
+
+GAIN MAP (~10 KB):
+  SOI
+  APP0 JFIF                                 16 bytes
+  APP2 ICC_PROFILE                         604 bytes
+  APP2 ISO 21496-1 marker + params          91 bytes   &lt;- Preview.app needs this
+  APP1 XMP + hdrgm params                  616 bytes   &lt;- redundant, also helpful
+  DQT, SOF0, DHT, SOS, gain-map pixels...</code></pre>
+
+<p>Two JPEG files concatenated, with two kinds of HDR metadata woven through the APP segments at the front of each one.</p>
+
+<h2>Building Ultra HDR JPEGs without libultrahdr</h2>
+
+<p>Google publishes a reference C++ library called libultrahdr that knows how to produce these files. It works, and for a while I tried to build on top of it. But I was running this service in a container on a small VPS, and every time I updated the build my Dockerfile grew another apt-get and another linker flag. At one point I had to cross-compile against a particular JPEG library version to match the one libultrahdr was linked against. It was fragile in a way that I was going to be maintaining forever.</p>
+
+<p>So I wrote a small module called <code>direct_ultrahdr.py</code> that constructs the file by hand. It takes the primary SDR JPEG, the gain-map JPEG, and a metadata object, and it emits the final Ultra HDR JPEG bytes. It's about six hundred lines of Python. No external HDR library. Just <code>struct.pack</code> and careful attention to byte layout.</p>
+
+<p>The pieces are:</p>
+
+<ul>
+  <li>Walk the primary JPEG and the gain-map JPEG to find the sequence of APP markers each one starts with.</li>
+  <li>Build the XMP packets as plain strings. The Container XMP for the primary image goes into an APP1 segment with the Adobe XMP identifier <code>http://ns.adobe.com/xap/1.0/</code>. The hdrgm XMP for the gain map goes into the same kind of APP1 segment in the gain-map JPEG.</li>
+  <li>Build the MPF APP2 segment. MPF is a CIPA standard (DC-X007) with a TIFF-style header: big-endian, IFD at offset 8, three tags. <code>0xB000</code> is the MPF version (<code>"0100"</code>), <code>0xB001</code> is the number of images (2), <code>0xB002</code> is an MPEntry table with one entry per image. Each entry is 16 bytes: attributes, image size, offset relative to the start of the primary image, and two dependency fields. The primary image lives at offset 0 with size <code>sdr_size</code>, and the gain map lives at offset <code>sdr_size</code> with size <code>gainmap_size</code>. That's the whole MPF.</li>
+  <li>Build the ISO 21496-1 APP2 segments. This is the one piece I didn't build from spec. I pulled an HDR JPEG off a current iPhone, opened it in a hex editor, found the two APP2 segments whose payload started with <code>urn:iso:std:iso:ts:21496:-1</code>, and copied them verbatim into my code as byte constants. The primary one is 36 bytes. The gain-map one is 93 bytes and includes gain-map parameters as packed integers. I know roughly what the fields are, but the spec is behind ISO's paywall and the easier path was to observe what Apple actually accepts.</li>
+</ul>
+
+<p>Those constants look like this in the source:</p>
+
+<pre><code>ISO_21496_PRIMARY_APP2 = bytes.fromhex(
+    "ffe2002275726e3a69736f3a7374643a69736f3a74733a32313439363a2d310000000000"
+)
+
+ISO_21496_GAINMAP_APP2 = bytes.fromhex(
+    "ffe2005b75726e3a69736f3a7374643a69736f3a74733a32313439363a2d31"
+    "00000000004000000000000f42400028eb29000f4240ffffe317000f424000"
+    "28eb29000f4240000d5810000f42400000000a000f42400000000a000f4240"
+)</code></pre>
+
+<p>The hex is the string <code>urn:iso:std:iso:ts:21496:-1</code> followed by some numeric fields. I am not thrilled about shipping byte-literal constants that came out of a hex dump. But this is what the iPhone itself produces, and it is what Preview.app accepts, and I have tested it on every iOS version between 17 and 18 and it keeps working. It is the ground truth available to me.</p>
+
+<p>With those pieces, constructing the final file is mechanical. Insert the APP segments into the front of the primary JPEG, before the Start of Scan marker. Insert the matching APP segments into the gain-map JPEG. Concatenate. Patch the JFIF APP0 to include the four-byte <code>AMPF</code> marker that signals this is a multi-picture file, to match what iPhones emit. Done.</p>
+
+<p>A short sanity-check function I keep around for any file anyone sends me:</p>
+
+<pre><code>def analyze_ultrahdr(path):
+    with open(path, 'rb') as f:
+        data = f.read()
+
+    first_soi  = data.find(b'\xff\xd8')
+    second_soi = data.find(b'\xff\xd8', first_soi + 2)
+    if second_soi == -1:
+        print("Not an Ultra HDR JPEG (no second image found)")
+        return
+
+    primary = data[:second_soi]
+    gainmap = data[second_soi:]
+
+    checks = {
+        'MPF in primary':         b'MPF\x00' in primary,
+        'Container XMP':          b'http://ns.google.com/photos/1.0/container/' in primary,
+        'hdrgm namespace':        b'http://ns.adobe.com/hdr-gain-map/1.0/' in primary,
+        'ISO 21496-1 (primary)':  b'urn:iso:std:iso:ts:21496:-1' in primary,
+        'ISO 21496-1 (gainmap)':  b'urn:iso:std:iso:ts:21496:-1' in gainmap,
+        'ICC profile':            b'ICC_PROFILE\x00' in primary,
+    }
+    for name, ok in checks.items():
+        print(f"  {'OK ' if ok else 'NO '} {name}")</code></pre>
+
+<p>Six booleans. If all six are true, Chrome and Preview will both render HDR. If any are false, I know which half of the spec war I've broken.</p>
+
+<h2>Where the gain map comes from</h2>
+
+<p>I've glossed over the interesting part. You have an edited SDR image, the gain map is gone, and you want a new gain map. How do you produce one?</p>
+
+<p>The honest answer is that you cannot reconstruct the exact original gain map, because the original gain map encoded real scene luminance that the camera saw. That's gone. But you can produce a <em>plausible</em> gain map: a gain map that an HDR display can use to lift the right regions, and that looks like something the iPhone pipeline would have made for an image with those pixels. That's reconstruction, not recovery, and the distinction matters for what we're claiming.</p>
+
+<p>The naive version is straightforward. Compute the luminance of each SDR pixel, stretch the bright end of the range, and call that the gain map. This is essentially what a lot of synthetic inverse-tone-mapping methods do. It kind of works. Highlights lift a little. Skies get a touch more punch. But the output is generic: every sky is boosted the same amount, every reflection is boosted the same amount, and the map doesn't know what a face is. Apply it uniformly and skin tones also get lifted, which is not what iPhone HDR does. iPhone HDR is strategic. It pushes specular highlights and bright sources a lot, lifts midtones a little, and mostly leaves skin and shadows alone.</p>
+
+<p>The not-naive version is a neural network trained to produce a gain map that mimics what the camera would have. The one I landed on is <a href="https://openreview.net/pdf?id=GtHRhpgpzB" rel="noopener">GMNet</a>, from an ICLR 2025 paper titled "Learning Gain Map for Inverse Tone Mapping," by Liao et al. It's the right shape for this problem. It's small, it runs on CPU, the authors published trained weights on both synthetic and real-world HDR data, and the outputs look like iPhone-style gain maps rather than generic tone-stretching.</p>
+
+<p>GMNet's architecture is a dual-branch CNN. A global branch takes a 256&times;256 thumbnail of the input and extracts scene-level features. From those, it produces three things: a small 3&times;3 kernel to be applied dynamically to the local branch, a channel-attention vector, and a single scalar called <code>qmax</code> that is the global ceiling on how many stops of boost the image should allow. A local branch takes the full-resolution input and runs it through residual blocks. The two branches meet when the local features are convolved with the global-branch-produced kernel (a dynamic depthwise convolution where the conv weights were themselves the output of another network), the channel attention is applied, and the result is upsampled with pixel shuffle back to full resolution. The output of the network is the gain map, and <code>qmax</code> tells you the <code>GainMapMax</code> value to write into the hdrgm metadata.</p>
+
+<p>The dual-branch design does something clever. The global branch sees the whole scene and decides "this is a sunset, the sky should get a big boost, the foreground should not." The local branch has enough resolution to actually paint that decision onto the right pixels. The fact that the boost kernel itself is network-produced, rather than fixed, is how the same model handles a noon beach shot and a candlelit dinner without two different modes.</p>
+
+<figure>
+  <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/cafe_ultrahdr.jpg" alt="Restored Ultra HDR JPEG of a dimly lit cafe scene, with pendant lights as the bright highlights" loading="lazy" decoding="async" width="925" height="1522">
+  <figcaption>A cafe at night. The pendant lights are where the gain map concentrates its boost. On an HDR display the bulbs sit well above SDR white while the wood of the table, the wine, and the faces stay in their normal SDR range. On a non-HDR display or browser, this is just a JPEG.</figcaption>
+</figure>
+
+<p>The output of the whole pipeline is: the SDR image you uploaded, unchanged; a grayscale gain-map PNG derived from GMNet's prediction; and the gain-map metadata (min, max, gamma, offsets, capacity min, capacity max) that goes into both the Google XMP and the ISO 21496-1 payload. Those three pieces get handed to the Ultra HDR packager, and out comes a file Chrome and Preview both understand.</p>
+
+<h2>The 5 GB Docker image for a 7.4 MB model</h2>
+
+<p>There is a side quest here that I want to flag and then mostly link out of, because it's its own post. The short version.</p>
+
+<p>GMNet is a PyTorch model. The weights are 7.4 MB. The model explicitly runs on CPU because this service has no GPU. And yet my Dockerfile, when I first wired GMNet into production, had a build step that downloaded about 3.9 GB of NVIDIA CUDA wheels, because on <code>linux/amd64</code>, <code>pip install torch</code> pulls fourteen NVIDIA packages by default regardless of whether any GPU exists on the target. The installed image was over 5 GB. Cold builds took fifteen minutes. Cache invalidations from base-image updates triggered a full re-download every time.</p>
+
+<p>The fix was to stop using PyTorch for inference. At inference time you don't need autograd or training-framework machinery. You need a graph executor and a tensor library. Two paths were available.</p>
+
+<p>The first path was ONNX Runtime. Export the PyTorch model to ONNX once as a development step, bundle the <code>.onnx</code> file, and run it in production with a 20 MB inference engine that uses oneDNN and MKL under the hood. This is the sensible production choice. It's what I actually run in production today.</p>
+
+<p>The second path was tinygrad, a from-scratch ML framework in about 5000 lines of Python with lazy evaluation and JIT kernel compilation. I ported GMNet to it anyway, mostly because I wanted to understand what the port would tell me. The port turned into its own debugging exercise: <code>AdaptiveAvgPool2d</code> does not reshape-and-mean when the input dimensions don't divide evenly by the output (the bins overlap, and getting that wrong cost me 50 dB of PSNR); PyTorch's <code>PixelShuffle</code> uses CRD ordering, not DCR (getting that wrong produces plausible-looking but spatially scrambled outputs); and the dual-branch dynamic kernel needs an explicit <code>.realize()</code> to force tinygrad's lazy scheduler to materialize the kernel before it's used as a conv weight, or the scheduler will happily inline the kernel computation into the conv inner loop.</p>
+
+<p>I built a verification suite to prove the port was correct: four synthetic test images run through both the PyTorch reference and the tinygrad implementation, compared on PSNR, SSIM, raw tensor allclose, and output invariants. Final number was 120.6 dB PSNR between the two. At that tolerance the 8-bit JPEG outputs are bit-identical between the two implementations. The refactor was provably transparent to users.</p>
+
+<p>I then didn't use tinygrad in production. ONNX Runtime is faster on x86 (oneDNN is hand-tuned SIMD, tinygrad generates competent but generic clang), and for a CPU inference workload that's what you want. The tinygrad port is valuable as a thing I understand, and as a fallback I could ship if ONNX Runtime ever became inconvenient. But the point of the exercise wasn't which framework wins. The point was that I was shipping 5 GB of training-framework infrastructure to execute a fixed-weight matrix pipeline, and once I named the problem that way, both tinygrad and ONNX Runtime became obvious better answers than "keep PyTorch in production." The whole tinygrad port, including the verification suite, is in the repo if you want the details.</p>
+
+<p>Back to HDR.</p>
+
+<h2>The iOS Safari bug that cost me three days</h2>
+
+<p>This one is an operational detail, but it's the single foot-gun I would most want someone else to know about, because it's not written down anywhere that I've found, and because I burned a whole weekend on it.</p>
+
+<p>The front end for the service has a before-and-after slider: you drag a handle left and right, and the edited-SDR image on one side reveals the restored-HDR image on the other side. The natural implementation is a wrapper <code>&lt;div&gt;</code> containing both images, with <code>position: absolute</code>, <code>overflow: hidden</code> on the wrapper, and a <code>clip-path</code> on the top image to reveal the bottom as the slider moves. Standard pattern, works everywhere.</p>
+
+<p>On desktop Safari and Chrome this worked. On iOS Safari, the HDR path silently disengaged. The image rendered at SDR brightness, the "after" half looked identical to the "before" half, and no amount of staring at the metadata explained it, because the metadata was fine. The file was the same file that Preview.app rendered correctly.</p>
+
+<p>The bug is that <strong>iOS Safari refuses to render HDR gain maps when the <code>&lt;img&gt;</code> element is inside a CSS stacking context</strong>. Any of <code>z-index</code>, <code>overflow: hidden</code>, <code>clip-path</code> on an ancestor, <code>transform</code>, <code>filter</code>, or <code>position</code> with a <code>z-index</code> value will quietly turn off the HDR rendering path. The image renders as if it were a flat SDR JPEG. No error, no warning, no way to detect it from JavaScript. Just flat pixels.</p>
+
+<p>The fix is that the <code>&lt;img&gt;</code> must live at the root of its layout context, with no HDR-hostile ancestors. For the slider, that meant inverting the structure: put the <code>clip-path</code> <em>directly on the <code>&lt;img&gt;</code></em>, animate its value with the slider, and get rid of the wrapper entirely. Both images now sit as direct children of the document, stacked with plain <code>position: absolute</code>, no overflow, no parent clipping. The clip-path is what moves. And suddenly iOS Safari is happy and renders HDR correctly.</p>
+
+<p>The reason it took me three days is that the failure mode looks like a metadata bug, so I spent most of the first two days in a hex editor convinced I had a bad APP2 segment. The only way I eventually caught it was by swapping the HDR image into a bare test page with zero CSS around it, watching it render correctly on iPhone, and then slowly adding CSS back until it broke. It broke the instant I wrapped it in a div with <code>overflow: hidden</code>.</p>
+
+<p>I have not seen this behavior documented anywhere by Apple. It may be a bug and it may be by design. If you are building anything that renders Ultra HDR JPEGs on iOS Safari, keep the <code>&lt;img&gt;</code> flat, do not put it inside a clipping wrapper, and if you need to clip it, clip it directly.</p>
+
+<h2>How many of my users can actually see this?</h2>
+
+<p>There is a slightly melancholy question hanging over this whole project, which is: what fraction of the people landing on the site can actually see the thing I'm producing?</p>
+
+<p>Browsers expose two relevant pieces of information. The first is a CSS media query, <code>window.matchMedia('(dynamic-range: high)')</code>, which returns true on a browser-display combination that can render above-SDR content. The second is the WebGL renderer string, which gives you a rough idea of the GPU class and by extension whether the display is likely to be wide-gamut and bright enough for HDR to matter. I collect both of these in the analytics funnel when a visitor's browser runs JavaScript.</p>
+
+<p>The honest answer from that data is: a minority, and the exact number depends on how you count. My sample is small: among the unique visitors whose browsers actually ran the fingerprint script and reported back, about 20% hit <code>dynamic-range: high</code>. If I count events rather than unique visitors, HDR-capable sessions account for roughly 40% of the fingerprint events, because people on capable hardware tend to come back. Both numbers are fuzzy because the sample size is small and the collection path is noisy, but the shape of the answer is: a meaningful chunk of visitors, somewhere between a fifth and half, depending on which denominator you trust. The rest are on hardware that can't go brighter than SDR, on browsers without the HDR rendering path enabled, or on OS versions that haven't shipped gain-map rendering yet. For them, the restored file is a normal JPEG. It does no harm. It does not look worse than the input. But it also doesn't look different.</p>
+
+<p>That's fine. The value of the feature is asymmetric. On the capable quarter, the difference is big and immediately visible. On the other three quarters, the file is at least as good as whatever they would have had. Nothing breaks on hardware that can't render HDR, because the whole format was designed to degrade gracefully. It's doing the right thing; most of the audience just doesn't see it.</p>
+
+<p>The part that worries me more is that even among HDR-capable displays, the upload path matters. Social platforms vary wildly in whether they preserve the gain map when you post. Some strip it on upload and recompress the SDR half. Some preserve it on upload but only render HDR inside their native app, not in the web viewer. Some preserve it everywhere. <a href="https://engineering.fb.com/2024/03/26/android/instagram-threads-hdr-photos/" rel="noopener">Meta has written about HDR preservation in Instagram and Threads</a>, and the state of the art there is better than it was a year ago, but it is still platform-specific, app-version-specific, and sometimes device-specific. The only reliable test is to post the actual file on the actual account you care about and view it on the device you care about. Nothing else generalizes.</p>
+
+<h2>Where this lands</h2>
+
+<p>If you zoom all the way out, the shape of this project is: take a consumer-grade photo format that's secretly a two-part file stitched together by competing specs, let an AI editor throw away one of the parts, reconstruct that part with a neural network trained on real gain maps, repackage everything in a way that two different rendering engines on two different operating systems both accept, and try not to trigger any of the silent CSS bugs that make HDR disengage on mobile Safari. Each piece is a small piece. The product is a few hundred lines of Python, one CNN from a research paper, some hex constants taken out of an iPhone reference file, and a handful of CSS rules that specifically avoid landing inside a stacking context.</p>
+
+<figure>
+  <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/garage_ultrahdr.jpg" alt="Restored Ultra HDR JPEG of a silver car in a dim garage, with bright ambient and reflection highlights" loading="lazy" decoding="async" width="1400" height="1045">
+  <figcaption>Reflections on the paint and chrome are where the gain map does most of its work on this one. On a capable display the ambient overhead lights come up above SDR white and the car reads closer to how it looked in person.</figcaption>
+</figure>
+
+<p>I went in expecting the hard part to be the model. The model turned out to be the easiest part, because a good paper with released weights already exists. The hard part was all the surrounding mechanics: the spec war, the Docker dependency bloat, the iOS CSS bug, the Ultra HDR packager, and the persistent worry that some upload path on some social platform is going to silently re-strip the gain map I just put back.</p>
+
+<p>If you edit iPhone photos through AI tools and the output looks subtly flat on your phone, odds are the gain map got dropped. You can check the file in the small sanity-check function above: if there's no <code>hdrgm</code> namespace and no ISO 21496-1 marker, the HDR is gone. Reconstructing it is possible and, on the quarter of viewers whose screens can render it, very visible. Whether it's worth doing depends on where the photos are going. But it's a nicer problem than I expected when I first noticed the flatness and went looking for what the editor had taken out.</p>

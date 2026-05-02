@@ -76,6 +76,20 @@ async function processImage(
   }
 
   const buf = await readFile(path);
+
+  // Skip Ultra HDR JPEGs: a second JPEG stream (gain map) appended after the primary,
+  // referenced by MPF metadata. Re-encoding with sharp drops the gain map and turns the
+  // file into flat SDR.
+  if (isJpeg) {
+    const firstSoi = buf.indexOf(Buffer.from([0xff, 0xd8]));
+    const secondSoi = firstSoi >= 0 ? buf.indexOf(Buffer.from([0xff, 0xd8]), firstSoi + 2) : -1;
+    const hasMpf = buf.includes(Buffer.from("MPF\x00"));
+    if (secondSoi > 0 && hasMpf) {
+      manifest[key] = { mtimeMs: st.mtimeMs, bytes: before };
+      return { before, after: before, skipped: true, webpBytes: 0 };
+    }
+  }
+
   const img = sharp(buf, { failOn: "none" });
   const meta = await img.metadata();
   const needsResize = (meta.width ?? 0) > MAX_WIDTH;
