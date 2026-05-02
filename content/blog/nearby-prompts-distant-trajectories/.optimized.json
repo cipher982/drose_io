@@ -1,0 +1,38 @@
+{
+  "assets/figures/distribution-shift-basins.png": {
+    "mtimeMs": 1777741452298,
+    "bytes": 26595
+  },
+  "assets/figures/token-decision-boundary.png": {
+    "mtimeMs": 1777741452784,
+    "bytes": 443159
+  },
+  "assets/figures/slide3_hybrid_system.png": {
+    "mtimeMs": 1777741452925,
+    "bytes": 46719
+  },
+  "assets/figures/lorenz-state-space.png": {
+    "mtimeMs": 1777741453361,
+    "bytes": 546115
+  },
+  "assets/figures/logistic-bifurcation.png": {
+    "mtimeMs": 1777741453555,
+    "bytes": 285286
+  },
+  "assets/figures/slide10_compounding.png": {
+    "mtimeMs": 1777741453723,
+    "bytes": 70864
+  },
+  "assets/figures/double-pendulum-divergence.png": {
+    "mtimeMs": 1777741453878,
+    "bytes": 100036
+  },
+  "assets/figures/probability-weather-field.png": {
+    "mtimeMs": 1777741454440,
+    "bytes": 501320
+  },
+  "assets/figures/branching-continuations.png": {
+    "mtimeMs": 1777741454856,
+    "bytes": 857987
+  }
+}

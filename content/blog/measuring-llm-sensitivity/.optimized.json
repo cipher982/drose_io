@@ -1,0 +1,30 @@
+{
+  "assets/figures/slide12_qwen_forest.png": {
+    "mtimeMs": 1777741451001,
+    "bytes": 63208
+  },
+  "assets/figures/collapse-attractor-basin.png": {
+    "mtimeMs": 1777741451345,
+    "bytes": 413810
+  },
+  "assets/figures/token_micro_v2_category_heatmap.png": {
+    "mtimeMs": 1777741451549,
+    "bytes": 87420
+  },
+  "assets/figures/slide18_correlations.png": {
+    "mtimeMs": 1777741451693,
+    "bytes": 81592
+  },
+  "assets/figures/slide15_collapse.png": {
+    "mtimeMs": 1777741451867,
+    "bytes": 129611
+  },
+  "assets/figures/slide_boundary_vs_bulk.png": {
+    "mtimeMs": 1777741452043,
+    "bytes": 134347
+  },
+  "assets/figures/03_branching_trajectories_compact.png": {
+    "mtimeMs": 1777741452206,
+    "bytes": 67731
+  }
+}

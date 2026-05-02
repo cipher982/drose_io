@@ -44,7 +44,7 @@ const BLOG_STYLES = `
   article.blog-post h2 { margin-top: 36px; font-size: var(--font-size-6xl); }
   article.blog-post h3 { margin-top: 28px; font-size: var(--font-size-3xl); }
   article.blog-post p, article.blog-post li { font-size: var(--font-size-2xl); line-height: var(--line-height-spacious); color: var(--color-blog-body-text); }
-  article.blog-post img, article.blog-post video, article.blog-post iframe { max-width: 100%; border-radius: var(--border-radius-lg); margin: var(--spacing-3xl) auto; display: block; }
+  article.blog-post img, article.blog-post video, article.blog-post iframe { max-width: 100%; max-height: 85vh; width: auto; height: auto; object-fit: contain; border-radius: var(--border-radius-lg); margin: var(--spacing-3xl) auto; display: block; }
   article.blog-post figure { margin: var(--spacing-3xl) 0; }
   article.blog-post figcaption { text-align: center; color: var(--color-blog-meta); font-size: var(--font-size-md); margin-top: var(--spacing-sm); }
   article.blog-post pre { background: var(--color-blog-code-block-bg); color: var(--color-blog-code-block-text); padding: var(--spacing-2xl); overflow: auto; border-radius: var(--border-radius-lg); font-size: var(--font-size-lg); }
