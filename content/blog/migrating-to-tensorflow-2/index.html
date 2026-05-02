@@ -7,14 +7,14 @@
 <span class="line"></span>
 <span class="line"><span style="color:#79B8FF">print</span><span style="color:#E1E4E8">(a</span><span style="color:#F97583">*</span><span style="color:#E1E4E8">b)</span></span>
 <span class="line"></span>
-<span class="line"><span style="color:#6A737D"># OUTPUT: Tensor("mul:0", shape=(), dtype=int32)</span></span></code></pre><h4>TensorFlow 2.x</h4><pre><code class="language-python">import tensorflow as tf
-
-a = tf.constant(5)
-b = tf.constant(2)
-
-print(a * b)
-
-# OUTPUT: tf.Tensor(10, shape=(), dtype=int32)</code></pre><p>In the first example you can see how just trying to print out the result of <code>2 * 5</code> can only tell you that it is a multiplication operation and the data type: <code>Tensor("mul:0", shape=(), dtype=int32)</code>, while in the bottom example it can compute the values when you print: <code>tf.Tensor(10, shape=(), dtype=int32)</code>.</p><p>To get the final result of a TensorFlow 1.x operation you can create a session and run the operation from that scope:</p><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> tensorflow </span><span style="color:#F97583">as</span><span style="color:#E1E4E8"> tf</span></span>
+<span class="line"><span style="color:#6A737D"># OUTPUT: Tensor("mul:0", shape=(), dtype=int32)</span></span></code></pre><h4>TensorFlow 2.x</h4><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> tensorflow </span><span style="color:#F97583">as</span><span style="color:#E1E4E8"> tf</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">a </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> tf.constant(</span><span style="color:#79B8FF">5</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">b </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> tf.constant(</span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF">print</span><span style="color:#E1E4E8">(a </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> b)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D"># OUTPUT: tf.Tensor(10, shape=(), dtype=int32)</span></span></code></pre><p>In the first example you can see how just trying to print out the result of <code>2 * 5</code> can only tell you that it is a multiplication operation and the data type: <code>Tensor("mul:0", shape=(), dtype=int32)</code>, while in the bottom example it can compute the values when you print: <code>tf.Tensor(10, shape=(), dtype=int32)</code>.</p><p>To get the final result of a TensorFlow 1.x operation you can create a session and run the operation from that scope:</p><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> tensorflow </span><span style="color:#F97583">as</span><span style="color:#E1E4E8"> tf</span></span>
 <span class="line"><span style="color:#6A737D"># disable eager execution to imitate TF1.x</span></span>
 <span class="line"><span style="color:#E1E4E8">tf.compat.v1.disable_eager_execution()</span></span>
 <span class="line"></span>
