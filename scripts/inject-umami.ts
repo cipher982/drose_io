@@ -11,8 +11,12 @@ const HTML_FILES = [
   './public/admin.html',
 ];
 
+// Matches the full Umami block: optional visitor-context inline <script>,
+// the tracker <script src=".../script.js">, and the optional recorder tag.
+// All three are emitted together by buildUmamiScript() so the injector must
+// replace them as a single unit to stay idempotent.
 const UMAMI_PATTERN =
-  /<script[^>]*analytics\.drose\.io\/script\.js[^>]*><\/script>(?:\s*<script[^>]*analytics\.drose\.io\/recorder\.js[^>]*><\/script>)?/g;
+  /(?:<script>\s*window\.umamiVisitorContext[\s\S]*?<\/script>\s*)?<script[^>]*analytics\.drose\.io\/script\.js[^>]*><\/script>(?:\s*<script[^>]*analytics\.drose\.io\/recorder\.js[^>]*><\/script>)?/g;
 
 async function injectUmamiScript() {
   const umamiScript = buildUmamiScript();
