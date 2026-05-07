@@ -231,32 +231,56 @@ window.umamiVisitorContext = (function () {
   } catch (e) {}
   return { getVisitorId: getVisitorId, data: data };
 })();
-// The Umami tracker defers attaching window.umami until
-// document.readyState === "complete", which can land after <script defer>
-// onload fires. Retry for up to ~5s so we don't silently miss identify.
+// Fire identify() once we can, on whichever signal happens first:
+//  - script onload (fast path, usually enough)
+//  - DOMContentLoaded (tracker IIFE has executed by this point)
+//  - window "load" (hard guarantee, survives background-tab setTimeout throttling)
+//  - visibilitychange → visible (recovers tabs that were backgrounded during init)
+//  - pageshow (bfcache restore)
+// Also keeps a short polling fallback, but real-user reliability comes from the
+// event listeners, not the timer — setTimeout is clamped to ~1s in background
+// tabs, so timer-only retries can miss identify on quick-bounce sessions.
 window.sendUmamiVisitorContext = function () {
-  var attempts = 0;
-  var MAX_ATTEMPTS = 50;
-  var INTERVAL_MS = 100;
-  function tryIdentify() {
+  var sent = false;
+  function attempt() {
+    if (sent) return true;
     try {
-      if (!window.umamiVisitorContext) return;
-      if (window.umami && typeof window.umami.identify === "function") {
-        var visitorId = window.umamiVisitorContext.getVisitorId();
-        var data = window.umamiVisitorContext.data();
-        if (visitorId) {
-          window.umami.identify(visitorId, data);
-        } else {
-          window.umami.identify(data);
-        }
-        return;
+      if (!window.umamiVisitorContext) return false;
+      if (!window.umami || typeof window.umami.identify !== "function") return false;
+      var visitorId = window.umamiVisitorContext.getVisitorId();
+      var data = window.umamiVisitorContext.data();
+      if (visitorId) {
+        window.umami.identify(visitorId, data);
+      } else {
+        window.umami.identify(data);
       }
-      if (++attempts < MAX_ATTEMPTS) {
-        setTimeout(tryIdentify, INTERVAL_MS);
-      }
-    } catch (e) {}
+      sent = true;
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
-  tryIdentify();
+  if (attempt()) return;
+  // Bounded polling as a belt-and-suspenders for the ~few-hundred-ms between
+  // tracker IIFE execution and our events firing.
+  var polls = 0;
+  var POLL_LIMIT = 30;
+  var timer = setInterval(function () {
+    if (attempt() || ++polls >= POLL_LIMIT) clearInterval(timer);
+  }, 100);
+  function onEvent() {
+    if (attempt()) {
+      clearInterval(timer);
+    }
+  }
+  try {
+    document.addEventListener("DOMContentLoaded", onEvent, { once: true });
+    window.addEventListener("load", onEvent, { once: true });
+    window.addEventListener("pageshow", onEvent);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") onEvent();
+    });
+  } catch (e) {}
 };
 </script>
     <script defer src="https://analytics.drose.io/script.js" data-website-id="33e9b5a0-5fbf-474c-9d60-9bee34d577bd" data-domains="drose.io" data-tag="prod" data-performance="true" onload="window.sendUmamiVisitorContext && window.sendUmamiVisitorContext()"></script>
