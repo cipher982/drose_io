@@ -73,16 +73,31 @@ window.umamiVisitorContext = (function () {
   } catch (e) {}
   return { getVisitorId: getVisitorId, data: data };
 })();
+// The Umami tracker defers attaching window.umami until
+// document.readyState === "complete", which can land after <script defer>
+// onload fires. Retry for up to ~5s so we don't silently miss identify.
 window.sendUmamiVisitorContext = function () {
-  try {
-    if (!window.umami || !window.umami.identify || !window.umamiVisitorContext) return;
-    var visitorId = window.umamiVisitorContext.getVisitorId();
-    var data = window.umamiVisitorContext.data();
-    if (visitorId) {
-      window.umami.identify(visitorId, data);
-    } else {
-      window.umami.identify(data);
-    }
-  } catch (e) {}
+  var attempts = 0;
+  var MAX_ATTEMPTS = 50;
+  var INTERVAL_MS = 100;
+  function tryIdentify() {
+    try {
+      if (!window.umamiVisitorContext) return;
+      if (window.umami && typeof window.umami.identify === "function") {
+        var visitorId = window.umamiVisitorContext.getVisitorId();
+        var data = window.umamiVisitorContext.data();
+        if (visitorId) {
+          window.umami.identify(visitorId, data);
+        } else {
+          window.umami.identify(data);
+        }
+        return;
+      }
+      if (++attempts < MAX_ATTEMPTS) {
+        setTimeout(tryIdentify, INTERVAL_MS);
+      }
+    } catch (e) {}
+  }
+  tryIdentify();
 };
 </script>`;
