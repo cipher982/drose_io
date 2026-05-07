@@ -10,7 +10,7 @@ import { blogIndex, blogPost, blogRss, blogAsset } from './blog/routes';
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
-import { handleAnalyticsSummary, handleAnalyticsInsights } from './api/analytics';
+import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
 
 const app = new Hono();
 
@@ -69,6 +69,7 @@ app.get('/admin', serveStatic({ path: './public/admin.html' }));
 // Analytics dashboard (admin-gated)
 app.get('/api/admin/analytics/summary', handleAnalyticsSummary);
 app.get('/api/admin/analytics/insights', handleAnalyticsInsights);
+app.get('/api/admin/analytics/deep', handleAnalyticsDeep);
 app.get('/analytics', serveStatic({ path: './public/analytics.html' }));
 
 // Public blog routes

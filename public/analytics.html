@@ -7,7 +7,7 @@
   <title>Analytics · drose.io</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="stylesheet" href="/assets/css/tokens.css?v=e54d4ab1">
-  <link rel="stylesheet" href="/assets/css/analytics.css?v=4">
+  <link rel="stylesheet" href="/assets/css/analytics.css?v=5">
 </head>
 <body>
   <div class="grid-bg"></div>
@@ -43,6 +43,10 @@
         <button data-p="7d">7d</button>
         <button data-p="30d" class="active">30d</button>
       </nav>
+      <label class="human-toggle" title="Filter to sessions tagged traffic_quality=human via umami.identify (drose.io only)">
+        <input type="checkbox" id="human-only">
+        <span>Human only</span>
+      </label>
       <div class="topbar-right">
         <span class="live-dot"></span>
         <span id="last-update" class="last-update">—</span>
@@ -54,6 +58,32 @@
 
     <!-- KPI strip -->
     <section class="kpi-strip" id="kpi-strip"></section>
+
+    <!-- Phase 2 deep-data strip -->
+    <section class="deep-strip">
+      <div class="panel panel-cwv">
+        <div class="panel-head">
+          <h2>Core Web Vitals <span class="badge-new">p75</span></h2>
+          <span class="panel-meta" id="cwv-meta">—</span>
+        </div>
+        <div id="cwv-grid" class="cwv-grid"></div>
+      </div>
+      <div class="panel panel-replay">
+        <div class="panel-head">
+          <h2>Session Replay</h2>
+          <span class="panel-meta">storage · per site</span>
+        </div>
+        <div id="replay-list"></div>
+      </div>
+      <div class="panel panel-ai">
+        <div class="panel-head">
+          <h2>drose.io · AI Breakdown</h2>
+          <span class="panel-meta" id="ai-meta">—</span>
+        </div>
+        <div id="ai-breakdown"></div>
+        <div id="human-split" class="human-split"></div>
+      </div>
+    </section>
 
     <!-- Primary grid -->
     <main class="main-grid">
@@ -92,6 +122,6 @@
     </footer>
   </div>
 
-  <script src="/assets/js/analytics.js?v=1"></script>
+  <script src="/assets/js/analytics.js?v=2"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 /* analytics.drose.io mirror — vanilla JS */
 (function () {
   const LS_TOKEN = 'drose.analytics.token';
-  const state = { token: null, period: '30d', summary: null, insights: null };
+  const LS_HUMAN = 'drose.analytics.humanOnly';
+  const state = { token: null, period: '30d', humanOnly: false, summary: null, insights: null, deep: null };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -290,15 +291,170 @@
     }
   }
 
+  /* ---------- CWV rendering ---------- */
+  const CWV_THRESHOLDS = {
+    lcp:  { good: 2500, poor: 4000,  unit: 'ms', scale: 6000 },
+    fcp:  { good: 1800, poor: 3000,  unit: 'ms', scale: 5000 },
+    ttfb: { good:  800, poor: 1800,  unit: 'ms', scale: 3000 },
+    cls:  { good: 0.1,  poor: 0.25,  unit: '',   scale: 0.5  },
+    inp:  { good:  200, poor:  500,  unit: 'ms', scale: 1000 },
+  };
+  function cwvClass(metric, v) {
+    if (v == null) return 'cwv-warn';
+    const th = CWV_THRESHOLDS[metric];
+    if (v <= th.good) return 'cwv-good';
+    if (v <= th.poor) return 'cwv-warn';
+    return 'cwv-bad';
+  }
+  function cwvFmt(metric, v) {
+    if (v == null) return '—';
+    const th = CWV_THRESHOLDS[metric];
+    if (metric === 'cls') return (+v).toFixed(3);
+    return Math.round(v) + th.unit;
+  }
+  function renderCWV(cwv) {
+    const host = $('#cwv-grid');
+    host.innerHTML = '';
+    if (!cwv || !cwv.length) { host.innerHTML = '<div class="empty-text">no performance data</div>'; return; }
+    const sorted = [...cwv].sort((a, b) => (b.perf_events || 0) - (a.perf_events || 0));
+    $('#cwv-meta').textContent = sorted.length + ' sites · ' + sorted.reduce((a, s) => a + (s.perf_events || 0), 0) + ' events';
+    for (const s of sorted) {
+      const card = el('div', { class: 'cwv-card' });
+      card.appendChild(el('div', { class: 'cwv-card-head' }, [
+        el('span', { class: 'cwv-card-name' }, [s.name]),
+        el('span', { class: 'cwv-card-n' }, [(s.lcp_n || 0) + ' samples']),
+      ]));
+      for (const m of ['lcp', 'fcp', 'ttfb', 'inp', 'cls']) {
+        const v = s[m + '_p75'];
+        const cls = cwvClass(m, v);
+        const th = CWV_THRESHOLDS[m];
+        const pct = v == null ? 0 : Math.min(100, Math.round((v / th.scale) * 100));
+        const row = el('div', { class: 'cwv-row ' + cls }, [
+          el('span', { class: 'cwv-metric' }, [m.toUpperCase()]),
+          el('span', { class: 'cwv-pill' }, [el('span', { style: 'width:' + pct + '%' })]),
+          el('span', { class: 'cwv-value' }, [cwvFmt(m, v)]),
+        ]);
+        card.appendChild(row);
+      }
+      host.appendChild(card);
+    }
+  }
+
+  /* ---------- Replay rendering ---------- */
+  function fmtBytes(n) {
+    if (n == null || !n) return '0';
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + ' GB';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + ' MB';
+    if (n >= 1e3) return (n / 1e3).toFixed(0) + ' KB';
+    return n + ' B';
+  }
+  function renderReplay(replay) {
+    const host = $('#replay-list');
+    host.innerHTML = '';
+    if (!replay || !replay.length) { host.innerHTML = '<div class="empty-text">no replays captured</div>'; return; }
+    const sorted = [...replay].sort((a, b) => (b.bytes || 0) - (a.bytes || 0));
+    for (const s of sorted) {
+      const replayUrl = 'https://analytics.drose.io/websites/' + s.id + '/replays';
+      host.appendChild(el('div', { class: 'replay-row' }, [
+        el('div', {}, [
+          el('div', { class: 'rname' }, [s.name]),
+          el('div', { class: 'rstat' }, [
+            el('span', {}, [
+              el('b', {}, [String(s.sessions || 0)]), ' sessions · ',
+              el('b', {}, [fmtBytes(s.bytes)]), ' · ',
+              el('b', {}, [fmtN(s.total_events)]), ' events',
+            ]),
+          ]),
+        ]),
+        el('a', { class: 'rlink', href: replayUrl, target: '_blank', rel: 'noopener' }, ['watch ↗']),
+      ]));
+    }
+  }
+
+  /* ---------- AI breakdown ---------- */
+  function renderAI(aiRefs) {
+    const host = $('#ai-breakdown');
+    host.innerHTML = '';
+    if (!aiRefs || !aiRefs.length) { host.innerHTML = '<div class="empty-text">no AI referrers in period</div>'; return; }
+    const max = aiRefs.reduce((a, r) => Math.max(a, r.pageviews || 0), 0) || 1;
+    const total = aiRefs.reduce((a, r) => a + (r.pageviews || 0), 0);
+    $('#ai-meta').textContent = total + ' AI-sourced views';
+    for (const r of aiRefs) {
+      const pct = Math.round((r.pageviews / max) * 100);
+      host.appendChild(el('div', { class: 'ai-row' }, [
+        el('div', { class: 'ai-name' }, [r.source]),
+        el('div', { class: 'ai-bar' }, [el('span', { style: 'width:' + pct + '%' })]),
+        el('div', { class: 'ai-v' }, [fmtN(r.pageviews)]),
+      ]));
+    }
+  }
+
+  /* ---------- Human / bot split ---------- */
+  function renderHumanSplit(h) {
+    const host = $('#human-split');
+    host.innerHTML = '';
+    if (!h || !h.total) return;
+    const total = h.total;
+    const parts = [
+      { cls: 'h', v: h.human,        label: 'Human',      color: '#22c55e' },
+      { cls: 'u', v: h.unidentified, label: 'Unresolved', color: '#94a3b8' },
+      { cls: 'b', v: h.headless,     label: 'Headless',   color: '#fb7185' },
+      { cls: 'm', v: h.monitor,      label: 'Monitors',   color: '#f59e0b' },
+    ];
+    host.appendChild(el('div', { class: 'human-split-head' }, ['Human vs Bot · drose.io sessions']));
+    const bar = el('div', { class: 'human-split-bar' });
+    for (const p of parts) {
+      const w = Math.round((p.v / total) * 1000) / 10;
+      if (w > 0) bar.appendChild(el('div', { class: p.cls, style: 'flex-basis:' + w + '%' }));
+    }
+    host.appendChild(bar);
+    const legend = el('div', { class: 'human-split-legend' });
+    for (const p of parts) {
+      if (!p.v) continue;
+      const span = el('span', {}, [
+        el('span', { class: 'dot', style: 'background:' + p.color }),
+        p.label + ': ' + fmtN(p.v),
+      ]);
+      legend.appendChild(span);
+    }
+    host.appendChild(legend);
+  }
+
+  /* ---------- Identify-rate pill on drose.io card ---------- */
+  function applyIdentifyPill(identifyRate) {
+    const cards = $$('.site-card');
+    for (const c of cards) {
+      const name = c.querySelector('.site-name')?.textContent;
+      if (name !== 'drose.io') continue;
+      // Remove old pill if present
+      c.querySelectorAll('.identify-pill').forEach((p) => p.remove());
+      const pct = identifyRate?.pct;
+      if (pct == null) return;
+      const cls = pct >= 80 ? 'ok' : pct >= 50 ? 'warn' : 'bad';
+      const pill = el('span', {
+        class: 'identify-pill ' + cls,
+        title: `Identify rate: ${identifyRate.identified}/${identifyRate.eligible} eligible sessions`,
+      }, ['ID ' + pct + '%']);
+      const delta = c.querySelector('.site-delta');
+      if (delta) delta.parentNode.insertBefore(pill, delta);
+      else c.querySelector('.site-head')?.appendChild(pill);
+    }
+  }
+
   /* ---------- boot ---------- */
   async function loadAll() {
     try {
-      const [summary, insights] = await Promise.all([
+      const [summary, insights, deep] = await Promise.all([
         api('/api/admin/analytics/summary?period=' + state.period),
         api('/api/admin/analytics/insights?period=' + state.period),
+        api('/api/admin/analytics/deep?period=' + state.period).catch((e) => {
+          console.warn('[analytics] deep fetch failed', e);
+          return null;
+        }),
       ]);
       state.summary = summary;
       state.insights = insights;
+      state.deep = deep;
 
       renderKPIs(summary.totals, summary.sites.length);
       renderSites(summary.sites);
@@ -307,11 +463,53 @@
       renderTopPaths(summary.sites);
       renderTopEvents(summary.sites);
 
+      if (deep) {
+        renderCWV(deep.coreWebVitals);
+        renderReplay(deep.sessionReplay);
+        renderAI(deep.drose?.aiReferrers || []);
+        renderHumanSplit(deep.drose?.humanVsBot);
+        applyIdentifyPill(deep.drose?.identifyRate);
+        applyHumanOnlyView();
+      }
+
       const d = new Date(summary.generatedAt);
       $('#last-update').textContent = 'updated ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       $('#generated').textContent = 'generated ' + d.toLocaleString();
     } catch (e) {
       console.error('[analytics]', e);
+    }
+  }
+
+  /* ---------- Human-only filter ----------
+   * We don't re-fetch here because HTTP API doesn't expose traffic_quality.
+   * Instead we rescale drose.io's numbers by the human-ratio from the deep
+   * snapshot. This is an *estimate* visible in the UI, not a rewrite of the
+   * per-site numbers server-side.
+   */
+  function applyHumanOnlyView() {
+    const humanOn = state.humanOnly;
+    const h = state.deep?.drose?.humanVsBot;
+    if (!humanOn || !h || !h.total) {
+      // Revert: remove any annotations
+      $$('.site-card .human-scaled').forEach((e) => e.remove());
+      return;
+    }
+    const ratio = h.human / h.total;
+    if (!isFinite(ratio) || ratio <= 0) return;
+    const cards = $$('.site-card');
+    for (const c of cards) {
+      const name = c.querySelector('.site-name')?.textContent;
+      if (name !== 'drose.io') continue;
+      // Annotate the primary PV number with scaled value
+      const primary = c.querySelector('.site-stats > div:first-child .site-stat-v');
+      if (!primary) continue;
+      const rawText = primary.textContent.replace(/[^\d.,]/g, '').replace(/,/g, '');
+      const raw = parseFloat(rawText);
+      if (!raw) continue;
+      c.querySelectorAll('.human-scaled').forEach((e) => e.remove());
+      const scaled = Math.round(raw * ratio);
+      const annot = el('span', { class: 'human-scaled', style: 'font-size:10px;color:#86efac;margin-left:6px;' }, ['~' + fmtN(scaled) + ' human']);
+      primary.appendChild(annot);
     }
   }
 
@@ -353,6 +551,19 @@
         loadAll();
       });
     });
+
+    const toggle = $('#human-only');
+    if (toggle) {
+      toggle.checked = localStorage.getItem(LS_HUMAN) === '1';
+      state.humanOnly = toggle.checked;
+      toggle.parentElement.classList.toggle('active', toggle.checked);
+      toggle.addEventListener('change', () => {
+        state.humanOnly = toggle.checked;
+        localStorage.setItem(LS_HUMAN, toggle.checked ? '1' : '0');
+        toggle.parentElement.classList.toggle('active', toggle.checked);
+        applyHumanOnlyView();
+      });
+    }
   }
 
   function init() {

@@ -259,6 +259,183 @@ button { font-family: inherit; cursor: pointer; }
 .delta-neg { color: var(--drose-red); }
 .delta-zero { color: var(--drose-text-muted); }
 
+/* ---------- Phase 2: deep strip ---------- */
+.deep-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.badge-new {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--drose-indigo), var(--drose-purple));
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: 2px;
+}
+.cwv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.cwv-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid var(--drose-border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--drose-font-mono);
+}
+.cwv-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px;
+}
+.cwv-card-name { font-weight: 600; font-size: 12px; color: #fff; letter-spacing: -0.01em; }
+.cwv-card-n { font-size: 10px; color: var(--drose-text-muted); }
+.cwv-row { display: grid; grid-template-columns: 42px 1fr 60px; gap: 6px; align-items: center; padding: 2px 0; }
+.cwv-metric { font-size: 9px; color: var(--drose-text-muted); letter-spacing: 0.12em; text-transform: uppercase; }
+.cwv-pill {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  position: relative;
+  overflow: hidden;
+}
+.cwv-pill > span {
+  position: absolute; inset: 0 auto 0 0;
+  border-radius: 2px;
+}
+.cwv-value { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+.cwv-good  > span { background: var(--drose-green); box-shadow: 0 0 6px rgba(34,197,94,0.45); }
+.cwv-warn  > span { background: var(--drose-amber); }
+.cwv-bad   > span { background: var(--drose-red); box-shadow: 0 0 6px rgba(251,113,133,0.3); }
+.cwv-good .cwv-value { color: #86efac; }
+.cwv-warn .cwv-value { color: #fbbf24; }
+.cwv-bad  .cwv-value { color: #fca5a5; }
+
+/* Replay list */
+#replay-list .replay-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px dashed rgba(255,255,255,0.05);
+  font-family: var(--drose-font-mono);
+  font-size: 12px;
+}
+#replay-list .replay-row:last-child { border-bottom: none; }
+#replay-list .rname { color: #fff; }
+#replay-list .rstat { font-size: 10px; color: var(--drose-text-muted); display: flex; gap: 8px; }
+#replay-list .rstat b { color: var(--drose-cyan); font-weight: 500; }
+#replay-list a.rlink {
+  font-size: 10px;
+  color: var(--drose-indigo);
+  text-decoration: none;
+  padding: 2px 8px;
+  border: 1px solid var(--drose-border-soft);
+  border-radius: 4px;
+}
+#replay-list a.rlink:hover { border-color: var(--drose-indigo); background: rgba(99,102,241,0.1); }
+
+/* AI breakdown */
+#ai-breakdown .ai-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 50px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+  font-family: var(--drose-font-mono);
+  font-size: 12px;
+}
+#ai-breakdown .ai-name { font-weight: 600; color: #fff; }
+#ai-breakdown .ai-bar { height: 6px; border-radius: 3px; background: rgba(168,85,247,0.1); overflow: hidden; position: relative; }
+#ai-breakdown .ai-bar > span {
+  position: absolute; inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--drose-purple), var(--drose-indigo));
+  border-radius: 3px;
+}
+#ai-breakdown .ai-v { font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; color: var(--drose-text-secondary); }
+
+/* Human/bot split on drose.io */
+.human-split {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--drose-border-soft);
+}
+.human-split-head {
+  font-size: 10px;
+  font-family: var(--drose-font-mono);
+  letter-spacing: 0.14em;
+  color: var(--drose-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.human-split-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.04);
+}
+.human-split-bar > div {
+  height: 100%;
+  transition: flex-basis 250ms;
+}
+.human-split-bar .h { background: linear-gradient(90deg, var(--drose-green), #4ade80); }
+.human-split-bar .u { background: rgba(148,163,184,0.35); }
+.human-split-bar .b { background: var(--drose-red); }
+.human-split-bar .m { background: var(--drose-amber); }
+.human-split-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-family: var(--drose-font-mono);
+  color: var(--drose-text-muted);
+}
+.human-split-legend .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+
+/* Identify-rate pill on drose.io site card */
+.identify-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9px;
+  font-family: var(--drose-font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+.identify-pill.ok   { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.identify-pill.warn { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+.identify-pill.bad  { background: rgba(251,113,133,0.18); color: #fca5a5; border: 1px solid rgba(251,113,133,0.3); }
+
+/* Human-only toggle */
+.human-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--drose-font-mono);
+  font-size: 11px;
+  color: var(--drose-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 10px;
+  border: 1px solid var(--drose-border-soft);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+}
+.human-toggle:hover { border-color: var(--drose-indigo); }
+.human-toggle input { accent-color: var(--drose-indigo); cursor: pointer; }
+.human-toggle.active { border-color: var(--drose-indigo); box-shadow: inset 0 0 0 1px var(--drose-indigo); color: #fff; }
+
+@media (max-width: 1100px) {
+  .deep-strip { grid-template-columns: 1fr; }
+}
+
 /* ---------- main grid ---------- */
 .main-grid {
   display: grid;

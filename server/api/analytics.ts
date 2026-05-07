@@ -5,6 +5,12 @@ const UMAMI_API = Bun.env.UMAMI_API_URL || 'https://analytics.drose.io/api';
 const UMAMI_USERNAME = Bun.env.UMAMI_ADMIN_USERNAME || '';
 const UMAMI_PASSWORD = Bun.env.UMAMI_ADMIN_PASSWORD || '';
 
+// Internal collector that surfaces data the Umami HTTP API doesn't expose
+// (CWV, session_replay, session_data, identify rate). Reachable over the
+// coolify Docker network only.
+const COLLECTOR_URL = Bun.env.ANALYTICS_COLLECTOR_URL || '';
+const COLLECTOR_TOKEN = Bun.env.ANALYTICS_COLLECTOR_TOKEN || '';
+
 type Token = { value: string; expiresAt: number };
 let cachedToken: Token | null = null;
 
@@ -145,6 +151,32 @@ export async function handleAnalyticsSummary(c: Context) {
   } catch (err: any) {
     console.error('[analytics] summary error', err);
     return c.json({ error: err.message }, 500);
+  }
+}
+
+// Phase 2: internal Postgres-backed snapshot from umami-raw-collector
+export async function handleAnalyticsDeep(c: Context) {
+  if (!isValidAdminPassword(extractAuthPassword(c))) return c.json({ error: 'Unauthorized' }, 401);
+  const period = (c.req.query('period') || '30d') as Period;
+  if (!COLLECTOR_URL || !COLLECTOR_TOKEN) {
+    return c.json({ error: 'Collector not configured' }, 503);
+  }
+  const cacheKey = `deep:${period}`;
+  try {
+    const data = await cached(cacheKey, async () => {
+      const res = await fetch(`${COLLECTOR_URL}/_internal/analytics/snapshot?period=${period}`, {
+        headers: { Authorization: `Bearer ${COLLECTOR_TOKEN}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        throw new Error(`Collector ${res.status}: ${await res.text()}`);
+      }
+      return res.json();
+    });
+    return c.json(data);
+  } catch (err: any) {
+    console.error('[analytics] deep error', err);
+    return c.json({ error: err.message }, 502);
   }
 }
 
