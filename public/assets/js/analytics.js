@@ -1,8 +1,7 @@
 /* analytics.drose.io mirror — vanilla JS */
 (function () {
   const LS_TOKEN = 'drose.analytics.token';
-  const LS_HUMAN = 'drose.analytics.humanOnly';
-  const state = { token: null, period: '30d', humanOnly: false, summary: null, insights: null, deep: null };
+  const state = { token: null, period: '30d', summary: null, insights: null, deep: null };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -401,7 +400,11 @@
       { cls: 'b', v: h.headless,     label: 'Headless',   color: '#fb7185' },
       { cls: 'm', v: h.monitor,      label: 'Monitors',   color: '#f59e0b' },
     ];
-    host.appendChild(el('div', { class: 'human-split-head' }, ['Human vs Bot · drose.io sessions']));
+    const identifyPct = state.deep?.drose?.identifyRate?.pct;
+    const headLabel = identifyPct != null
+      ? `Identified drose.io sessions · ${identifyPct}% identify rate`
+      : 'Identified drose.io sessions';
+    host.appendChild(el('div', { class: 'human-split-head' }, [headLabel]));
     const bar = el('div', { class: 'human-split-bar' });
     for (const p of parts) {
       const w = Math.round((p.v / total) * 1000) / 10;
@@ -469,7 +472,6 @@
         renderAI(deep.drose?.aiReferrers || []);
         renderHumanSplit(deep.drose?.humanVsBot);
         applyIdentifyPill(deep.drose?.identifyRate);
-        applyHumanOnlyView();
       }
 
       const d = new Date(summary.generatedAt);
@@ -480,38 +482,6 @@
     }
   }
 
-  /* ---------- Human-only filter ----------
-   * We don't re-fetch here because HTTP API doesn't expose traffic_quality.
-   * Instead we rescale drose.io's numbers by the human-ratio from the deep
-   * snapshot. This is an *estimate* visible in the UI, not a rewrite of the
-   * per-site numbers server-side.
-   */
-  function applyHumanOnlyView() {
-    const humanOn = state.humanOnly;
-    const h = state.deep?.drose?.humanVsBot;
-    if (!humanOn || !h || !h.total) {
-      // Revert: remove any annotations
-      $$('.site-card .human-scaled').forEach((e) => e.remove());
-      return;
-    }
-    const ratio = h.human / h.total;
-    if (!isFinite(ratio) || ratio <= 0) return;
-    const cards = $$('.site-card');
-    for (const c of cards) {
-      const name = c.querySelector('.site-name')?.textContent;
-      if (name !== 'drose.io') continue;
-      // Annotate the primary PV number with scaled value
-      const primary = c.querySelector('.site-stats > div:first-child .site-stat-v');
-      if (!primary) continue;
-      const rawText = primary.textContent.replace(/[^\d.,]/g, '').replace(/,/g, '');
-      const raw = parseFloat(rawText);
-      if (!raw) continue;
-      c.querySelectorAll('.human-scaled').forEach((e) => e.remove());
-      const scaled = Math.round(raw * ratio);
-      const annot = el('span', { class: 'human-scaled', style: 'font-size:10px;color:#86efac;margin-left:6px;' }, ['~' + fmtN(scaled) + ' human']);
-      primary.appendChild(annot);
-    }
-  }
 
   function bind() {
     $('#login-form').addEventListener('submit', async (ev) => {
@@ -551,19 +521,6 @@
         loadAll();
       });
     });
-
-    const toggle = $('#human-only');
-    if (toggle) {
-      toggle.checked = localStorage.getItem(LS_HUMAN) === '1';
-      state.humanOnly = toggle.checked;
-      toggle.parentElement.classList.toggle('active', toggle.checked);
-      toggle.addEventListener('change', () => {
-        state.humanOnly = toggle.checked;
-        localStorage.setItem(LS_HUMAN, toggle.checked ? '1' : '0');
-        toggle.parentElement.classList.toggle('active', toggle.checked);
-        applyHumanOnlyView();
-      });
-    }
   }
 
   function init() {
