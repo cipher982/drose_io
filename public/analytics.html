@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Analytics · drose.io</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/assets/css/tokens.css?v=e54d4ab1">
+  <link rel="stylesheet" href="/assets/css/analytics.css?v=4">
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="nebula-a"></div>
+  <div class="nebula-b"></div>
+
+  <!-- Login -->
+  <div id="login" class="login-shell">
+    <div class="login-card">
+      <div class="login-head">
+        <span class="login-dot"></span>
+        <span>analytics.drose</span>
+      </div>
+      <h1>Analytics Control</h1>
+      <p class="login-sub">Admin-gated mirror of every Umami site on analytics.drose.io.</p>
+      <form id="login-form">
+        <input type="password" id="password" placeholder="admin password" autocomplete="current-password" required>
+        <button type="submit">Enter</button>
+      </form>
+      <p id="login-err" class="login-err hidden"></p>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-text">analytics<span class="brand-text-accent">.drose</span></span>
+      </div>
+      <nav class="period-tabs" id="period-tabs">
+        <button data-p="24h">24h</button>
+        <button data-p="7d">7d</button>
+        <button data-p="30d" class="active">30d</button>
+      </nav>
+      <div class="topbar-right">
+        <span class="live-dot"></span>
+        <span id="last-update" class="last-update">—</span>
+        <button id="refresh" class="ghost-btn" title="Refresh">↻</button>
+        <a href="https://analytics.drose.io" target="_blank" class="ghost-btn" title="Open Umami UI">Umami ↗</a>
+        <button id="logout" class="ghost-btn">Sign out</button>
+      </div>
+    </header>
+
+    <!-- KPI strip -->
+    <section class="kpi-strip" id="kpi-strip"></section>
+
+    <!-- Primary grid -->
+    <main class="main-grid">
+      <section class="panel panel-sites">
+        <div class="panel-head">
+          <h2>Sites</h2>
+          <span class="panel-meta" id="sites-meta">—</span>
+        </div>
+        <div class="sites-grid" id="sites-grid"></div>
+      </section>
+
+      <section class="panel panel-traffic">
+        <div class="panel-head"><h2>Traffic Mix</h2><span class="panel-meta">source buckets · last period</span></div>
+        <div id="source-buckets"></div>
+      </section>
+
+      <section class="panel panel-refs">
+        <div class="panel-head"><h2>Top Referrers</h2><span class="panel-meta">aggregated across sites</span></div>
+        <div id="top-referrers"></div>
+      </section>
+
+      <section class="panel panel-paths">
+        <div class="panel-head"><h2>Top Pages</h2><span class="panel-meta">per-site</span></div>
+        <div id="top-paths"></div>
+      </section>
+
+      <section class="panel panel-events">
+        <div class="panel-head"><h2>Custom Events</h2><span class="panel-meta">fired in period</span></div>
+        <div id="top-events"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>drose.io · analytics mirror</span>
+      <span id="generated" class="footer-meta"></span>
+    </footer>
+  </div>
+
+  <script src="/assets/js/analytics.js?v=1"></script>
+</body>
+</html>
