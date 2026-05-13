@@ -1,0 +1,12 @@
+{
+  "title": "HN Brief: 2026-05-12",
+  "slug": "2026-05-12",
+  "summary": "Today’s HN was pulled in two directions: a deep, practical anxiety about supply-chain security (the TanStack postmortem revealed how three well-known GitHub Actions vulnerabilities were chained into a single compromise, and the Cloudflare-Canonical thread argu...",
+  "publishedAt": "2026-05-12T08:03:00.000Z",
+  "status": "published",
+  "tags": [
+    "hacker-news",
+    "digest"
+  ],
+  "source": "sauron"
+}

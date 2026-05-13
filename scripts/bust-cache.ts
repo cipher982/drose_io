@@ -24,6 +24,7 @@ const HTML_TARGETS = [
 
 const TS_TARGETS = [
   join(ROOT, 'server/blog/layout.ts'),
+  join(ROOT, 'server/digests/hn.ts'),
 ];
 
 // Assets we want busted. Key: URL path as it appears in markup.

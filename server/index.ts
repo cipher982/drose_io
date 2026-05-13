@@ -7,6 +7,7 @@ import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
 import { subscribeToPush, getVapidPublicKey } from './api/push';
 import { blogIndex, blogPost, blogRss, blogAsset } from './blog/routes';
+import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
@@ -31,7 +32,7 @@ app.use('/*', async (c, next) => {
     c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
     return;
   }
-  if (path === '/' || path === '/admin' || path.startsWith('/blog') || path.endsWith('.html')) {
+  if (path === '/' || path === '/admin' || path.startsWith('/blog') || path.startsWith('/digests') || path.endsWith('.html')) {
     c.res.headers.set('Cache-Control', 'public, max-age=300, must-revalidate');
     return;
   }
@@ -77,6 +78,12 @@ app.get('/blog', blogIndex);
 app.get('/blog/rss.xml', blogRss);
 app.get('/blog/:slug/assets/:path{.+}', blogAsset);
 app.get('/blog/:slug', blogPost);
+
+// Public digest routes
+app.get('/digests/hn', hnDigestIndex);
+app.get('/digests/hn/rss.xml', hnDigestRss);
+app.get('/digests/hn/sitemap.xml', hnDigestSitemap);
+app.get('/digests/hn/:slug', hnDigestPost);
 
 // Health check
 app.get('/api/health', (c) => c.json({
