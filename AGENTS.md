@@ -34,6 +34,7 @@ For side collections, keep them out of `content/blog` unless they should appear 
 
 - Cloudflare caches versioned static assets aggressively. When changing CSS/JS/template assets, ensure version params are bumped by the existing build flow or by the touched references.
 - Re-read static HTML before editing if a dev server is running; Umami injection can rewrite it.
+- The custom analytics dashboard is `https://drose.io/analytics`; `analytics.drose.io` is the upstream Umami/tracker service and must stay public for embedded scripts.
 - `win98-theme.css` is the glass/void theme base despite the old name.
 - Do not assume README/admin UI references to blog CRUD are current; verify backend routes before relying on them.
 - `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
