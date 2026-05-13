@@ -1,0 +1,18 @@
+<svg width="72" height="72" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Hacker News briefs icon</title>
+  <desc id="desc">A Hacker News inspired Y tile beside digest summary lines and discussion nodes.</desc>
+
+  <rect x="78" y="52" width="356" height="408" rx="42" stroke="#ffffff" stroke-width="22"/>
+  <path d="M350 52v82c0 18 15 33 33 33h51" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="120" y="94" width="144" height="144" rx="24" stroke="#ffffff" stroke-width="22"/>
+  <path d="M154 130l38 62m38-62l-38 62m0 0v28" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M302 120h64M302 160h88M302 200h60" stroke="#ffffff" stroke-width="22" stroke-linecap="round"/>
+  <path d="M132 296h248M132 344h206" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+
+  <circle cx="152" cy="406" r="20" fill="#ffffff"/>
+  <circle cx="256" cy="406" r="20" fill="#ffffff"/>
+  <circle cx="360" cy="406" r="20" fill="#ffffff"/>
+  <path d="M172 406h64M276 406h64" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+</svg>
