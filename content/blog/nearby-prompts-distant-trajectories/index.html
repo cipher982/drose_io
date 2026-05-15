@@ -6,7 +6,7 @@
 
 <p>What I want to do in this post is lay out the framing carefully. What chaos actually is, why it isn't randomness, why trained neural networks sit in the neighborhood of chaotic systems, what "state" even means in a language model, and why the cleanest probe of the effect I'm interested in is the most boring decoder setting you can imagine: argmax, no sampling, seed inert, temperature zero.</p>
 
-<p>This is the first of two posts. This one is the lens. The next one is the experiment, where I run the lens over about 21 models and get into what moves, what doesn't, and the ways the measurement itself tries to trick you. If you want to skip ahead, the findings are in <a href="/blog/measuring-llm-sensitivity">Measuring LLM Sensitivity</a>. If you want the argument for why they matter, stay here.</p>
+<p>This is the first of three posts. This one is the lens. The second is the experiment, where I run the lens over about 21 models and get into what moves, what doesn't, and the ways the measurement itself tries to trick you. The third goes inside the network: if small prompt changes push the model onto a different branch, can we find the exact residual-stream position where the branch commits, and patch it to undo the flip? The answer turns out to be yes, with some structure worth talking about. If you want to skip ahead, the experiment is <a href="/blog/measuring-llm-sensitivity">Measuring LLM Sensitivity</a> and the mechanism post is <a href="/blog/where-the-branch-commits">Where the Branch Commits</a>. If you want the argument for why any of it matters, stay here.</p>
 
 <h2>What I am and am not claiming</h2>
 
@@ -177,7 +177,7 @@
 
 <p>So the stability of a generation depends on two things. One: how much the input perturbation gets amplified through the continuous stretching. Two: how many thin boundaries the generation passes through, where a small logit perturbation is enough to flip the top-1. The first is a property of the weights (Li et al.'s per-layer stretching). The second is a property of the weights <em>and</em> the prompt, because whether a given step sits on a low-margin boundary depends on what the model is trying to do at that step.</p>
 
-<p>This is why I don't want to give you a single scalar "how chaotic is this LLM" number. The system doesn't have one. It has a stretching rate, and it has a boundary-density pattern over generation, and both of them matter. The headline from the second post is that they don't always move together, which is where the cleanest experimental dissociations come from.</p>
+<p>This is why I don't want to give you a single scalar "how chaotic is this LLM" number. The system doesn't have one. It has a stretching rate, and it has a boundary-density pattern over generation, and both of them matter. The headline from the second post is that they don't always move together, which is where the cleanest experimental dissociations come from. The third post goes one step further and asks whether the boundary flip is causally localizable in the forward pass: given a prompt pair that branches, is there a specific residual-stream position where the flip is already committed, such that patching it from the unedited run into the edited run puts the model back on the original trajectory? Spoiler: across 82 cases on 8 open models, every single one has at least one such position, though they don't all sit in the same place.</p>
 
 <figure>
   <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/token-decision-boundary.png" alt="Token decision boundary" loading="lazy" decoding="async" width="1376" height="768">
@@ -206,4 +206,4 @@
 
 <p>If you get nothing else from the framing post, get this: greedy LLM inference is locally stable until it isn't, and the only responsible unit of testing is the prompt <em>neighborhood</em>. The chaos lens is a way to organize why that's true. But the practical instruction survives even if you disagree with the framing entirely: test neighborhoods, not single prompts.</p>
 
-<p>On to the experiment. <a href="/blog/measuring-llm-sensitivity">Part 2: Measuring LLM Sensitivity</a>.</p>
+<p>On to the experiment. <a href="/blog/measuring-llm-sensitivity">Part 2: Measuring LLM Sensitivity</a>. And if you want to see where the branches actually commit inside the network: <a href="/blog/where-the-branch-commits">Part 3: Where the Branch Commits</a>.</p>

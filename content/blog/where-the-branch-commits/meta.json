@@ -1,0 +1,16 @@
+{
+  "title": "Where the Branch Commits",
+  "slug": "where-the-branch-commits",
+  "summary": "When a tiny prompt edit flips an LLM's greedy output onto a different token, where in the forward pass is that flip actually committed? Across 82 cases on 8 open models, every case has a findable residual-stream position where patching from the unedited run restores the original token. Part 3 of the Nearby Prompts series.",
+  "publishedAt": "2026-05-14T15:00:00.000Z",
+  "updatedAt": "2026-05-14T15:00:00.000Z",
+  "tags": [
+    "llm",
+    "interpretability",
+    "mechanistic-interpretability",
+    "activation-patching",
+    "research"
+  ],
+  "status": "draft",
+  "heroImage": "/blog/where-the-branch-commits/assets/figures/signature_rescue_panel.png"
+}
