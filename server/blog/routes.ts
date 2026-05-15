@@ -1,9 +1,15 @@
 import type { Context } from 'hono';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { join, normalize, resolve, extname } from 'path';
-import { BLOG_DIR, getPost, publishedPosts } from './loader';
+import { BLOG_DIR, getPost, publishedPosts, blogSitemapEntries } from './loader';
 import { renderIndexPage, renderPostPage } from './layout';
 import { renderRss } from './rss';
+
+const SITE_URL = 'https://drose.io';
+
+function xmlEsc(v: string): string {
+  return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
 
 export function blogIndex(c: Context) {
   return c.html(renderIndexPage(publishedPosts()));
@@ -11,6 +17,23 @@ export function blogIndex(c: Context) {
 
 export function blogRss(c: Context) {
   return c.body(renderRss(), 200, { 'Content-Type': 'application/rss+xml; charset=utf-8' });
+}
+
+export function blogSitemap(c: Context) {
+  const today = new Date().toISOString().slice(0, 10);
+  const entries = blogSitemapEntries().map(e => `
+  <url>
+    <loc>${xmlEsc(e.loc)}</loc>
+    <lastmod>${xmlEsc(e.lastmod)}</lastmod>
+  </url>`).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${SITE_URL}/blog</loc>
+    <lastmod>${today}</lastmod>
+  </url>${entries}
+</urlset>`;
+  return c.body(xml, 200, { 'Content-Type': 'application/xml; charset=utf-8' });
 }
 
 export function blogPost(c: Context) {

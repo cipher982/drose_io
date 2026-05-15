@@ -3,7 +3,13 @@
     <!-- Portfolio pages (landing pages, main site) -->
     <sitemap>
         <loc>https://drose.io/portfolio-sitemap.xml</loc>
-        <lastmod>2025-10-11</lastmod>
+        <lastmod>2026-05-15</lastmod>
+    </sitemap>
+
+    <!-- Blog posts -->
+    <sitemap>
+        <loc>https://drose.io/blog/sitemap.xml</loc>
+        <lastmod>2026-05-15</lastmod>
     </sitemap>
 
     <!-- AI Tools Directory sitemaps (flattened to avoid nested indexing) -->
@@ -27,7 +33,7 @@
     <!-- Standalone digests -->
     <sitemap>
         <loc>https://drose.io/digests/hn/sitemap.xml</loc>
-        <lastmod>2026-05-12</lastmod>
+        <lastmod>2026-05-15</lastmod>
     </sitemap>
 
     <!-- Add future projects here as they get their own sitemaps -->

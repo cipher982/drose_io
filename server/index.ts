@@ -6,7 +6,7 @@ import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, 
 import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
 import { subscribeToPush, getVapidPublicKey } from './api/push';
-import { blogIndex, blogPost, blogRss, blogAsset } from './blog/routes';
+import { blogIndex, blogPost, blogRss, blogAsset, blogSitemap } from './blog/routes';
 import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
@@ -76,6 +76,7 @@ app.get('/analytics', serveStatic({ path: './public/analytics.html' }));
 // Public blog routes
 app.get('/blog', blogIndex);
 app.get('/blog/rss.xml', blogRss);
+app.get('/blog/sitemap.xml', blogSitemap);
 app.get('/blog/:slug/assets/:path{.+}', blogAsset);
 app.get('/blog/:slug', blogPost);
 

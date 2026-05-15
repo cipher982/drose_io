@@ -450,6 +450,106 @@ footer a:hover {
 }
 
 /* ========================================
+   LATEST POSTS (homepage)
+   ======================================== */
+
+.latest-posts {
+    max-width: 800px;
+    margin: var(--spacing-5xl) auto var(--spacing-4xl);
+    padding: var(--spacing-3xl) var(--spacing-xl);
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--border-radius-xl, 16px);
+}
+
+.latest-posts h2 {
+    margin: 0 0 var(--spacing-xl);
+    font-size: var(--font-size-3xl, 1.5rem);
+    background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.latest-posts-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.latest-post-item {
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.latest-post-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.latest-post-item a {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    align-items: baseline;
+    justify-content: space-between;
+    text-decoration: none;
+    color: inherit;
+}
+
+.latest-post-title {
+    font-weight: 600;
+    font-size: var(--font-size-xl, 1.125rem);
+    color: #c7d2fe;
+    transition: color 0.15s ease;
+}
+
+.latest-post-item a:hover .latest-post-title {
+    color: #fff;
+}
+
+.latest-post-date {
+    font-size: var(--font-size-sm, 0.875rem);
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+}
+
+.latest-post-summary {
+    margin: var(--spacing-sm) 0 0;
+    font-size: var(--font-size-base, 0.95rem);
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.55;
+}
+
+.latest-posts-more {
+    margin: var(--spacing-xl) 0 0;
+    text-align: right;
+}
+
+.latest-posts-more a {
+    color: #a5b4fc;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--font-size-base, 0.95rem);
+}
+
+.latest-posts-more a:hover {
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .latest-posts {
+        margin: var(--spacing-3xl) var(--spacing-md) var(--spacing-3xl);
+        padding: var(--spacing-2xl) var(--spacing-lg);
+    }
+}
+
+/* ========================================
    ACCESSIBILITY - REDUCED MOTION
    ======================================== */
 
