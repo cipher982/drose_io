@@ -67,11 +67,7 @@
 
 <h2>Where this lands</h2>
 
-<p>The overall story, if you've read all three: at inference time, an LLM's greedy output is locally stable until it isn't, and when it isn't, the flip is usually sitting at a specific, findable place in the residual stream. Sometimes it's the prompt edit itself. Sometimes the information has already spread into the shared generated runway by the time the flip shows, and a patch there is the handle. Both shapes appear; neither is rare. The naive late-overwrite story doesn't describe any case I tested. The chaos lens wasn't necessary to find this, but the mental model it sets up — continuous stretching feeding discrete branching, with low-margin decisions as the vulnerability — matches what the patching map shows.</p>
-
-<p>Caveats in one place: 82 cases on 8 models is not a theorem. Aligned-prompt controls are sampled, not exhaustive. Best-layer search is an existence claim, not a localization. Donor-specificity is one model. Backend and precision matter — don't merge cards across backends. The three signatures are operational, not mechanistic.</p>
-
-<p>I'm done with the major pushes on this. The paper that originally came out of this work went through a few rounds of expert review, and then I decided I don't want to do the workshop-publication dance. If the work ends up useful, I'd rather it be three blog posts people read in an afternoon than a workshop paper behind a venue. The Branch Card format and the signature taxonomy are things I'd share with anyone who finds them useful.</p>
+<p>The overall story, if you've read all three: at inference time, an LLM's greedy output is locally stable until it isn't, and when it isn't, the flip is usually sitting at a specific, findable place in the residual stream. Sometimes it's the prompt edit itself. Sometimes the information has already spread into the shared generated runway by the time the flip shows, and a patch there is the handle. Both shapes appear; neither is rare. The naive late-overwrite story doesn't describe any case I tested. The chaos lens wasn't necessary to find this, but the mental model it sets up: continuous stretching feeding discrete branching, with low-margin decisions as the vulnerability.</p>
 
 <p>If any of this lands for you, I'd love to hear about it. My inbox is on the homepage. The obvious next experiments for anyone with compute: donor-specificity across more models, and a proper held-out panel where the rule is written down before the patch CSVs exist.</p>
 
