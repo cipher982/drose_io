@@ -179,7 +179,7 @@ export function renderPostPage(post: Post): string {
         <span>Published <time datetime="${esc(meta.publishedAt)}">${formatDate(meta.publishedAt)}</time></span>
         ${meta.updatedAt && meta.updatedAt !== meta.publishedAt ? `<span class="sep">·</span><span class="updated-label">Updated <time datetime="${esc(meta.updatedAt)}">${formatDate(meta.updatedAt)}</time></span>` : ''}
       </span>
-      ${tagsHtml ? ` · <span class="blog-tags" style="display:inline-flex">${tagsHtml}</span>` : ''}
+      ${tagsHtml ? `<span class="blog-tags" style="display:inline-flex">${tagsHtml}</span>` : ''}
     </div>
     ${html}
     ${medium}
