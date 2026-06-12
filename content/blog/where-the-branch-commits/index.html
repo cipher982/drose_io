@@ -2,7 +2,7 @@
 
 <p>The question: when a tiny prompt edit changes one or more output tokens, where in the forward pass is that flip actually committed? Sitting at the edited token? Accumulating silently in the shared generated prefix before the visible split? Or is the model overwriting its own context late, with the prompt edit acting as a long-range trigger?</p>
 
-<p>Short version. Across 82 token-certified prompt pairs on eight open-weight models, the branch flip is usually localizable to a specific residual-stream position: patching the unedited run's activation at that one position is enough to restore the original token. Every case has at least one such position, and they cluster into three recognizable shapes. The most interesting result is a negative one. If the model were really "deciding late" — running mostly in parallel and only committing to the branch just before it emits a different token — you'd expect cases where patches only work at the end, near the branch, and earlier patches do nothing. Zero of 82 cases look like that. The branch is already latent somewhere earlier in the pass, in every case I measured.</p>
+<p>Short version. Across 82 token-certified prompt pairs on eight open-weight models, the branch flip is usually localizable to a specific residual-stream position: patching the unedited run's activation at that one position is enough to restore the original token. Every case has at least one such position, and they cluster into three recognizable shapes. The most interesting result is a negative one. If the model were really "deciding late," running mostly in parallel and only committing to the branch just before it emits a different token, you'd expect cases where patches only work at the end, near the branch, and earlier patches do nothing. Zero of 82 cases look like that. The branch is already latent somewhere earlier in the pass, in every case I measured.</p>
 
 <h2>What activation patching does</h2>
 
@@ -55,9 +55,9 @@
 
 <p>I packaged all of this into something I'm calling <strong>BranchTrace</strong>. The user story:</p>
 
-<blockquote>You changed a prompt, a template, a model version, or a RAG input. An eval that used to pass now fails. BranchTrace finds the first generated token where the old and new outputs split, replays both futures, and tells you whether a small intervention at a natural position — the prompt edit itself, or somewhere in the shared runway — flips the result back. If so, you've localized the regression and you can reason about a fix.</blockquote>
+<blockquote>You changed a prompt, a template, a model version, or a RAG input. An eval that used to pass now fails. BranchTrace finds the first generated token where the old and new outputs split, replays both futures, and tells you whether a small intervention at a natural position (the prompt edit itself, or somewhere in the shared runway) flips the result back. If so, you've localized the regression and you can reason about a fix.</blockquote>
 
-<p>I built an interactive lab where you can poke at three example cases — pick a case, see the prompt diff, the shared runway, the branch-step top-k, and the per-position patch scores. The default case has both runs writing "Monitoring ensures that work meets" and then disagreeing on whether the next word is "established" or "agreed." Copy the same-position hidden state from the unedited run, and the edited run flips back to "established."</p>
+<p>I built an interactive lab where you can poke at three example cases: pick a case, see the prompt diff, the shared runway, the branch-step top-k, and the per-position patch scores. The default case has both runs writing "Monitoring ensures that work meets" and then disagreeing on whether the next word is "established" or "agreed." Copy the same-position hidden state from the unedited run, and the edited run flips back to "established."</p>
 
 <p><a href="/blog/where-the-branch-commits/assets/demos/signature-lab.html" target="_blank" rel="noopener"><strong>→ Open the interactive branch lab</strong></a></p>
 
