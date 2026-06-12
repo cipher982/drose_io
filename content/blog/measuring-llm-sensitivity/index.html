@@ -2,7 +2,7 @@
 
 <p>This post is the experiment. What I actually measured, how I measured it, what moved, what didn't, and the ways the measurement itself tried to lie to me. I ran about 21 models, a ladder of tiny prompt perturbations, deterministic decode, a stack of metrics, and I want to walk through the findings roughly in the order I was surprised by them.</p>
 
-<p>Fair warning: the most important conclusions in this post are about the <em>measurement</em>, not about the models. Short-output stability of reasoning models is mostly a metric artifact. Low-perturbation-distance can be collapse wearing a stability costume. Confident prompt-end logits do not mean a stable trajectory. The point of this work isn't to rank models, it's to name failure modes of stability probes before the field starts quoting numbers from them.</p>
+<p>Fair warning: the most important conclusions in this post are about the <em>measurement</em>, not about the models. Short-output stability of reasoning models is mostly a metric artifact. Low perturbation distance can be a model that's quietly stopped responding, not a stable one. Confident prompt-end logits do not mean a stable trajectory. The point of this work isn't to rank models, it's to name failure modes of stability probes before the field starts quoting numbers from them.</p>
 
 <h2>The setup</h2>
 
@@ -18,7 +18,7 @@
 
 <ol>
   <li><strong>Identical prompt.</strong> Same string, twice. Should produce zero divergence under deterministic decode. It does. This is the zero-signal control that tells you the probe is clean.</li>
-  <li><strong>No-op formatting.</strong> Trailing space, leading newline, invisible unicode normalization artifacts. Some of these get erased by the chat template before they reach the model; more on that later.</li>
+  <li><strong>No-op formatting.</strong> Trailing space, leading newline, invisible unicode normalization artifacts. Some of these get erased by the chat template before they reach the model.</li>
   <li><strong>Punctuation.</strong> Duplicating a period, swapping a comma for a semicolon, adding parentheses around a word.</li>
   <li><strong>Synonym swap.</strong> One word exchanged for a near-equivalent.</li>
   <li><strong>Paraphrase.</strong> Same meaning, different phrasing.</li>
@@ -94,7 +94,7 @@
 
 <h2>Scaffold stability is mostly a metric artifact</h2>
 
-<p>This is the self-audit section. This is where I walk back something I was briefly excited about.</p>
+<p>This is the self-audit section, where I walk back something I was briefly excited about.</p>
 
 <p>Here's the short version so I don't accidentally leave the wrong number in your head: at 64 tokens of output, scaffolded models looked about four times more stable than non-scaffolded models. That number is real, and it's also almost entirely an artifact of the metric, not a property of the models. The rest of this section is why.</p>
 
@@ -123,7 +123,7 @@
   <li>Phi-4 reasoning+: <strong>0.160</strong>.</li>
 </ul>
 
-<p>Phi-4 reasoning+ at 512 tokens is more brittle than GPT-2 XL. Let that sit for a second. A 2024 reasoning model with a <code>&lt;think&gt;</code> scaffold, on a text divergence metric at 512 tokens of output, is less stable than a 2019 base model with no scaffold at all. Scaffold does not equal stable. The headline out of this section is narrow and worth saying cleanly: short-output stability of scaffolded models is mostly a metric artifact. Push output past the scaffold and the artifact goes away. I'm going to come back to Phi-4 in a minute, because its dissociation is the cleanest one in the panel.</p>
+<p>Phi-4 reasoning+ at 512 tokens is more brittle than GPT-2 XL. Let that sit for a second. A 2024 reasoning model with a <code>&lt;think&gt;</code> scaffold, on a text divergence metric at 512 tokens of output, is less stable than a 2019 base model with no scaffold at all. Scaffold does not equal stable. The headline out of this section is narrow and worth saying cleanly: short-output stability of scaffolded models is mostly a metric artifact. Push output past the scaffold and the artifact goes away. I'm going to come back to Phi-4 in a minute, because its dissociation is the sharpest one in the panel.</p>
 
 <h3>Thinking-off, as a separate question</h3>
 
@@ -185,7 +185,7 @@
   <figcaption>Collapse. Outputs become more similar across <em>different</em> prompts, and also more different from the reference system on the <em>same</em> prompts.</figcaption>
 </figure>
 
-<p>The fix is operational and I think it's the single most practically useful thing in this post. Whenever you measure stability, you have to measure it on two axes:</p>
+<p>The fix is operational, and practically it's what I'd most want you to walk away with. Whenever you measure stability, you have to measure it on two axes:</p>
 
 <ol>
   <li><strong>Perturbation distance.</strong> How much the output moves when the prompt changes slightly.</li>
@@ -200,7 +200,7 @@
 
 <h2>Boundary beats bulk</h2>
 
-<p>If you take one thing from the measurement side of this work, I'd take this. It's the conceptual claim I think most deserves surviving the data wobbles, and it's organized around the cleanest dissociation in the dataset. It is a claim about <em>what to look for</em>, not a fully-proven mechanism. I want to set up the vocabulary first, then lay out the Phi-4 case and what it does and doesn't show.</p>
+<p>If you take one thing from the measurement side of this work, I'd take this. It's the conceptual claim I think most deserves surviving the data wobbles, and it's organized around the sharpest dissociation in the dataset. It is a claim about <em>what to look for</em>, not a fully-proven mechanism. I want to set up the vocabulary first, then lay out the Phi-4 case and what it does and doesn't show.</p>
 
 <p>Mechanism first. The logit vector at a given generation step defines a distribution over vocabulary. Call its <em>bulk</em> the whole distribution, the full mass over all tokens. Call its <em>boundary</em> the margin between the top-1 and top-2 logits: how confident the argmax is about winning.</p>
 
