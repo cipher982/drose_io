@@ -1,0 +1,179 @@
+<p>A deploy hung for fifteen minutes. The build was supposed to update a Stripe API key in the production environment, a routine rotation after a key change. Instead it sat at <code>in_progress</code> with no activity and no error until I pulled the raw build logs and found them at second 600, still downloading packages.</p>
+
+<p>The build was downloading 3.9 GB of NVIDIA CUDA libraries. The machine has no GPU. The model being served is 7.4 MB and explicitly runs on CPU.</p>
+
+<p>This is the side-quest post I mentioned in <a href="/blog/restoring-hdr-to-ai-edited-photos">Restoring HDR to AI-Edited iPhone Photos</a>. That post flags the Docker problem briefly and moves on. This one goes into it: why PyTorch ships a CUDA runtime you didn't ask for, what a model actually needs at inference time, and what I learned porting GMNet to tinygrad by hand and proving the outputs identical to a fraction of a pixel.</p>
+
+<h2>Why 3.9 GB for a CPU-only model</h2>
+
+<p>The model is <a href="https://openreview.net/forum?id=GtHRhpgpzB" rel="noopener">GMNet</a>, a dual-branch CNN from an ICLR 2025 paper on inverse tone mapping. The service uses it to predict HDR gain maps, runs a dozen jobs a day in an async queue, and has no GPU. The model code says so explicitly:</p>
+
+<pre><code>self._device = torch.device('cpu')  # Force CPU for compatibility</code></pre>
+
+<p>The problem is that PyTorch ships its own CUDA runtime as PyPI packages. On <code>linux/amd64</code>, the default <code>torch</code> wheel declares roughly 14 <code>nvidia-*-cu12</code> packages as dependencies, and pip and uv will install them on any Linux x86_64 machine regardless of whether a GPU is present. A CPU-only wheel index exists at <code>download.pytorch.org/whl/cpu</code>, but you have to opt into it. The default pulls everything.</p>
+
+<p>Pulling the download sizes from <code>uv.lock</code> for the Linux x86_64 platform:</p>
+
+<pre><code>888 MB  torch
+707 MB  nvidia-cudnn-cu12
+594 MB  nvidia-cublas-cu12
+322 MB  nvidia-nccl-cu12
+288 MB  nvidia-cusparse-cu12
+287 MB  nvidia-cusparselt-cu12
+268 MB  nvidia-cusolver-cu12
+193 MB  nvidia-cufft-cu12
+155 MB  triton
+ 88 MB  nvidia-cuda-nvrtc-cu12</code></pre>
+
+<p>Total: about 3.9 GB. On a machine with an i9 CPU and no NVIDIA GPU, to run a 7.4 MB model on CPU.</p>
+
+<p>The reason cold builds were so slow is that Coolify rebuilds with <code>--pull</code> on every deploy. When a base image update busts the Docker layer cache, the entire Python environment gets reinstalled from scratch. A cache miss on a 3.9 GB dependency graph on a 2.5 Gb fiber connection is fifteen minutes.</p>
+
+<h2>What inference actually needs</h2>
+
+<p>Before reaching for the obvious fix (the CPU-only wheel index), I wanted to think about whether PyTorch was the right tool for production inference at all.</p>
+
+<p>PyTorch is a training framework. Its two main jobs are tensor math and autograd: tracking gradients through a computation graph so you can run backpropagation. At inference time you call <code>torch.no_grad()</code> to skip the gradient tracking, but all the machinery stays installed. The 888 MB torch wheel and the 3 GB of CUDA it pulls along are the price of owning a training framework. The model weights are 7.4 MB. Everything else is infrastructure for a job the deployment is not doing.</p>
+
+<p>What inference actually needs is something that can run a fixed sequence of matrix operations and return a result. The options I looked at:</p>
+
+<p><strong>ONNX Runtime.</strong> Export the PyTorch model to ONNX format once as a development step, bundle the <code>.onnx</code> file, and run production inference with a 20 MB engine that uses oneDNN under the hood. No CUDA. This is the sensible production choice and is what I actually run in production today.</p>
+
+<p><strong>tinygrad.</strong> A from-scratch ML framework with a small core, lazy evaluation, and JIT kernel compilation. Can load PyTorch weight files directly with no export step needed. More interesting to understand.</p>
+
+<p>I did both. The ONNX path was straightforward except for one issue: tinygrad's ONNX frontend didn't handle <code>DepthToSpace</code> correctly in my testing, which is how PyTorch's <code>PixelShuffle</code> gets serialized, and GMNet uses pixel shuffle in its upsampling tail. So I ported GMNet to tinygrad directly instead of going through ONNX.</p>
+
+<p>The tinygrad mental model is worth understanding on its own terms. When you write <code>out = conv(x).relu()</code> in PyTorch, that executes immediately: kernels are dispatched, buffers are allocated, results are materialized. In tinygrad, nothing executes. The operation is recorded as a node in a lazy graph. When you call <code>.realize()</code>, the scheduler analyzes the entire graph and compiles it into fused kernels, potentially collapsing a chain of operations into a single compiled function with no intermediate buffer allocations. For a residual block (<code>conv + relu + conv + add</code>), that whole sequence can become one kernel. You can see the generated kernel source with <code>DEBUG=4</code>.</p>
+
+<p>This is a better mental model for understanding what the hardware is actually doing. It is not a performance win over PyTorch on x86, for reasons I will get to, but that is a separate question from whether the model is correct.</p>
+
+<h2>Porting GMNet</h2>
+
+<p>GMNet is a dual-branch CNN. The global branch processes a 256x256 thumbnail to extract scene-level features. From those, it produces three things: a small 3x3 kernel to be applied dynamically to the local branch, a channel-attention vector, and a scalar called <code>qmax</code> representing the global ceiling on how many stops of HDR boost to allow. The local branch processes the full-resolution image through residual blocks. The two branches interact through a depthwise convolution where the kernel itself was produced by the network, which is an unusual shape: the conv weights are the output of another subnetwork, not fixed parameters. The result gets upsampled with pixel shuffle back to full resolution.</p>
+
+<p>Four things made the port non-trivial.</p>
+
+<p><strong>AdaptiveAvgPool2d with non-integer ratios.</strong> GMNet uses <code>AdaptiveAvgPool2d</code> to pool feature maps to <code>(3,3)</code> and <code>(1,1)</code>. The obvious tinygrad implementation is reshape-plus-mean, which works when input dimensions divide evenly by output dimensions. For the <code>(3,3)</code> case, the global branch feature map is 64x64 (256x256 thumbnail, downsampled 4x). 64 divided by 3 is not an integer.</p>
+
+<p>PyTorch's <code>AdaptiveAvgPool2d</code> handles non-integer ratios with a floor-start, ceil-end formula: <code>start = (i * in) // out</code>, <code>end = ((i+1) * in + out - 1) // out</code>. For 64 to 3, this produces bins <code>[0:22]</code>, <code>[21:43]</code>, <code>[42:64]</code>, where adjacent bins overlap by one element each. The reshape-and-mean approach gives uniform 21-element bins with no overlap. Getting this wrong cost 50 dB of PSNR before I found it. The fix is explicit slice-and-mean for each output cell:</p>
+
+<pre><code>rows = []
+for i in range(output_size):
+    sh = (i * H) // output_size
+    eh = ((i + 1) * H + output_size - 1) // output_size
+    cols = []
+    for j in range(output_size):
+        sw = (j * W) // output_size
+        ew = ((j + 1) * W + output_size - 1) // output_size
+        cols.append(x[:, :, sh:eh, sw:ew].mean(axis=(2, 3), keepdim=True))
+    rows.append(Tensor.cat(*cols, dim=3))
+return Tensor.cat(*rows, dim=2)</code></pre>
+
+<p><strong>PixelShuffle: CRD not DCR.</strong> ONNX's <code>DepthToSpace</code> operator has two modes: DCR (the default) and CRD. PyTorch's <code>PixelShuffle</code> uses CRD. The correct reshape-and-permute sequence:</p>
+
+<pre><code>def pixel_shuffle(x, r=2):
+    N, C4, H, W = x.shape
+    C = C4 // (r * r)
+    x = x.reshape(N, C, r, r, H, W)
+    x = x.permute(0, 1, 4, 2, 5, 3)
+    return x.reshape(N, C, H*r, W*r)</code></pre>
+
+<p>Getting this backwards (DCR order) produces outputs that look plausible but are spatially scrambled. The pixel values are right, the spatial layout is not.</p>
+
+<p><strong>Weight key matching.</strong> tinygrad's <code>load_state_dict</code> uses list indices as key components. PyTorch's <code>nn.Sequential</code> numbers all children including parameter-free ones like ReLU (index 1, 3, 5). To match keys like <code>conv.0.weight</code>, <code>conv.2.weight</code>, <code>conv.4.weight</code>, the tinygrad list needs <code>None</code> entries at the skipped positions:</p>
+
+<pre><code>class DownConv:
+    def __init__(self, in_c, out_c):
+        self.conv = [
+            Conv2d(in_c, out_c, 3, stride=2, padding=1),  # index 0
+            None,                                           # index 1 (ReLU, no params)
+            Conv2d(out_c, out_c, 3, padding=1),            # index 2
+            None,                                           # index 3
+            Conv2d(out_c, out_c, 3, padding=1),            # index 4
+            None,                                           # index 5
+        ]</code></pre>
+
+<p>All 126 weight keys matched on first load once this was in place.</p>
+
+<p><strong>The dynamic kernel and lazy fusion.</strong> GMNet's depthwise convolution uses a kernel computed at inference time from the global branch. In tinygrad, this creates a data dependency between two parts of the graph, and the lazy scheduler can fuse the kernel computation into the convolution's inner loop, recomputing it for each input position rather than once. The fix is one line: call <code>.realize()</code> on the kernel before passing it to the convolution. This forces materialization before fusion can swallow it.</p>
+
+<pre><code>kernel_dw = kernel.reshape(C, 1, 3, 3).realize()
+mask = x.conv2d(kernel_dw, padding=1, groups=C)</code></pre>
+
+<h2>Proving it correct</h2>
+
+<p>Porting a neural network is not done when the code runs without error. It is done when the outputs are provably the same. I built a verification suite: four synthetic test cases (gradient, checkerboard, portrait-ratio, landscape-ratio) run through the PyTorch reference implementation, stored as <code>.npz</code> golden files. Five test types, parametrized over all four cases:</p>
+
+<ul>
+  <li>Numerical equivalence: <code>assert_allclose</code> with <code>atol=1e-3</code> on raw output tensors</li>
+  <li>PSNR above 70 dB versus the golden (above 80 is effectively identical)</li>
+  <li>SSIM above 0.999 with gaussian weights</li>
+  <li>Output invariants: correct shape, values in range, non-degenerate</li>
+  <li>qmax equivalence: the second model output also within tolerance</li>
+</ul>
+
+<p>In CI, a GitHub Actions workflow regenerates the goldens from PyTorch on every pull request that touches the model files, then runs the full suite. Missing goldens or a broken import are hard failures.</p>
+
+<p>Final numbers after all correctness fixes:</p>
+
+<pre><code>PSNR:     120.6 dB
+SSIM:     1.000000
+Max|err|: 0.0000035 per pixel</code></pre>
+
+<p>At 120 dB PSNR, the 8-bit JPEG outputs are bit-for-bit identical between the two implementations. The AdaptiveAvgPool fix was responsible for almost all of that gap: without it the PSNR was around 70 dB, with it it jumped to 120.</p>
+
+<h2>Production bugs that only showed up on the server</h2>
+
+<p>Running the benchmarks on the production server revealed two issues that would have caused silent failures in deployment.</p>
+
+<p>The first was a missing clang. tinygrad's CPU backend compiles kernels via clang JIT at runtime. The Dockerfile did not install clang in the runtime stage. The first inference call on a fresh container would have crashed with <code>FileNotFoundError: clang</code>. This never showed up in local development on macOS because clang is available system-wide there.</p>
+
+<p>The second was a read-only checkpoint. tinygrad's <code>torch_load</code> opens <code>.pth</code> files in read-write mode for memory mapping. Docker images copy files as root, making them unwritable by the application user. The fix:</p>
+
+<pre><code>if not os.access(load_path, os.W_OK):
+    tmp = tempfile.NamedTemporaryFile(suffix=".pth", delete=False)
+    shutil.copy2(load_path, tmp.name)
+    load_path = tmp.name</code></pre>
+
+<p>Neither issue would have appeared in local development. Both would have crashed production on first inference.</p>
+
+<h2>The benchmark</h2>
+
+<p>Dependency size on Linux x86_64:</p>
+
+<table>
+  <thead>
+    <tr><th></th><th>Download</th><th>Installed</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>PyTorch + CUDA</td><td>3,915 MB</td><td>~5 GB</td></tr>
+    <tr><td>tinygrad</td><td>1.8 MB</td><td>14 MB</td></tr>
+  </tbody>
+</table>
+
+<p>Inference latency on the production machine (i9 CPU, Linux x86_64):</p>
+
+<table>
+  <thead>
+    <tr><th>Image size</th><th>PyTorch</th><th>tinygrad</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>256x256</td><td>157 ms</td><td>744 ms</td></tr>
+    <tr><td>512x512</td><td>797 ms</td><td>2,220 ms</td></tr>
+    <tr><td>1024x768</td><td>2,555 ms</td><td>6,686 ms</td></tr>
+  </tbody>
+</table>
+
+<p>PyTorch on Linux x86_64 uses oneDNN, which JIT-generates ISA-specific SIMD convolution kernels for the host CPU. tinygrad generates competent but generic clang code. For a CNN on x86, that gap is real and consistent, roughly 3 to 4 times slower across image sizes.</p>
+
+<p>For this particular application, it does not matter. The service runs a dozen HDR jobs a day in an async queue. A job that takes 3 seconds instead of 800 ms is still imperceptible to a user waiting on a background task. What mattered was the deploy time, and specifically the question of whether every key rotation or config update should require downloading the CUDA training ecosystem.</p>
+
+<p>I ended up shipping ONNX Runtime in production rather than tinygrad. For a CPU inference workload where latency matters even a little, oneDNN is the right call and ONNX Runtime gets you there with a 20 MB dependency. The tinygrad port is what I keep for understanding: a reimplementation I built line by line, with a verification suite proving it produces the same outputs, is a thing I actually understand rather than a framework I trust.</p>
+
+<h2>The point</h2>
+
+<p>The concise version of what changed: before, every deploy downloaded 3.9 GB of NVIDIA CUDA libraries for a machine with no GPU, because I had used <code>torch</code> as a production dependency when it was only needed for model loading. After, the runtime dependency is tinygrad (1.8 MB download) plus ONNX Runtime (20 MB), and <code>torch</code> is confined to the dev dependency group where it runs in CI to regenerate test goldens. Cold builds take two minutes instead of fifteen. Base-image cache misses are free again.</p>
+
+<p>The verification suite is what made the refactor safe to ship. Numerical equivalence testing is not formal verification, but 120 dB PSNR is enough empirical confidence that the swap was transparent to users. No HDR image looks different. No gain map changed. Same model, same outputs, 99.95% fewer dependency bytes.</p>
+
+<p>The full story of what the model does and why the gain map matters is in the <a href="/blog/restoring-hdr-to-ai-edited-photos">HDR post</a>.</p>

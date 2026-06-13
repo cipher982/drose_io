@@ -1,0 +1,16 @@
+{
+  "title": "A 5 GB Docker Image for a 7.4 MB Model",
+  "slug": "5gb-docker-image-for-a-7mb-model",
+  "summary": "A deploy hung for fifteen minutes. The cause was 3.9 GB of NVIDIA CUDA wheels being installed for a model that runs on CPU. This is the side quest from the HDR project: why PyTorch ships a CUDA runtime you don't ask for, what inference actually needs, and what I learned porting GMNet to tinygrad by hand and proving the outputs identical to a fraction of a pixel.",
+  "publishedAt": "2026-06-13T12:00:00.000Z",
+  "updatedAt": "2026-06-13T12:00:00.000Z",
+  "tags": [
+    "ml",
+    "tinygrad",
+    "pytorch",
+    "docker",
+    "systems",
+    "inference"
+  ],
+  "status": "published"
+}
