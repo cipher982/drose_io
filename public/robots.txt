@@ -70,6 +70,8 @@ Allow: /
 # Sitemap location
 Sitemap: https://drose.io/sitemap.xml
 
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+
 # Additional context
 # This portfolio showcases AI agent development, agentic frameworks,
 # LLM fine-tuning, and autonomous AI systems created by David Rose
