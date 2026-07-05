@@ -1,0 +1,12 @@
+{
+  "publishedAt": "2026-07-05T08:33:49.548Z",
+  "slug": "2026-07-05",
+  "source": "sauron.hn-daily-brief",
+  "status": "published",
+  "summary": "Today's HN was dominated by a wave of LLM pessimism: multiple threads documented how models are getting worse at reasoning, leaking data through prompt injection, and regressing on tool use. Alongside that, infrastructure stories—from Meta's water...",
+  "tags": [
+    "hacker-news",
+    "digest"
+  ],
+  "title": "HN Brief: 2026-07-05"
+}
