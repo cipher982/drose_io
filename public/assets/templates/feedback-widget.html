@@ -373,7 +373,9 @@
     <div class="conversation-container"></div>
     <textarea id="feedback-text" placeholder="Say anything..." maxlength="280"></textarea>
     <div class="char-count"><span id="char-count">0</span>/280</div>
+    <input id="feedback-email" type="email" placeholder="Email for a reply (optional)" autocomplete="email" style="width:100%;box-sizing:border-box;margin:8px 0;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.35);color:inherit;font:inherit;" />
     <button id="send-btn" onclick="window.feedbackWidget.sendMessage()">Send message →</button>
+    <div id="continue-link-box" class="hidden" style="margin-top:12px;font-size:12px;color:#a1a1aa;word-break:break-all;"></div>
   </div>
 </div>
 

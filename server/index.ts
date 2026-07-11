@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
 import { handleFeedback } from './feedback';
-import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, deleteThreadById } from './api/threads';
+import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, deleteThreadById, markThreadRead, getInboxHealth } from './api/threads';
 import { streamVisitorThread, streamAdminUpdates } from './api/sse';
 import { connectionManager } from './sse/connection-manager';
 import { subscribeToPush, getVapidPublicKey } from './api/push';
@@ -12,6 +12,7 @@ import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
+import { continueThreadGet, continueThreadPost } from './continue/routes';
 
 const app = new Hono();
 
@@ -51,7 +52,9 @@ app.get('/api/threads/:visitorId/stream', streamVisitorThread);
 
 // Admin routes
 app.post('/api/admin/threads/:visitorId/reply', replyToThread);
+app.post('/api/admin/threads/:visitorId/read', markThreadRead);
 app.get('/api/admin/threads', listAllThreads);
+app.get('/api/admin/inbox/health', getInboxHealth);
 app.delete('/api/admin/threads/:visitorId', deleteThreadById);
 app.get('/api/admin/stream', streamAdminUpdates);
 app.post('/api/admin/push-subscribe', subscribeToPush);
@@ -63,6 +66,10 @@ app.route('/api/creature', creatureThink);
 
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);
+
+// Continue conversation (secret token; no cookie grant)
+app.get('/m/:token', continueThreadGet);
+app.post('/m/:token', continueThreadPost);
 
 // Admin page
 app.get('/admin', serveStatic({ path: './public/admin.html' }));

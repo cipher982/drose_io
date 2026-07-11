@@ -273,22 +273,47 @@
   }
 
   // API calls
-  async function sendFeedback(type, text = null) {
+  async function sendFeedback(type, text = null, email = null) {
     const vid = await getVisitorId();
+
+    const payload = {
+      visitorId: vid,
+      type,
+      text,
+      page: window.location.pathname,
+    };
+    if (email) payload.email = email;
 
     const response = await fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        visitorId: vid,
-        type,
-        text,
-        page: window.location.pathname,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
+  }
+
+  function showContinueLink(continueUrl, emailed) {
+    const box = document.getElementById('continue-link-box');
+    if (!box || !continueUrl) return;
+    const note = emailed
+      ? 'We\'ll email you when David replies. Save this link too:'
+      : 'Save this link to continue later:';
+    box.innerHTML = `${note}<br><a href="${continueUrl}" style="color:#a5b4fc;">${continueUrl}</a>
+      <button type="button" id="copy-continue-link" style="margin-top:6px;font-size:11px;padding:4px 8px;cursor:pointer;">Copy link</button>`;
+    box.classList.remove('hidden');
+    const btn = document.getElementById('copy-continue-link');
+    if (btn) {
+      btn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(continueUrl);
+          showToast('Link copied', 1500);
+        } catch {
+          showToast('Copy failed', 1500);
+        }
+      };
+    }
   }
 
   async function loadConversation() {
@@ -430,7 +455,9 @@
       btn.textContent = 'Sending...';
 
       try {
-        const result = await sendFeedback('message', text);
+        const emailInput = document.getElementById('feedback-email');
+        const email = emailInput ? emailInput.value.trim() : '';
+        const result = await sendFeedback('message', text, email || null);
 
         if (result.messageId) {
           lastMessageId = result.messageId;
@@ -446,6 +473,10 @@
           ts: Date.now(),
         };
         appendMessageToConversation(message);
+
+        if (result.continueUrl) {
+          showContinueLink(result.continueUrl, !!result.contactEmail);
+        }
 
         btn.disabled = false;
         btn.textContent = 'Send message →';

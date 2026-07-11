@@ -1,29 +1,22 @@
-import type { Context } from 'hono';
-import { notifications } from './notifications';
-import { appendMessage, getMessages, getUnreadCount, isBlocked, generateMessageId, getVisitorMetadata } from './storage/threads';
-import { sendPushNotification } from './api/push';
+import type { Context } from "hono";
+import { notifications } from "./notifications";
+import { appendMessage, isBlocked, generateMessageId, getVisitorMetadata, isValidVisitorId } from "./storage/threads";
+import { upsertThreadMeta, continueUrlForToken, isValidEmail } from "./storage/thread-meta";
+import { sendPushNotification } from "./api/push";
 
-// Simple in-memory rate limiting
-const BYPASS_RATE_LIMIT = Bun.env.TEST_MODE === 'true';
+const BYPASS_RATE_LIMIT = Bun.env.TEST_MODE === "true";
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
+const emailLimits = new Map<string, { count: number; resetAt: number }>();
 
-function checkRateLimit(ip: string, maxRequests = 10, windowMs = 3600000): boolean {
-  if (BYPASS_RATE_LIMIT) {
-    return true;
-  }
-
+function checkRateLimit(map: Map<string, { count: number; resetAt: number }>, key: string, maxRequests = 10, windowMs = 3600000): boolean {
+  if (BYPASS_RATE_LIMIT) return true;
   const now = Date.now();
-  const limit = rateLimits.get(ip);
-
+  const limit = map.get(key);
   if (!limit || now > limit.resetAt) {
-    rateLimits.set(ip, { count: 1, resetAt: now + windowMs });
+    map.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }
-
-  if (limit.count >= maxRequests) {
-    return false;
-  }
-
+  if (limit.count >= maxRequests) return false;
   limit.count++;
   return true;
 }
@@ -31,63 +24,70 @@ function checkRateLimit(ip: string, maxRequests = 10, windowMs = 3600000): boole
 export async function handleFeedback(c: Context) {
   try {
     const body = await c.req.json();
-    const { visitorId, type, text, page } = body;
+    const { visitorId, type, text, page, email } = body;
 
     if (!visitorId) {
-      return c.json({ error: 'visitorId required' }, 400);
+      return c.json({ error: "visitorId required" }, 400);
+    }
+    if (!isValidVisitorId(visitorId)) {
+      return c.json({ error: "Invalid visitorId" }, 400);
     }
 
-    // Check if blocked
     if (isBlocked(visitorId)) {
-      return c.json({ error: 'Blocked' }, 403);
+      return c.json({ error: "Blocked" }, 403);
     }
 
-    // Get IP for rate limiting
-    const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
-
-    // Rate limit check
-    if (!checkRateLimit(ip)) {
-      return c.json({ error: 'Rate limit exceeded' }, 429);
+    const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown";
+    if (!checkRateLimit(rateLimits, ip)) {
+      return c.json({ error: "Rate limit exceeded" }, 429);
     }
 
-    // Create message
+    let contactEmail: string | undefined;
+    if (typeof email === "string" && email.trim()) {
+      contactEmail = email.trim().toLowerCase();
+      if (!isValidEmail(contactEmail)) {
+        return c.json({ error: "Invalid email" }, 400);
+      }
+      if (!checkRateLimit(emailLimits, `email:${contactEmail}`, 5, 3600000)) {
+        return c.json({ error: "Email rate limit exceeded" }, 429);
+      }
+    }
+
     const messageId = generateMessageId();
     const message = {
       id: messageId,
-      from: 'visitor' as const,
-      text: text || '',
+      from: "visitor" as const,
+      text: text || "",
       ts: Date.now(),
-      page: page || '/',
+      page: page || "/",
     };
 
-    // Store message in thread
     appendMessage(visitorId, message);
 
-    console.log('📝 Message stored:', { visitorId, messageId, type, page });
+    const meta = upsertThreadMeta(visitorId, contactEmail ? { contactEmail } : undefined);
+    const continueUrl = continueUrlForToken(meta.continueToken);
 
-    // Get visitor metadata for notifications
+    console.log("📝 Message stored:", { visitorId, messageId, type, page });
+
     const metadata = getVisitorMetadata(visitorId);
 
-    // Send notifications for both pings and messages
     try {
-      if (type === 'ping') {
-        const notificationText = `👋 Someone pinged from ${page}\n\nVisitor: ${visitorId.substring(0, 8)}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}`;
+      if (type === "ping") {
+        const notificationText = `👋 Someone pinged from ${page}\n\nVisitor: ${visitorId.substring(0, 8)}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : "now"}\nMessages: ${metadata?.messageCount || 1}`;
         await notifications.sendAll(notificationText);
-        await sendPushNotification('New Ping!', `Someone pinged from ${page}`, visitorId);
-      } else if (type === 'message' && text) {
-        const notificationText = `💬 New message from ${visitorId.substring(0, 8)}\n\nPage: ${page}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : 'now'}\nMessages: ${metadata?.messageCount || 1}\n\n"${text}"`;
+        await sendPushNotification("New Ping!", `Someone pinged from ${page}`, visitorId);
+      } else if (type === "message" && text) {
+        const notificationText = `💬 New message from ${visitorId.substring(0, 8)}\n\nPage: ${page}\nFirst seen: ${metadata ? new Date(metadata.firstSeen).toLocaleString() : "now"}\nMessages: ${metadata?.messageCount || 1}\n\n"${text}"`;
         await notifications.sendAll(notificationText);
-        await sendPushNotification('New Message!', text, visitorId);
+        await sendPushNotification("New Message!", text, visitorId);
       }
     } catch (error) {
-      console.error('❌ Notification failed:', error);
-      // Don't fail the request if notification fails
+      console.error("❌ Notification failed:", error);
     }
 
-    // Get today's ping count (simple demo - resets on restart)
-    const todayKey = new Date().toISOString().split('T')[0];
+    const todayKey = new Date().toISOString().split("T")[0];
     const countKey = `count-${todayKey}`;
-    let count = parseInt(Bun.env[countKey] || '0');
+    let count = parseInt(Bun.env[countKey] || "0");
     count++;
     Bun.env[countKey] = count.toString();
 
@@ -95,10 +95,13 @@ export async function handleFeedback(c: Context) {
       success: true,
       messageId,
       visitorId,
-      count: type === 'ping' ? count : undefined,
+      continueUrl,
+      continueToken: meta.continueToken,
+      contactEmail: meta.contactEmail || null,
+      count: type === "ping" ? count : undefined,
     });
   } catch (error) {
-    console.error('Error handling feedback:', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    console.error("Error handling feedback:", error);
+    return c.json({ error: "Internal server error" }, 500);
   }
 }

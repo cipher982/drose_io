@@ -68,6 +68,7 @@ export async function sendPushNotification(title: string, message: string, visit
     message: truncatedMessage,
     preview: options?.preview || message,
     visitorId,
+    url: `/admin.html?thread=${encodeURIComponent(visitorId)}`,
     badge: options?.badge,
     vibrate: options?.vibrate || [200, 100, 200],
   });

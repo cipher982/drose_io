@@ -30,8 +30,8 @@ export class NtfyNotifier implements Notifier {
         'Title': 'drose.io Feedback',
         'Priority': 'default',
         'Tags': 'speech_balloon',
-        'Click': 'http://5.161.97.53:8080/admin.html',
-        'Actions': 'view, Reply, http://5.161.97.53:8080/admin.html',
+        'Click': 'https://drose.io/admin.html',
+        'Actions': 'view, Reply, https://drose.io/admin.html',
       },
       body: message,
     });

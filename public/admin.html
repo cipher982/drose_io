@@ -242,7 +242,10 @@
         const app = {
             password: null,
             currentVisitorId: null,
-            eventSource: null,
+            threadsById: {},
+            eventSource: null, // legacy name; fetch SSE uses sseAbort
+            sseAbort: null,
+            pendingThreadId: null,
             connectionStatus: 'disconnected',
             retryDelay: 1000, // Start at 1 second
             maxRetryDelay: 30000, // Cap at 30 seconds
@@ -271,17 +274,19 @@
                     this.password = password;
                     await authStore.savePassword(password);
 
-                    if (this.eventSource) {
-                        this.eventSource.close();
-                        this.eventSource = null;
-                    }
+                    this.stopSSE();
                     this.retryDelay = 1000;
 
                     document.getElementById('password-input').value = '';
                     document.getElementById('login-error').classList.add('hidden');
 
                     // Load initial data
-                    this.loadThreads();
+                    await this.loadThreads();
+                    if (this.pendingThreadId) {
+                        const id = this.pendingThreadId;
+                        this.pendingThreadId = null;
+                        await this.openThread(id);
+                    }
                 } catch (error) {
                     console.error('Login failed:', error);
                     this.showError('Login failed. Check your connection and try again.');
@@ -306,10 +311,7 @@
                             console.error('Authentication failed - clearing stored credentials');
                             await authStore.clearPassword();
                             this.password = null;
-                            if (this.eventSource) {
-                                this.eventSource.close();
-                                this.eventSource = null;
-                            }
+                            this.stopSSE();
                             this.setConnectionStatus('disconnected', 'Login required');
                             this.showLogin();
                             return;
@@ -318,6 +320,8 @@
                     }
 
                     const data = await response.json();
+                    this.threadsById = {};
+                    (data.threads || []).forEach(t => { this.threadsById[t.visitorId] = t; });
                     this.renderThreads(data.threads);
 
                     this.showAppShell();
@@ -346,83 +350,164 @@
                 }
             },
 
-            startSSE() {
-                if (this.eventSource) return;
-                if (!this.password) {
-                    return;
+            stopSSE() {
+                if (this.sseAbort) {
+                    this.sseAbort.abort();
+                    this.sseAbort = null;
                 }
+                this.eventSource = null;
+            },
+
+            startSSE() {
+                if (this.sseAbort) return;
+                if (!this.password) return;
 
                 this.setConnectionStatus('connecting');
-                this.eventSource = new EventSource(`/api/admin/stream?token=${encodeURIComponent(this.password)}`);
+                const abort = new AbortController();
+                this.sseAbort = abort;
+                this.eventSource = { readyState: 0 }; // for logEventSourceState compat
 
-                this.eventSource.onopen = () => {
-                    this.logEventSourceState('onopen');
-                    this.setConnectionStatus('connected');
-                    // Reset retry delay on successful connection
-                    this.retryDelay = 1000;
-                };
+                (async () => {
+                    try {
+                        const response = await fetch('/api/admin/stream', {
+                            headers: {
+                                'Accept': 'text/event-stream',
+                                'Cache-Control': 'no-cache',
+                                'Authorization': `Bearer ${this.password}`,
+                            },
+                            signal: abort.signal,
+                        });
 
-                this.eventSource.addEventListener('new-message', (event) => {
-                    this.logEventSourceState('message');
-                    const data = JSON.parse(event.data);
+                        if (response.status === 401) {
+                            await authStore.clearPassword();
+                            this.password = null;
+                            this.stopSSE();
+                            this.setConnectionStatus('disconnected', 'Login required');
+                            this.showLogin();
+                            return;
+                        }
 
-                    if (this.currentVisitorId === data.visitorId) {
-                        this.appendMessage(data.message);
-                    }
+                        if (!response.ok || !response.body) {
+                            throw new Error(`SSE failed: ${response.status}`);
+                        }
 
-                    if (this.connectionStatus !== 'connected') {
+                        this.eventSource = { readyState: 1 };
                         this.setConnectionStatus('connected');
-                    }
+                        this.retryDelay = 1000;
+                        this.logEventSourceState('onopen');
 
-                    if (!this.currentVisitorId) {
-                        this.loadThreads();
-                    }
-                });
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+                        let eventName = '';
+                        let dataLines = [];
 
-                this.eventSource.onerror = (event) => {
-                    this.logEventSourceState('onerror', event);
-                    const readyState = this.eventSource ? this.eventSource.readyState : 2;
-                    const CLOSED = typeof EventSource !== 'undefined' && 'CLOSED' in EventSource ? EventSource.CLOSED : 2;
-                    const CONNECTING = typeof EventSource !== 'undefined' && 'CONNECTING' in EventSource ? EventSource.CONNECTING : 0;
-                    const OPEN = typeof EventSource !== 'undefined' && 'OPEN' in EventSource ? EventSource.OPEN : 1;
+                        while (!abort.signal.aborted) {
+                            const { value, done } = await reader.read();
+                            if (done) break;
 
-                    if (readyState === CLOSED) {
-                        console.error('SSE connection closed');
+                            buffer += decoder.decode(value, { stream: true });
+
+                            while (true) {
+                                const newlineIndex = buffer.indexOf('\n');
+                                if (newlineIndex === -1) break;
+
+                                let line = buffer.slice(0, newlineIndex);
+                                buffer = buffer.slice(newlineIndex + 1);
+                                if (line.endsWith('\r')) line = line.slice(0, -1);
+
+                                if (line === '') {
+                                    if (dataLines.length > 0) {
+                                        const data = dataLines.join('\n');
+                                        this.handleSSEEvent(eventName || 'message', data);
+                                    }
+                                    eventName = '';
+                                    dataLines = [];
+                                    continue;
+                                }
+
+                                if (line.startsWith(':')) continue;
+                                if (line.startsWith('event:')) {
+                                    eventName = line.slice(6).trim();
+                                    continue;
+                                }
+                                if (line.startsWith('data:')) {
+                                    dataLines.push(line.slice(5).trimStart());
+                                }
+                            }
+                        }
+
+                        throw new Error('SSE stream ended');
+                    } catch (error) {
+                        if (abort.signal.aborted) return;
+
+                        console.error('SSE connection error:', error);
+                        this.sseAbort = null;
                         this.eventSource = null;
 
-                        // Exponential backoff: double the delay, cap at maxRetryDelay
                         const currentDelay = this.retryDelay;
                         const retrySeconds = Math.ceil(currentDelay / 1000);
-
-                        console.log(`SSE disconnected. Retrying in ${retrySeconds}s...`);
                         this.setConnectionStatus('disconnected', `Retrying in ${retrySeconds}s`);
 
                         setTimeout(() => {
-                            if (!this.eventSource) {
+                            if (!this.sseAbort && this.password) {
                                 this.startSSE();
                             }
                         }, currentDelay);
 
                         this.retryDelay = Math.min(this.retryDelay * 2, this.maxRetryDelay);
-                        return;
                     }
+                })();
+            },
 
-                    if (readyState === CONNECTING) {
-                        console.log('SSE reconnecting...');
-                        this.setConnectionStatus('connecting');
-                        return;
+            handleSSEEvent(eventName, rawData) {
+                this.logEventSourceState(eventName || 'message');
+
+                if (eventName === 'ping' || eventName === 'status') {
+                    if (this.connectionStatus !== 'connected') {
+                        this.setConnectionStatus('connected');
                     }
+                    return;
+                }
 
-                    if (readyState === OPEN) {
-                        console.warn('SSE error while connection is open', event);
-                        if (this.connectionStatus !== 'connected') {
-                            this.setConnectionStatus('connected');
+                let data;
+                try {
+                    data = JSON.parse(rawData);
+                } catch {
+                    return;
+                }
+
+                if (eventName === 'thread-deleted') {
+                    const visitorId = data.visitorId;
+                    if (this.currentVisitorId === visitorId) {
+                        this.currentVisitorId = null;
+                        this.showThreadList();
+                    } else {
+                        this.loadThreads();
+                    }
+                    this.syncBadgeCount();
+                    return;
+                }
+
+                if (eventName === 'new-message') {
+                    if (this.currentVisitorId === data.visitorId) {
+                        this.appendMessage(data.message);
+                        if (document.visibilityState === 'visible') {
+                            this.markThreadRead(data.visitorId);
+                        } else {
+                            this.syncBadgeCount();
                         }
-                        return;
+                    } else {
+                        this.syncBadgeCount();
+                        if (!this.currentVisitorId) {
+                            this.loadThreads();
+                        }
                     }
 
-                    console.warn('SSE error with unexpected readyState', { readyState, event });
-                };
+                    if (this.connectionStatus !== 'connected') {
+                        this.setConnectionStatus('connected');
+                    }
+                }
             },
 
             appendMessage(message) {
@@ -485,6 +570,29 @@
                 }).join('');
             },
 
+            async markThreadRead(visitorId) {
+                if (!this.password || !visitorId) return;
+                try {
+                    const response = await fetch(`/api/admin/threads/${visitorId}/read`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.password}`
+                        },
+                        body: JSON.stringify({})
+                    });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (typeof data.unreadTotal === 'number') {
+                        this.updateBadge(data.unreadTotal);
+                    } else {
+                        await this.syncBadgeCount();
+                    }
+                } catch (error) {
+                    console.error('Error marking thread read:', error);
+                }
+            },
+
             async openThread(visitorId) {
                 this.currentVisitorId = visitorId;
 
@@ -493,27 +601,39 @@
                     if (!response.ok) throw new Error('Failed to load messages');
 
                     const data = await response.json();
-                    this.renderConversation(visitorId, data.messages);
+                    this.renderConversation(visitorId, data.messages, this.threadsById[visitorId] || {});
 
                     // Show conversation screen
                     document.getElementById('thread-list-screen').classList.add('hidden');
                     document.getElementById('conversation-screen').classList.remove('hidden');
 
-                    // Sync badge when viewing thread
-                    this.syncBadgeCount();
+                    // Mark read only when visible (background PWA/tab must not eat unread)
+                    if (document.visibilityState === 'visible') {
+                        await this.markThreadRead(visitorId);
+                    } else {
+                        await this.syncBadgeCount();
+                    }
 
                 } catch (error) {
                     alert('Error loading conversation: ' + error.message);
                 }
             },
 
-            renderConversation(visitorId, messages) {
+            renderConversation(visitorId, messages, threadInfo = {}) {
                 document.getElementById('conv-title').textContent = `Visitor ${visitorId.substring(0, 16)}...`;
 
-                const meta = messages.length > 0
-                    ? `First seen: ${new Date(messages[0].ts).toLocaleString()}`
-                    : 'No messages';
-                document.getElementById('conv-meta').textContent = meta;
+                const parts = [];
+                if (messages.length > 0) {
+                    parts.push(`First seen: ${new Date(messages[0].ts).toLocaleString()}`);
+                } else {
+                    parts.push('No messages');
+                }
+                if (threadInfo.contactEmail) {
+                    parts.push(`Contact: ${threadInfo.contactEmail}`);
+                } else {
+                    parts.push('No email — link only');
+                }
+                document.getElementById('conv-meta').textContent = parts.join(' · ');
 
                 const container = document.getElementById('messages-container');
                 container.innerHTML = messages.map(m => `
@@ -603,6 +723,7 @@
             },
 
             showThreadList() {
+                this.currentVisitorId = null;
                 document.getElementById('conversation-screen').classList.add('hidden');
                 this.switchTab('inbox', { skipFetch: false });
             },
@@ -680,10 +801,7 @@
                         console.warn('Push subscription registration failed: invalid password');
                         await authStore.clearPassword();
                         this.password = null;
-                        if (this.eventSource) {
-                            this.eventSource.close();
-                            this.eventSource = null;
-                        }
+                        this.stopSSE();
                         this.setConnectionStatus('disconnected', 'Login required');
                         this.showLogin();
                         return;
@@ -1339,7 +1457,7 @@
 
         app.logEventSourceState = function(context, event) {
             const source = this.eventSource;
-            const state = source ? source.readyState : null;
+            const state = source ? source.readyState : (this.sseAbort ? 1 : 2);
             const stateName = state === 0 ? 'CONNECTING' : state === 1 ? 'OPEN' : state === 2 ? 'CLOSED' : 'UNKNOWN';
             const payload = { context, state: stateName, readyState: state, connectionStatus: this.connectionStatus };
             if (event) {
@@ -1403,10 +1521,20 @@
                 console.log('Migration check failed:', err);
             }
 
-            authStore.getPassword().then((password) => {
+            const threadParam = new URLSearchParams(window.location.search).get('thread');
+            if (threadParam) {
+                app.pendingThreadId = threadParam;
+            }
+
+            authStore.getPassword().then(async (password) => {
                 if (password) {
                     app.password = password;
-                    app.loadThreads();
+                    await app.loadThreads();
+                    if (app.pendingThreadId) {
+                        const id = app.pendingThreadId;
+                        app.pendingThreadId = null;
+                        await app.openThread(id);
+                    }
                 }
             });
 
@@ -1421,10 +1549,18 @@
                 });
             }
 
-            // Add window focus listener to sync badge when app comes to foreground
+            // Sync badge when app comes to foreground
             window.addEventListener('focus', () => {
                 app.syncBadgeCount();
-                console.log('[badge-sync] App focused, syncing badge count');
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    if (app.currentVisitorId) {
+                        app.markThreadRead(app.currentVisitorId);
+                    } else {
+                        app.syncBadgeCount();
+                    }
+                }
             });
 
             app.setupBlogAutosave();

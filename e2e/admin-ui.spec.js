@@ -41,3 +41,36 @@ test('admin can login, view threads, and send a reply', async ({ page }) => {
   const texts = (data.messages || []).map(m => m.text);
   expect(texts).toContain(replyText);
 });
+
+
+test('opening a thread clears unread badge', async ({ page }) => {
+  await page.goto('/');
+  const visitorId = await getVisitorId(page);
+
+  await page.context().request.post('/api/feedback', {
+    data: {
+      visitorId,
+      type: 'message',
+      text: 'Unread badge clear test',
+      page: '/admin-unread-test',
+    },
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await page.goto('/admin.html');
+  await page.fill('#password-input', ADMIN_PASSWORD);
+  await page.click('button:has-text("Login")');
+
+  const threadItem = page.locator('.thread-item', { hasText: visitorId.substring(0, 16) });
+  await expect(threadItem).toBeVisible({ timeout: 5_000 });
+  await expect(threadItem.locator('.badge')).toBeVisible();
+
+  await threadItem.click();
+  await expect(page.locator('.message.visitor .text').last()).toContainText('Unread badge clear test');
+
+  // Back to list — badge should be gone for this thread
+  await page.click('button:has-text("Back to List")');
+  const threadAfter = page.locator('.thread-item', { hasText: visitorId.substring(0, 16) });
+  await expect(threadAfter).toBeVisible({ timeout: 5_000 });
+  await expect(threadAfter.locator('.badge')).toHaveCount(0);
+});
