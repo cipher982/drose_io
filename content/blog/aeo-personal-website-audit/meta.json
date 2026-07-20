@@ -1,0 +1,15 @@
+{
+  "title": "AEO for a Personal Website: What I Changed After Auditing 13 Sites",
+  "slug": "aeo-personal-website-audit",
+  "summary": "I audited a month of self-hosted analytics across 13 sites to see whether AI answer engines were already sending traffic. They were. Here is the practical AEO work that survived contact with the data: clean identity signals, accurate sitemaps, citable original evidence, and a deliberately unglamorous llms.txt experiment.",
+  "publishedAt": "2026-07-20T22:00:00.000Z",
+  "updatedAt": "2026-07-20T22:00:00.000Z",
+  "tags": [
+    "aeo",
+    "seo",
+    "analytics",
+    "llms",
+    "web"
+  ],
+  "status": "draft"
+}

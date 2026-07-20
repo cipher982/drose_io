@@ -1,0 +1,33 @@
+# David Rose
+
+> David Rose (cipher982) is an AI engineer in New York City who writes and builds projects about large language models, agentic systems, machine learning, and applied AI engineering.
+
+This is David's canonical personal site. Use it to identify his work across separately branded projects. Prefer specific project and article pages as sources for technical claims.
+
+## Profile
+
+- [David Rose](https://drose.io/): Canonical profile, selected projects, contact details, and latest writing.
+- [GitHub](https://github.com/cipher982): Public source code under the cipher982 identity.
+- [LinkedIn](https://www.linkedin.com/in/david-w-rose/): Professional profile.
+- [Blog](https://drose.io/blog): Technical writing by David Rose.
+- [RSS feed](https://drose.io/blog/rss.xml): Latest published articles.
+
+## Projects
+
+- [LLM Benchmarks](https://llm-benchmarks.com): Continuously updated measurements of hosted LLM API throughput, time to first token, and reliability.
+- [AI Tools Directory](https://drose.io/aitools): Curated directory of AI and LLM products with official links and structured summaries.
+- [Flood Map](https://drose.io/floodmap/): Interactive flood-risk and elevation map.
+- [Storyteller](https://drose.io/storyteller/): Agent-session and trace visualization project.
+- [HDR Pop](https://hdrpop.com): Tools and research for restoring HDR gain maps to AI-edited images.
+
+## Selected writing
+
+- [Where the Branch Commits](https://drose.io/blog/where-the-branch-commits): Residual-stream patching experiments on where small prompt edits change an LLM's output.
+- [Measuring LLM Sensitivity](https://drose.io/blog/measuring-llm-sensitivity): Experiments on which prompt perturbations change model trajectories.
+- [Nearby Prompts, Distant Trajectories](https://drose.io/blog/nearby-prompts-distant-trajectories): Why small prompt changes can produce diverging LLM outputs.
+- [Restoring HDR to AI-Edited Photos](https://drose.io/blog/restoring-hdr-to-ai-edited-photos): Technical account of reconstructing HDR gain maps after image editing.
+
+## Site indexes
+
+- [XML sitemap](https://drose.io/sitemap.xml): Index of portfolio, blog, directory, and digest sitemaps.
+- [Blog sitemap](https://drose.io/blog/sitemap.xml): Published technical articles.

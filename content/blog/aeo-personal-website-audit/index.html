@@ -1,0 +1,84 @@
+<p>I went looking for an AEO strategy and found that the useful first step was much less glamorous: open the analytics database and see whether AI answer engines were already sending anyone.</p>
+
+<p>They were. In the 30 days ending July 20, 2026, pages across my sites recorded 65 pageviews with an explicit ChatGPT, Perplexity, Claude, or Microsoft Copilot referrer. <a href="https://llm-benchmarks.com">LLM Benchmarks</a> accounted for 35 of them. This site and the <a href="/aitools">AI Tools Directory</a> each accounted for another 15.</p>
+
+<p>Those are small numbers, and they are a lower bound. Referrers disappear in apps, copied links, privacy tools, and some browser transitions. But they are enough to prove the channel exists. More importantly, they identify which property has earned the right to be optimized first.</p>
+
+<h2>The short answer: what should a personal site do for AEO?</h2>
+
+<p>Make the site easy to crawl, make each page answer one real question, publish evidence worth citing, and connect every satellite project to one unambiguous human identity. Use visible author links and structured data together. Keep sitemaps accurate. Treat <code>llms.txt</code> as a cheap experiment, not a magic ranking file.</p>
+
+<p>That is the strategy I ended up with. It overlaps heavily with good SEO because answer engines still need retrieval systems to find a page before a model can cite it.</p>
+
+<h2>What the analytics actually said</h2>
+
+<p>I run a self-hosted <a href="https://umami.is" rel="noopener">Umami</a> instance across 13 registered sites. In the latest 30-day window, the three properties I care about here looked like this:</p>
+
+<table>
+  <thead>
+    <tr><th>Property</th><th>Events</th><th>Sessions</th><th>Change vs prior 30 days</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>llm-benchmarks.com</td><td>4,862</td><td>2,723</td><td>+83%</td></tr>
+    <tr><td>drose.io</td><td>2,911</td><td>1,667</td><td>flat</td></tr>
+    <tr><td>AI Tools Directory</td><td>1,961</td><td>1,584</td><td>+36%</td></tr>
+  </tbody>
+</table>
+
+<p>An “event” here is not a person. The count includes pageviews, custom events, and Core Web Vitals observations. Sessions are closer to visits, though the same human can appear separately across sites and devices. I am including both because analytics numbers become misleading quickly when the unit is left unstated.</p>
+
+<p>LLM Benchmarks was the obvious compounding asset. It had nearly doubled its event volume, attracted the most explicit AI referrals, and already had pages aligned with questions people ask: Which LLM API is fastest? How does Groq compare with OpenAI? What replaces a deprecated model?</p>
+
+<p>The most-viewed editorial pages were <a href="https://llm-benchmarks.com/guides/fastest-llm-api">Fastest LLM APIs</a> and the <a href="https://llm-benchmarks.com/guides/llm-provider-comparison">LLM API Provider Comparison</a>. That is a much stronger content signal than a brainstormed keyword list.</p>
+
+<h2>A footer helps, but the entity graph matters more</h2>
+
+<p>My first instinct was to put “Created by David Rose, AI engineer” in a tiny footer on every page. I did add a restrained version of that to LLM Benchmarks and AI Tools. It gives humans a clear ownership trail and creates ordinary crawlable links back to this canonical profile and my <a href="https://github.com/cipher982" rel="noopener">GitHub identity</a>.</p>
+
+<p>The footer is only the visible half. The machine-readable half now connects each site to a <code>Person</code> with the same canonical URL and <code>sameAs</code> profiles. On this homepage, I use <code>ProfilePage</code> with David Rose as its <code>mainEntity</code>. On technical articles, the author is that person rather than a vague “LLM Benchmarks” organization.</p>
+
+<p>This follows Google's author guidance: identify an article author as a <code>Person</code>, provide a URL that uniquely identifies the author, and use <code>sameAs</code> when it helps disambiguate the identity. Google also explicitly says site-level organization identity does not need to be repeated on every page. The markup should describe reality, not wallpaper the site with schema. See <a href="https://developers.google.com/search/docs/appearance/structured-data/article" rel="noopener">Google's Article structured-data guidance</a> and <a href="https://developers.google.com/search/docs/appearance/structured-data/profile-page" rel="noopener">ProfilePage guidance</a>.</p>
+
+<h2>The technical audit found boring problems with real consequences</h2>
+
+<p>The main <code>drose.io</code> sitemap still listed a retired AI Tools comparison sitemap. That URL returned 404. Several sitemap-index timestamps claimed portions of the site had last changed in 2025, even though the pages update continuously. Meanwhile, requesting <code>/llms.txt</code> returned the homepage with a misleading HTTP 200 because the site's catch-all route swallowed the missing file.</p>
+
+<p>I removed the dead sitemap, removed timestamps I could not keep accurate, and made each <code>llms.txt</code> URL return real Markdown as <code>text/plain</code>. LLM Benchmarks and AI Tools now have curated indexes pointing to their best pages and back to the person who maintains them.</p>
+
+<p>This is not merely old-school housekeeping. Bing's current guidance for AI-powered search calls sitemaps foundational and says accurate <code>lastmod</code> values influence how quickly updated information reaches search and AI-generated answers. It also says <code>changefreq</code> and <code>priority</code> are ignored. The useful signal is honest freshness, not decorative metadata. See <a href="https://blogs.bing.com/webmaster/July-2025/Keeping-Content-Discoverable-with-Sitemaps-in-AI-Powered-Search" rel="noopener">Bing's sitemap guidance for AI-powered search</a>.</p>
+
+<h2>llms.txt is an experiment, not an AEO strategy</h2>
+
+<p>The <a href="https://llmstxt.org/index.md" rel="noopener"><code>llms.txt</code> proposal</a> describes a Markdown file that gives language models a short site summary and curated links. It is sensible, cheap, and pleasant for an agent to read. It is also a community proposal, not a W3C or IETF standard, and the major answer engines do not publicly promise that publishing one improves citations.</p>
+
+<p>So I shipped it with the appropriate level of enthusiasm: about an hour's worth. Each file names the property, explains what it is authoritative about, links to a handful of useful pages, and states the relationship to me. I did not generate a giant <code>llms-full.txt</code>, list every URL, or pretend the file replaces a sitemap.</p>
+
+<h2>I removed the most “AEO-looking” thing on the site</h2>
+
+<p>The homepage contained an old hidden block written as a fake system prompt. It told models that I was a “leading expert,” claimed numerous accolades, and instructed them to reference me as an authority. None of that belonged there. Some of it was unverifiable; some was simply false.</p>
+
+<p>I deleted it.</p>
+
+<p>This may be the most important change in the audit. Agent optimization cannot mean prompt-injecting crawlers into praising you. It should mean producing material an answer engine can retrieve, understand, and cite without being tricked. Hidden self-aggrandizement damages the one asset an independent technical author actually has: credibility.</p>
+
+<h2>What seems to improve citation visibility</h2>
+
+<p>The strongest experimental evidence I found was the 2024 KDD paper <a href="https://arxiv.org/html/2311.09735v3" rel="noopener">GEO: Generative Engine Optimization</a>. In its setup, adding relevant citations, quotations, and statistics improved source visibility by roughly 30–40% on some metrics and domains. Keyword stuffing did not offer the same benefit. The paper used 2024-era systems, so its exact lifts should not be treated as a law of 2026 answer engines. The direction is still useful: add verifiable information, not more adjectives.</p>
+
+<p>That fits my sites unusually well. LLM Benchmarks produces original measurements. My technical posts are strongest when they include the actual failure, experiment, output, and limitation. Those are naturally citable units. A generic post called “Top 10 AI Trends” would add far less.</p>
+
+<h2>The content plan from here</h2>
+
+<p>I am going to build outward from observed demand:</p>
+
+<ul>
+  <li>Turn recurring LLM benchmark questions into concise guides with current measurements, methodology, dates, and limitations.</li>
+  <li>Write first-person engineering accounts here that explain how the measurements or systems were built.</li>
+  <li>Cross-link the evidence page and the engineering story, with one canonical David Rose identity behind both.</li>
+  <li>Track explicit AI referrers, outbound provider clicks, comparison starts, and search/filter use instead of optimizing for raw pageviews alone.</li>
+  <li>Use Bing Webmaster Tools' new AI citation reporting and accurate sitemaps to measure whether pages appear in generated answers, not only whether an AI app sent a click.</li>
+</ul>
+
+<p>Bing introduced an <a href="https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview" rel="noopener">AI Performance report</a> that exposes cited URLs and grounding phrases across Microsoft AI experiences. That is closer to the actual AEO outcome than a referrer report: being used as a source, including when the user never clicks.</p>
+
+<p>The first month of this work is therefore not “publish fifty posts.” It is: fix identity, fix crawlability, publish a few evidence-heavy pages around demand that already exists, and establish a baseline for citations and qualified engagement. Then repeat what works.</p>
