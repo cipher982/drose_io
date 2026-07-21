@@ -290,6 +290,45 @@
     }
   }
 
+  function renderIdentityAeo(data) {
+    const host = $('#identity-aeo');
+    host.innerHTML = '';
+    if (!data) {
+      host.appendChild(el('div', { class: 'empty-text' }, ['identity data unavailable']));
+      return;
+    }
+    const totals = [
+      ['Identity clicks', (data.clicksBySite || []).reduce((sum, item) => sum + (item.total || 0), 0)],
+      ['Blog views', data.blogViews || 0],
+      ['AEO audit views', data.auditViews || 0],
+      ['AI referrals', data.aiReferrals || 0],
+      ['Search referrals', data.searchReferrals || 0],
+      ['Project → drose.io', data.projectReferrals || 0],
+    ];
+    const summary = el('div', { class: 'site-stats' });
+    for (const [label, value] of totals) {
+      summary.appendChild(el('div', {}, [
+        el('div', { class: 'site-stat-v' }, [fmtN(value)]),
+        el('div', { class: 'site-stat-l' }, [label]),
+      ]));
+    }
+    host.appendChild(summary);
+
+    const destinations = data.clicksByDestination || [];
+    const group = el('div', { class: 'section-group' }, [
+      el('div', { class: 'section-group-head' }, [
+        el('span', { class: 'site' }, ['Click destinations']),
+        el('span', { class: 'total' }, [destinations.length ? 'event data' : 'zero observed']),
+      ]),
+    ]);
+    const max = destinations.reduce((value, item) => Math.max(value, item.total || 0), 0) || 1;
+    for (const item of destinations) {
+      group.appendChild(renderBarRow(item.destination, item.total, Math.round((item.total / max) * 100)));
+    }
+    if (!destinations.length) group.appendChild(el('div', { class: 'empty-text' }, ['no identity clicks in period']));
+    host.appendChild(group);
+  }
+
   /* ---------- CWV rendering ---------- */
   const CWV_THRESHOLDS = {
     lcp:  { good: 2500, poor: 4000,  unit: 'ms', scale: 6000 },
@@ -465,6 +504,7 @@
       renderReferrers(insights.topReferrers);
       renderTopPaths(summary.sites);
       renderTopEvents(summary.sites);
+      renderIdentityAeo(insights.identityAeo);
 
       if (deep) {
         renderCWV(deep.coreWebVitals);

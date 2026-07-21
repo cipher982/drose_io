@@ -8,7 +8,8 @@
     "start": "bun run scripts/inject-umami.ts && bun run scripts/inject-latest-posts.ts && bun run scripts/bust-cache.ts && bun run server/index.ts",
     "perf": "bun run scripts/perf/run.ts",
     "perf:analyze": "bun run scripts/perf/analyze-cpuprofile.ts",
-    "perf:trace-analyze": "bun run scripts/perf/analyze-trace.ts"
+    "perf:trace-analyze": "bun run scripts/perf/analyze-trace.ts",
+    "test:unit": "bun test test/analytics-identity.test.ts"
   },
   "dependencies": {
     "hono": "^4.0.0",

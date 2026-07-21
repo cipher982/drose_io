@@ -61,6 +61,16 @@ type StatsCompare = Stats & { comparison?: Stats };
 type PageviewSeries = { pageviews: { x: string; y: number }[]; sessions: { x: string; y: number }[] };
 
 type Metric = { x: string; y: number };
+type EventValue = { value: string; total: number };
+type InsightsBucket = {
+  site: string;
+  domain: string;
+  id: string;
+  referrers: Metric[];
+  paths: Metric[];
+  events: Metric[];
+  identityDestinations: EventValue[];
+};
 
 type Period = '24h' | '7d' | '30d';
 
@@ -70,6 +80,56 @@ function periodWindow(p: Period): { startAt: number; endAt: number; unit: 'hour'
   if (p === '24h') return { startAt: endAt - dayMs, endAt, unit: 'hour' };
   if (p === '7d') return { startAt: endAt - 7 * dayMs, endAt, unit: 'day' };
   return { startAt: endAt - 30 * dayMs, endAt, unit: 'day' };
+}
+
+export function buildIdentityAeo(
+  buckets: InsightsBucket[],
+  sourceBuckets: Record<string, number>,
+) {
+  const clicksBySite = buckets.map((bucket) => ({
+    site: bucket.site,
+    domain: bucket.domain,
+    total: bucket.events.find((event) => event.x === 'identity_link_click')?.y || 0,
+  })).filter((item) => item.total > 0);
+
+  const destinationTotals = new Map<string, number>();
+  for (const bucket of buckets) {
+    for (const item of bucket.identityDestinations || []) {
+      destinationTotals.set(item.value, (destinationTotals.get(item.value) || 0) + (item.total || 0));
+    }
+  }
+  const clicksByDestination = [...destinationTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([destination, total]) => ({ destination, total }));
+
+  let blogViews = 0;
+  let auditViews = 0;
+  let projectReferrals = 0;
+  for (const bucket of buckets) {
+    if (/drose\.io/i.test(bucket.domain)) {
+      for (const path of bucket.paths) {
+        if ((path.x || '').startsWith('/blog/')) blogViews += path.y || 0;
+        if (path.x === '/blog/aeo-personal-website-audit') auditViews += path.y || 0;
+      }
+      for (const referrer of bucket.referrers) {
+        if (/llm-benchmarks\.com|aitools\.drose\.io|\/aitools/i.test(referrer.x || '')) {
+          projectReferrals += referrer.y || 0;
+        }
+      }
+    }
+  }
+
+  return {
+    eventName: 'identity_link_click',
+    continuityNote: 'Replaces the earlier LLM Benchmarks drose_click and github_click events.',
+    clicksBySite,
+    clicksByDestination,
+    blogViews,
+    auditViews,
+    aiReferrals: sourceBuckets.ai || 0,
+    searchReferrals: sourceBuckets.search || 0,
+    projectReferrals,
+  };
 }
 
 // Cache responses briefly to avoid hammering Umami on dashboard refresh.
@@ -194,12 +254,21 @@ export async function handleAnalyticsInsights(c: Context) {
       websites.data.map(async (w) => {
         const key = `insights:${period}:${w.id}`;
         return cached(key, async () => {
-          const [refs, paths, events] = await Promise.all([
+          const [refs, paths, events, identityDestinations] = await Promise.all([
             umamiFetch<Metric[]>(`/websites/${w.id}/metrics?${q}&type=referrer&limit=20`).catch(() => []),
-            umamiFetch<Metric[]>(`/websites/${w.id}/metrics?${q}&type=path&limit=20`).catch(() => []),
+            umamiFetch<Metric[]>(`/websites/${w.id}/metrics?${q}&type=path&limit=100`).catch(() => []),
             umamiFetch<Metric[]>(`/websites/${w.id}/metrics?${q}&type=event&limit=20`).catch(() => []),
+            umamiFetch<EventValue[]>(`/websites/${w.id}/event-data/values?${q}&event=identity_link_click&propertyName=destination`).catch(() => []),
           ]);
-          return { site: w.name, domain: w.domain, id: w.id, referrers: refs || [], paths: paths || [], events: events || [] };
+          return {
+            site: w.name,
+            domain: w.domain,
+            id: w.id,
+            referrers: refs || [],
+            paths: paths || [],
+            events: events || [],
+            identityDestinations: identityDestinations || [],
+          };
         });
       }),
     );
@@ -242,6 +311,7 @@ export async function handleAnalyticsInsights(c: Context) {
       sourceBuckets: buckets2,
       topReferrers,
       perSite: buckets,
+      identityAeo: buildIdentityAeo(buckets, buckets2),
       generatedAt: Date.now(),
     });
   } catch (err: any) {
