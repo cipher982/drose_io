@@ -3,7 +3,7 @@
   "slug": "aeo-personal-website-audit",
   "summary": "I audited a month of self-hosted analytics across 13 sites to see whether AI answer engines were already sending traffic. They were. Here is the practical AEO work that survived contact with the data: clean identity signals, accurate sitemaps, citable original evidence, and a deliberately unglamorous llms.txt experiment.",
   "publishedAt": "2026-07-20T22:00:00.000Z",
-  "updatedAt": "2026-07-20T22:00:00.000Z",
+  "updatedAt": "2026-07-20T23:30:00.000Z",
   "tags": [
     "aeo",
     "seo",
@@ -11,5 +11,7 @@
     "llms",
     "web"
   ],
-  "status": "draft"
+  "status": "published",
+  "byline": "David W. Rose with Codex",
+  "disclosure": "Prepared with Codex under the direction and review of David W. Rose; the analytics, implementation details, and conclusions were checked against the live systems."
 }

@@ -10,6 +10,8 @@ export interface PostMeta {
   status: PostStatus;
   heroImage?: string;
   mediumUrl?: string;
+  byline?: string;
+  disclosure?: string;
 }
 
 export interface Post {

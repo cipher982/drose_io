@@ -33,9 +33,9 @@
 
 <h2>A footer helps, but the entity graph matters more</h2>
 
-<p>My first instinct was to put “Created by David Rose, AI engineer” in a tiny footer on every page. I did add a restrained version of that to LLM Benchmarks and AI Tools. It gives humans a clear ownership trail and creates ordinary crawlable links back to this canonical profile and my <a href="https://github.com/cipher982" rel="noopener">GitHub identity</a>.</p>
+<p>My first instinct was to put “Created by David Rose, AI engineer” in a tiny footer on every page. That was too generic and, for a curated directory, not even the right relationship. The final version uses specific language: LLM Benchmarks is built and maintained by David W. Rose; AI Tools is curated by David W. Rose. Both connect the name, the <a href="https://github.com/cipher982" rel="noopener">cipher982 identity</a>, and this canonical profile without pretending every project is the same kind of work.</p>
 
-<p>The footer is only the visible half. The machine-readable half now connects each site to a <code>Person</code> with the same canonical URL and <code>sameAs</code> profiles. On this homepage, I use <code>ProfilePage</code> with David Rose as its <code>mainEntity</code>. On technical articles, the author is that person rather than a vague “LLM Benchmarks” organization.</p>
+<p>The footer is only the visible half. The machine-readable half now connects each site to the same <code>Person</code>: David W. Rose, also identified as David Rose and cipher982, at <code>https://drose.io/#person</code>. On this homepage, a <code>ProfilePage</code> uses that person as its <code>mainEntity</code>. On technical articles, the author points to the same identity rather than a vague “LLM Benchmarks” organization.</p>
 
 <p>This follows Google's author guidance: identify an article author as a <code>Person</code>, provide a URL that uniquely identifies the author, and use <code>sameAs</code> when it helps disambiguate the identity. Google also explicitly says site-level organization identity does not need to be repeated on every page. The markup should describe reality, not wallpaper the site with schema. See <a href="https://developers.google.com/search/docs/appearance/structured-data/article" rel="noopener">Google's Article structured-data guidance</a> and <a href="https://developers.google.com/search/docs/appearance/structured-data/profile-page" rel="noopener">ProfilePage guidance</a>.</p>
 
@@ -74,7 +74,7 @@
 <ul>
   <li>Turn recurring LLM benchmark questions into concise guides with current measurements, methodology, dates, and limitations.</li>
   <li>Write first-person engineering accounts here that explain how the measurements or systems were built.</li>
-  <li>Cross-link the evidence page and the engineering story, with one canonical David Rose identity behind both.</li>
+  <li>Cross-link the evidence page and the engineering story, with one canonical David W. Rose / cipher982 identity behind both.</li>
   <li>Track explicit AI referrers, outbound provider clicks, comparison starts, and search/filter use instead of optimizing for raw pageviews alone.</li>
   <li>Use Bing Webmaster Tools' new AI citation reporting and accurate sitemaps to measure whether pages appear in generated answers, not only whether an AI app sent a click.</li>
 </ul>

@@ -3,7 +3,8 @@ import type { Post } from './types';
 
 const SITE_URL = 'https://drose.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/assets/images/david-og.jpg`;
-const AUTHOR_NAME = 'David Rose';
+const AUTHOR_NAME = 'David W. Rose';
+const AUTHOR_ID = `${SITE_URL}/#person`;
 
 function esc(v: string): string {
   return v
@@ -41,6 +42,8 @@ const BLOG_STYLES = `
   article.blog-post a { color: #a5b4fc; }
   article.blog-post a:hover { color: #c7d2fe; }
   article.blog-post .meta { color: var(--color-blog-meta); margin-bottom: var(--spacing-4xl); font-size: var(--font-size-xl); }
+  article.blog-post .byline { color: var(--color-blog-body-text); margin: var(--spacing-sm) 0 var(--spacing-md); font-size: var(--font-size-lg); }
+  article.blog-post .authorship-disclosure { color: var(--color-blog-meta); margin: 0 0 var(--spacing-xl); font-size: var(--font-size-base); font-style: italic; }
   article.blog-post h2 { margin-top: 36px; font-size: var(--font-size-6xl); }
   article.blog-post h3 { margin-top: 28px; font-size: var(--font-size-3xl); }
   article.blog-post p, article.blog-post li { font-size: var(--font-size-2xl); line-height: var(--line-height-spacious); color: var(--color-blog-body-text); }
@@ -137,8 +140,8 @@ export function renderIndexPage(posts: Post[]): string {
 </div>`;
 
   return pageShell({
-    title: 'Writing & Research — David Rose',
-    description: 'Long-form posts on AI agents, ML systems, and engineering notes by David Rose.',
+    title: 'Writing & Research — David W. Rose',
+    description: 'Projects, measurements, investigations, and technical notes by David W. Rose.',
     canonical: `${SITE_URL}/blog`,
     ogImage: DEFAULT_OG_IMAGE,
     body,
@@ -164,7 +167,7 @@ export function renderPostPage(post: Post): string {
     description: meta.summary,
     datePublished: meta.publishedAt,
     dateModified: meta.updatedAt || meta.publishedAt,
-    author: { '@type': 'Person', name: AUTHOR_NAME, url: SITE_URL },
+    author: { '@type': 'Person', '@id': AUTHOR_ID, name: AUTHOR_NAME, url: SITE_URL },
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
     image: ogImage,
     keywords: (meta.tags ?? []).join(', ') || undefined,
@@ -174,6 +177,8 @@ export function renderPostPage(post: Post): string {
 <div class="blog-shell">
   <article class="blog-post">
     <h1>${esc(meta.title)}</h1>
+    <p class="byline">By ${esc(meta.byline || AUTHOR_NAME)}</p>
+    ${meta.disclosure ? `<p class="authorship-disclosure">${esc(meta.disclosure)}</p>` : ''}
     <div class="meta">
       <span class="post-meta-dates">
         <span>Published <time datetime="${esc(meta.publishedAt)}">${formatDate(meta.publishedAt)}</time></span>
@@ -187,7 +192,7 @@ export function renderPostPage(post: Post): string {
 </div>`;
 
   return pageShell({
-    title: `${meta.title} — David Rose`,
+    title: `${meta.title} — David W. Rose`,
     description: meta.summary,
     canonical,
     ogImage,

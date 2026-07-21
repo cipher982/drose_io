@@ -39,6 +39,8 @@ function validateMeta(raw: unknown, dirName: string): PostMeta {
     status: m.status,
     heroImage: typeof m.heroImage === 'string' ? m.heroImage : undefined,
     mediumUrl: typeof m.mediumUrl === 'string' ? m.mediumUrl : undefined,
+    byline: typeof m.byline === 'string' ? m.byline : undefined,
+    disclosure: typeof m.disclosure === 'string' ? m.disclosure : undefined,
   };
 }
 

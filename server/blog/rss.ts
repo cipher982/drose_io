@@ -41,7 +41,7 @@ export function renderRss(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>David Rose — Writing &amp; Research</title>
+    <title>David W. Rose — Writing &amp; Research</title>
     <link>${SITE_URL}/blog</link>
     <atom:link href="${SITE_URL}/blog/rss.xml" rel="self" type="application/rss+xml"/>
     <description>Long-form posts on AI agents, ML systems, and engineering notes.</description>
