@@ -1,7 +1,8 @@
 {
   "assets/1*V4pFQGTxy6W2ug4sTpQ7cw.png": {
     "hash": "3b72d533a80a8405",
-    "bytes": 12868
+    "bytes": 12868,
+    "v": 1
   },
   "assets/1*gacUqsmxwJJMISBu2b3TkA.gif": {
     "mtimeMs": 1777689559191,
@@ -9,30 +10,37 @@
   },
   "assets/1*q7hAKWV95YQwT5QxluLfeg.png": {
     "hash": "7e793dc05c05ccf2",
-    "bytes": 78914
+    "bytes": 78914,
+    "v": 1
   },
   "assets/1*ZWCMuFUzHbuxlcbLgl_FQw.png": {
     "hash": "e224bbc5bac34138",
-    "bytes": 92827
+    "bytes": 92827,
+    "v": 1
   },
   "assets/1*uj_HGBTM-eOrHx-_719Fpg.png": {
     "hash": "ea4ec1fb5ca6889c",
-    "bytes": 65430
+    "bytes": 65430,
+    "v": 1
   },
   "assets/1*dtndOex28ccl8-n01sbdrQ.png": {
     "hash": "6a2af6abdd09d82e",
-    "bytes": 205000
+    "bytes": 205000,
+    "v": 1
   },
   "assets/1*fh3CR7___B_djoQCERY6Ng.png": {
     "hash": "acb411670d9a5814",
-    "bytes": 42132
+    "bytes": 42132,
+    "v": 1
   },
   "assets/1*Mvc-JLaBSNwXgzi6GPGzyw.png": {
     "hash": "b9639a614f28969f",
-    "bytes": 7040
+    "bytes": 7040,
+    "v": 1
   },
   "assets/1*SMs-lNfmEycmNPVteqmtww.png": {
     "hash": "d7e9942f60f6bd89",
-    "bytes": 57015
+    "bytes": 57015,
+    "v": 1
   }
 }

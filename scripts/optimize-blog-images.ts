@@ -18,6 +18,7 @@ import { readdir, stat, readFile, writeFile } from "node:fs/promises";
 import { join, extname, basename, dirname, relative } from "node:path";
 import sharp from "sharp";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 
 const BLOG_ROOT = new URL("../content/blog/", import.meta.url).pathname;
 const MAX_WIDTH = 1840;
@@ -26,12 +27,14 @@ const JPEG_OPTS = { quality: 82, mozjpeg: true } as const;
 const WEBP_OPTS = { quality: 82 } as const;
 /** Minimum fractional size win before rewriting a tracked file. */
 const MIN_SAVINGS = 0.03;
+/** Bump when PNG/JPEG/WEBP options or MAX_WIDTH change, to force reprocessing. */
+const SETTINGS_VERSION = 1;
 
 function sha256(buf: Buffer | Uint8Array): string {
   return createHash("sha256").update(buf).digest("hex").slice(0, 16);
 }
 
-type Manifest = Record<string, { hash: string; bytes: number }>;
+type Manifest = Record<string, { hash: string; bytes: number; v?: number }>;
 
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -81,13 +84,15 @@ async function processImage(
   // Keyed on the hash of the bytes currently on disk, which are the bytes a
   // previous run left behind. mtime is not stable across checkouts or touches,
   // and made every run rewrite the whole tree for 0% savings.
-  if (entry && entry.hash === currentHash) {
+  const webpSibling = path.replace(/\.(png|jpe?g)$/i, ".webp");
+  const webpPresent = isGif || existsSync(webpSibling);
+  if (entry && entry.hash === currentHash && entry.v === SETTINGS_VERSION && webpPresent) {
     return { before: st.size, after: st.size, skipped: true, webpBytes: 0 };
   }
 
   const before = st.size;
   if (isGif) {
-    manifest[key] = { hash: currentHash, bytes: before };
+    manifest[key] = { hash: currentHash, bytes: before, v: SETTINGS_VERSION };
     return { before, after: before, skipped: true, webpBytes: 0 };
   }
 
@@ -101,7 +106,7 @@ async function processImage(
     const secondSoi = firstSoi >= 0 ? buf.indexOf(Buffer.from([0xff, 0xd8]), firstSoi + 2) : -1;
     const hasMpf = buf.includes(Buffer.from("MPF\x00"));
     if (secondSoi > 0 && hasMpf) {
-      manifest[key] = { hash: currentHash, bytes: before };
+      manifest[key] = { hash: currentHash, bytes: before, v: SETTINGS_VERSION };
       return { before, after: before, skipped: true, webpBytes: 0 };
     }
   }
@@ -129,18 +134,22 @@ async function processImage(
 
   // Also emit .webp sibling from the resized source.
   let webpSize = 0;
-  const webpPath = path.replace(/\.(png|jpe?g)$/i, ".webp");
+  let webpOk = false;
   try {
     const webpBuf = await sharp(outBuf).webp(WEBP_OPTS).toBuffer();
-    await writeFile(webpPath, webpBuf);
+    await writeFile(webpSibling, webpBuf);
     webpSize = webpBuf.length;
+    webpOk = true;
   } catch (e) {
-    // ignore webp failures
+    console.warn(`  webp failed for ${key}, will retry next run:`, (e as Error).message);
   }
 
   const newSt = await stat(path);
-  // Record the hash of what is now on disk, so the next run skips it.
-  manifest[key] = { hash: sha256(outBuf), bytes: newSt.size };
+  // Only record the hash once the whole job succeeded. Recording it after a
+  // failed webp write would make the failure permanent.
+  if (webpOk) {
+    manifest[key] = { hash: sha256(outBuf), bytes: newSt.size, v: SETTINGS_VERSION };
+  }
   return { before, after: newSt.size, skipped: false, webpBytes: webpSize };
 }
 

@@ -1,18 +1,22 @@
 {
   "assets/examples/beach_ultrahdr.jpg": {
     "hash": "4a9d395ef4fb7c38",
-    "bytes": 308952
+    "bytes": 308952,
+    "v": 1
   },
   "assets/examples/garage_ultrahdr.jpg": {
     "hash": "24d76e2fba21ca72",
-    "bytes": 496375
+    "bytes": 496375,
+    "v": 1
   },
   "assets/examples/selfie_ultrahdr.jpg": {
     "hash": "a56a8c375b2397ac",
-    "bytes": 232316
+    "bytes": 232316,
+    "v": 1
   },
   "assets/examples/cafe_ultrahdr.jpg": {
     "hash": "d25bd4f2a475cd5b",
-    "bytes": 446777
+    "bytes": 446777,
+    "v": 1
   }
 }

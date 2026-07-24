@@ -44,9 +44,12 @@ export function assetUrl(urlPath: string): string {
 /** Rewrites every known asset reference in an HTML document. */
 export function versionAssetsIn(html: string): string {
   return html.replace(
-    /(["'(])(\/?assets\/[a-zA-Z0-9_\-./]+\.(?:css|js))(\?v=[^"'\s)]*)?/g,
+    // Handles /assets/..., assets/... and ./assets/... . Only an existing ?v=
+    // is consumed and replaced; any other query string is left alone rather
+    // than mangled into a second '?'.
+    /(["'(])(\.?\/?assets\/[a-zA-Z0-9_\-./]+\.(?:css|js))(\?v=[^"'\s)&]*)?/g,
     (_m, lead: string, path: string) => {
-      const absolute = path.startsWith('/') ? path : `/${path}`;
+      const absolute = '/' + path.replace(/^\.?\//, '');
       const hash = hashOf(absolute);
       return hash ? `${lead}${path}?v=${hash}` : `${lead}${path}`;
     },

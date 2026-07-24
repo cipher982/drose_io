@@ -1,11 +1,13 @@
 {
   "assets/figures/distribution-shift-basins.png": {
     "hash": "1efd95bf562f1169",
-    "bytes": 26590
+    "bytes": 26590,
+    "v": 1
   },
   "assets/figures/token-decision-boundary.png": {
     "hash": "0ff770b22cec8ee2",
-    "bytes": 436442
+    "bytes": 436442,
+    "v": 1
   },
   "assets/figures/slide3_hybrid_system.png": {
     "mtimeMs": 1777741452925.9668,
@@ -13,11 +15,13 @@
   },
   "assets/figures/lorenz-state-space.png": {
     "hash": "7184eeeb863b7c0c",
-    "bytes": 546076
+    "bytes": 546076,
+    "v": 1
   },
   "assets/figures/logistic-bifurcation.png": {
     "hash": "22a10c547b2031cf",
-    "bytes": 285286
+    "bytes": 285286,
+    "v": 1
   },
   "assets/figures/slide10_compounding.png": {
     "mtimeMs": 1777741453723.6873,
@@ -25,22 +29,27 @@
   },
   "assets/figures/double-pendulum-divergence.png": {
     "hash": "89271d563c019f5b",
-    "bytes": 100033
+    "bytes": 100033,
+    "v": 1
   },
   "assets/figures/probability-weather-field.png": {
     "hash": "e476c07e08575b0f",
-    "bytes": 501162
+    "bytes": 501162,
+    "v": 1
   },
   "assets/figures/branching-continuations.png": {
     "hash": "8287c17a979e952b",
-    "bytes": 857955
+    "bytes": 857955,
+    "v": 1
   },
   "assets/figures/hybrid-system-v2.png": {
     "hash": "b54895e6b3d07e82",
-    "bytes": 649134
+    "bytes": 649134,
+    "v": 1
   },
   "assets/figures/depth-compounding.png": {
     "hash": "f16bfa4b2dabbb4f",
-    "bytes": 121240
+    "bytes": 121240,
+    "v": 1
   }
 }

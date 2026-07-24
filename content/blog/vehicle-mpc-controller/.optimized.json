@@ -1,7 +1,8 @@
 {
   "assets/1*Tpthpgi6em8eXWSd2NoS6A.png": {
     "hash": "25b0e423b5563271",
-    "bytes": 24255
+    "bytes": 24255,
+    "v": 1
   },
   "assets/1*r8lPI9gWQ-1ebp2EuvCADw.gif": {
     "mtimeMs": 1777689567092,
@@ -9,10 +10,12 @@
   },
   "assets/1*uEdd_tNnwmATlnnlEk8qZw.png": {
     "hash": "68cd24bcf4ad970e",
-    "bytes": 9447
+    "bytes": 9447,
+    "v": 1
   },
   "assets/1*G4yddEcNOh5o_OVROCEz8A.png": {
     "hash": "d8da02bb47254bbc",
-    "bytes": 197197
+    "bytes": 197197,
+    "v": 1
   }
 }

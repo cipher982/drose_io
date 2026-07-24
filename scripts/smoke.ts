@@ -172,11 +172,15 @@ async function main(): Promise<void> {
       `missing=[${missing.join(',')}] unexpected=[${unexpected.join(',')}]`);
   }
 
+  let postFailures = 0;
   await mapLimit(published, CONCURRENCY, async p => {
     const s = await status(`/blog/${p.slug}`);
-    if (s !== 200) fail(`/blog/${p.slug} returned ${s}`);
+    if (s !== 200) {
+      postFailures++;
+      fail(`/blog/${p.slug} returned ${s}`);
+    }
   });
-  pass(`all ${published.length} published posts reachable`);
+  if (postFailures === 0) pass(`all ${published.length} published posts reachable`);
 
   section('drafts');
   for (const d of drafts) {

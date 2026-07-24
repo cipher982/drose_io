@@ -17,15 +17,34 @@ import { createHash } from 'crypto';
 import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join, relative } from 'path';
 
-/** Directories that constitute the served site, relative to the repo root. */
-const TRACKED_DIRS = ['server', 'templates', 'public', 'content'];
+/**
+ * Everything the Dockerfile copies into the image. Keep in sync with it: a path
+ * the image depends on but this omits is a path where a stale deploy can pass
+ * verification.
+ *
+ * The Dockerfile itself cannot be included — it is build input and is not
+ * present inside the image — so a change to the base image or build steps alone
+ * is not detected here. Everything the running site reads is.
+ */
+const TRACKED_DIRS = ['server', 'templates', 'public', 'content', 'scripts'];
+const TRACKED_FILES = ['package.json', 'bun.lock'];
 
 /**
- * Files that legitimately differ between checkout and image, or that have no
- * effect on what is served.
+ * Paths that legitimately differ between checkout and image, or that have no
+ * effect on what is served. `.DS_Store` and `node_modules` are stripped by the
+ * deploy rsync; `__pycache__`/`.venv` are local Python artifacts; the optimizer
+ * manifest does not affect output.
  */
 function isIgnored(name: string): boolean {
-  return name === '.DS_Store' || name === '.optimized.json' || name === '.gitkeep';
+  return (
+    name === '.DS_Store' ||
+    name === '.optimized.json' ||
+    name === '.gitkeep' ||
+    name === '__pycache__' ||
+    name === '.venv' ||
+    name === 'node_modules' ||
+    name.endsWith('.pyc')
+  );
 }
 
 function walk(root: string, dir: string, out: string[]): void {
@@ -49,17 +68,26 @@ function walk(root: string, dir: string, out: string[]): void {
   }
 }
 
-/**
- * Hash of (path, content) for every file under TRACKED_DIRS, sorted by path so
- * the result does not depend on filesystem ordering.
- */
-export function computeFingerprint(root: string): string {
+/** Every fingerprinted file, relative to root, sorted for stable ordering. */
+function collect(root: string): string[] {
   const files: string[] = [];
   for (const d of TRACKED_DIRS) {
     const abs = join(root, d);
     if (existsSync(abs)) walk(root, abs, files);
   }
+  for (const f of TRACKED_FILES) {
+    if (existsSync(join(root, f))) files.push(f);
+  }
   files.sort();
+  return files;
+}
+
+/**
+ * Hash of (path, content) for every file under TRACKED_DIRS, sorted by path so
+ * the result does not depend on filesystem ordering.
+ */
+export function computeFingerprint(root: string): string {
+  const files = collect(root);
 
   const outer = createHash('sha256');
   for (const rel of files) {
@@ -74,10 +102,5 @@ export function computeFingerprint(root: string): string {
 
 /** File count, useful for narrowing down a fingerprint mismatch. */
 export function fingerprintFileCount(root: string): number {
-  const files: string[] = [];
-  for (const d of TRACKED_DIRS) {
-    const abs = join(root, d);
-    if (existsSync(abs)) walk(root, abs, files);
-  }
-  return files.length;
+  return collect(root).length;
 }

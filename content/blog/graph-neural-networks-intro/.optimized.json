@@ -1,30 +1,37 @@
 {
   "assets/1*sMJUOuOc7qJTsOxZj-4HXQ.png": {
     "hash": "df6880a64c246b77",
-    "bytes": 703027
+    "bytes": 703027,
+    "v": 1
   },
   "assets/image-3.png": {
     "hash": "2b158502d66ffc44",
-    "bytes": 9249
+    "bytes": 9249,
+    "v": 1
   },
   "assets/image-2.png": {
     "hash": "9e2871b2ded22677",
-    "bytes": 19803
+    "bytes": 19803,
+    "v": 1
   },
   "assets/image-6.png": {
     "hash": "879cf39f51eab8d8",
-    "bytes": 2607
+    "bytes": 2607,
+    "v": 1
   },
   "assets/image-7.png": {
     "hash": "e17058a30651fa89",
-    "bytes": 161650
+    "bytes": 161650,
+    "v": 1
   },
   "assets/image-5.png": {
     "hash": "7e8b4b042c88a265",
-    "bytes": 4029
+    "bytes": 4029,
+    "v": 1
   },
   "assets/image-4.png": {
     "hash": "f955bf126f97bb37",
-    "bytes": 7171
+    "bytes": 7171,
+    "v": 1
   }
 }

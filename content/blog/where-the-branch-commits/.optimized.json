@@ -1,10 +1,12 @@
 {
   "assets/figures/branch_card_hero.png": {
     "hash": "238116b70628c8ff",
-    "bytes": 117557
+    "bytes": 117557,
+    "v": 1
   },
   "assets/figures/signature_rescue_panel.png": {
     "hash": "f28209457b93d3d0",
-    "bytes": 68359
+    "bytes": 68359,
+    "v": 1
   }
 }
