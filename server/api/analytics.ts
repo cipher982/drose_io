@@ -103,13 +103,11 @@ export function buildIdentityAeo(
     .map(([destination, total]) => ({ destination, total }));
 
   let blogViews = 0;
-  let auditViews = 0;
   let projectReferrals = 0;
   for (const bucket of buckets) {
     if (/drose\.io/i.test(bucket.domain)) {
       for (const path of bucket.paths) {
         if ((path.x || '').startsWith('/blog/')) blogViews += path.y || 0;
-        if (path.x === '/blog/aeo-personal-website-audit') auditViews += path.y || 0;
       }
       for (const referrer of bucket.referrers) {
         if (/llm-benchmarks\.com|aitools\.drose\.io|\/aitools/i.test(referrer.x || '')) {
@@ -125,7 +123,6 @@ export function buildIdentityAeo(
     clicksBySite,
     clicksByDestination,
     blogViews,
-    auditViews,
     aiReferrals: sourceBuckets.ai || 0,
     searchReferrals: sourceBuckets.search || 0,
     projectReferrals,

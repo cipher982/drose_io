@@ -8,8 +8,7 @@ describe('identity/AEO analytics aggregation', () => {
         site: 'drose.io', domain: 'drose.io', id: 'drose',
         referrers: [{ x: 'https://llm-benchmarks.com/cloud', y: 3 }],
         paths: [
-          { x: '/blog/aeo-personal-website-audit', y: 5 },
-          { x: '/blog/another-post', y: 2 },
+          { x: '/blog/another-post', y: 7 },
         ],
         events: [{ x: 'identity_link_click', y: 4 }],
         identityDestinations: [{ value: 'github_profile', total: 4 }],
@@ -23,7 +22,6 @@ describe('identity/AEO analytics aggregation', () => {
     ], { ai: 7, search: 11 });
 
     expect(result.blogViews).toBe(7);
-    expect(result.auditViews).toBe(5);
     expect(result.projectReferrals).toBe(3);
     expect(result.aiReferrals).toBe(7);
     expect(result.searchReferrals).toBe(11);
@@ -39,6 +37,5 @@ describe('identity/AEO analytics aggregation', () => {
     expect(result.clicksBySite).toEqual([]);
     expect(result.clicksByDestination).toEqual([]);
     expect(result.blogViews).toBe(0);
-    expect(result.auditViews).toBe(0);
   });
 });
