@@ -135,6 +135,8 @@
   <figcaption>Per-layer stretching, compounded across depth, replotted from the piecewise fit in Li et al. Figure 2. The rate drops off after layer 9, but the growth keeps compounding.</figcaption>
 </figure>
 
+<p>There's one more result in the paper worth pulling out, because it's the one that lines up with where this series ends up. They compute the QLE for perturbations introduced at each layer and plot the whole thing as a heatmap. Shallow layers mostly respond by converging: perturb them and the difference gets squeezed back out. Deep layers do the opposite, and strongly. So the chaotic behavior isn't spread evenly through the stack, it concentrates toward the end. That's worth holding onto if you're eventually going to go looking for the specific place a branch gets committed.</p>
+
 <p>Here's the demo I built while I was trying to internalize this. It's a toy visualization of a perturbation propagating through a stack of "layers" with a stretching rate you can adjust. Not real activations, but the right shape.</p>
 
 <figure>
