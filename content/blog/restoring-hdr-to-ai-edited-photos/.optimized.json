@@ -1,18 +1,18 @@
 {
   "assets/examples/beach_ultrahdr.jpg": {
-    "mtimeMs": 1777765315901,
+    "mtimeMs": 1777765315901.6265,
     "bytes": 308952
   },
   "assets/examples/garage_ultrahdr.jpg": {
-    "mtimeMs": 1777765315906,
+    "mtimeMs": 1777765315906.6125,
     "bytes": 496375
   },
   "assets/examples/selfie_ultrahdr.jpg": {
-    "mtimeMs": 1777765315909,
+    "mtimeMs": 1777765315909.0369,
     "bytes": 232316
   },
   "assets/examples/cafe_ultrahdr.jpg": {
-    "mtimeMs": 1777765315904,
+    "mtimeMs": 1777765315904.2249,
     "bytes": 446777
   }
 }
