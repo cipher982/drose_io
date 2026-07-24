@@ -1,38 +1,46 @@
 {
   "assets/figures/distribution-shift-basins.png": {
-    "mtimeMs": 1777741452298,
-    "bytes": 26595
+    "mtimeMs": 1784917259416.0906,
+    "bytes": 26590
   },
   "assets/figures/token-decision-boundary.png": {
-    "mtimeMs": 1777741452784,
-    "bytes": 443159
+    "mtimeMs": 1784917259579.9868,
+    "bytes": 436442
   },
   "assets/figures/slide3_hybrid_system.png": {
-    "mtimeMs": 1777741452925,
+    "mtimeMs": 1777741452925.9668,
     "bytes": 46719
   },
   "assets/figures/lorenz-state-space.png": {
-    "mtimeMs": 1777741453361,
-    "bytes": 546115
+    "mtimeMs": 1784917259911.2617,
+    "bytes": 546076
   },
   "assets/figures/logistic-bifurcation.png": {
-    "mtimeMs": 1777741453555,
+    "mtimeMs": 1777741453555.225,
     "bytes": 285286
   },
   "assets/figures/slide10_compounding.png": {
-    "mtimeMs": 1777741453723,
+    "mtimeMs": 1777741453723.6873,
     "bytes": 70864
   },
   "assets/figures/double-pendulum-divergence.png": {
-    "mtimeMs": 1777741453878,
-    "bytes": 100036
+    "mtimeMs": 1784917260315.914,
+    "bytes": 100033
   },
   "assets/figures/probability-weather-field.png": {
-    "mtimeMs": 1777741454440,
-    "bytes": 501320
+    "mtimeMs": 1784917260497.3591,
+    "bytes": 501162
   },
   "assets/figures/branching-continuations.png": {
-    "mtimeMs": 1777741454856,
-    "bytes": 857987
+    "mtimeMs": 1784917260717.8188,
+    "bytes": 857955
+  },
+  "assets/figures/hybrid-system-v2.png": {
+    "mtimeMs": 1784917261148.602,
+    "bytes": 649134
+  },
+  "assets/figures/depth-compounding.png": {
+    "mtimeMs": 1784917715779.4563,
+    "bytes": 121240
   }
 }
