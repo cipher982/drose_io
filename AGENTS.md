@@ -4,6 +4,44 @@ Personal portfolio, direct-message inbox, and public writing site. One
 developer, agent-assisted. Not a service anyone pays for: downtime is cheap,
 wrong content is expensive.
 
+## Common tasks
+
+```bash
+make dev          # run locally on :3000
+make test         # unit tests, no server needed
+make deploy       # deploy to clifford, then verify it
+make smoke        # verify prod matches this checkout
+```
+
+**Publish a post.** Create `content/blog/<slug>/` with an `index.html` fragment
+and a `meta.json`:
+
+```json
+{
+  "title": "Post Title",
+  "slug": "<must equal the directory name>",
+  "summary": "One or two sentences, shown on /blog and in RSS.",
+  "publishedAt": "2026-07-24T12:00:00.000Z",
+  "tags": ["llm", "infra"],
+  "status": "published",
+  "heroImage": "/blog/<slug>/assets/figures/hero.png"
+}
+```
+
+Required: `title`, `slug`, `summary`, `publishedAt`, `status`. Optional:
+`updatedAt`, `tags`, `heroImage`. Validated in `server/blog/loader.ts` — a bad
+`meta.json` throws at load with the reason. Nothing else needs editing: the
+index, RSS, sitemap, and homepage list all derive from it.
+
+**Unpublish.** Set `"status": "draft"`. See Publishing states below.
+
+**Add images to a post.** Drop them in `content/blog/<slug>/assets/`, then
+`make optimize-images` (idempotent; generates `.webp` siblings).
+
+**Recurring or automated content** goes in its own collection, not
+`content/blog/`. `content/digests/` + `server/digests/hn.ts` is the worked
+example, served at `/digests/hn` with its own feed and sitemap.
+
 ## Stack
 
 - Runtime: Bun + Hono, TypeScript run directly (no build step, no bundler, no
@@ -63,17 +101,29 @@ make smoke                           # verify only
 BASE=http://localhost:3000 make smoke # verify a local instance
 ```
 
+**Deploy syncs the working tree, not a git ref.** manual-app rsyncs the local
+directory, so uncommitted changes go live and a push is not required. Commit
+first if you want prod and `main` to agree.
+
 `make deploy` runs manual-app and then `scripts/smoke.ts`, which checks that
 production is serving **this** checkout:
 
 - `/api/version` fingerprint matches a hash of the local `server/`,
-  `templates/`, `public/`, and `content/` trees
+  `templates/`, `public/`, `content/`, `scripts/`, `package.json` and
+  `bun.lock`. Keep `TRACKED_DIRS` in `server/fingerprint.ts` in sync with what
+  the Dockerfile copies, or a stale deploy can pass.
 - `/blog` lists exactly the locally published slugs
 - every published post is 200, every draft is 404, every draft preview is 200
 - every post asset matches local bytes, fetched with a cache-busting param
 
 That last check exists because `assets/demos/data/*.json` 404'd in production
 for months while correct in git, and `/api/health` reported ok the whole time.
+
+**When smoke fails.** A fingerprint mismatch means prod is not running this
+code — usually the deploy failed partway, so read the manual-app output rather
+than re-running. An asset mismatch with a matching fingerprint means the file
+reached the container but is not being served, which points at the route or at
+Cloudflare. Everything green except one post usually means bad `meta.json`.
 
 ## Gotchas
 
@@ -90,7 +140,17 @@ for months while correct in git, and `/api/health` reported ok the whole time.
 - Umami is injected between `<!-- UMAMI_START -->` / `<!-- UMAMI_END -->` in
   `templates/index.html` at render time. It renders empty when `UMAMI_ENABLED`
   is unset, which is correct for local dev.
+- Local env comes from `.env` (see `.env.example`). Analytics, ntfy, Twilio and
+  the admin password are all optional locally; the site runs without them.
 - `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
+
+## Where to look next
+
+- `README.md` — API endpoints, directory tree, configuration.
+- `Makefile` — every supported command. If it is not there, it is not a
+  supported workflow.
+- `scripts/smoke.ts` — the executable definition of "working in production".
+- Figure generators under `scripts/figures/` run via `uv` (Python), not Bun.
 
 ## Important files
 
