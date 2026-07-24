@@ -1,110 +1,103 @@
-# drose.io - Personal Portfolio & Feedback System
+# drose.io
 
-A real-time personal portfolio with a "Zerg Glass" aesthetic and integrated messaging system. Visitors can send direct messages that land on my phone instantly, and I can reply via a mobile-optimized admin interface.
+Personal portfolio, writing site, and a direct-message inbox. Visitors can send
+messages that land on my phone; I reply from a mobile admin page.
 
-## 🌌 Zerg Glass Theme
-The site uses a modern glassmorphism design system ("Zerg Glass") featuring:
-- **Void Backgrounds**: Deep blacks (`#030305`) with layered grid and nebula effects.
-- **Glass Morphism**: High-blur backdrops for panels and cards.
-- **Neon Accents**: Indigo, cyan, pink, and purple glows.
-- **Animated Motion**: Grid pulses, nebula drifts, and dramatic hover transitions.
+Live at [drose.io](https://drose.io).
 
-## Features
+## Quick start
 
-### For Visitors
-- 👋 **One-click interaction** - "I'm a real person" button to prove humanity.
-- 💬 **Direct Messaging** - Send messages that persist across browser sessions.
-- 🔴 **Live Replies** - See when I reply in real-time via Server-Sent Events (SSE).
-- ✍️ **Engineering Blog** - Read long-form thoughts on AI agents and agentic systems.
-- ⚡ **Instant Updates** - No refreshing needed for conversation updates.
-
-### For Admin (You)
-- 📬 **Dual Notifications** - Get ntfy push alerts AND optional Twilio SMS.
-- 💻 **Mobile Admin UI** - Reply, manage threads, and publish blog posts from `/admin.html`.
-- 🔐 **Secure Access** - Simple Bearer authentication for all admin operations.
-- 📝 **Blog Management** - Create, edit, and publish Markdown posts with ease.
-- 📊 **Real-time Monitoring** - Live connection stats and thread management.
-
-## Quick Start
-
-### Development
 ```bash
-bun install    # Install dependencies
-bun run dev    # Start development server with Umami injection
+bun install
+make dev        # http://localhost:3000
+make test       # unit tests, no server required
 ```
 
-### Testing
+There is no build step. Bun runs the TypeScript directly.
+
+## Deploy
+
 ```bash
-make test       # Quick API tests
-make test-full  # Full integration test
-make test-e2e   # Playwright end-to-end tests
+make deploy     # deploy to clifford, then verify
+make smoke      # verify only
 ```
 
-### Deployment
-Deployment is handled automatically by **Coolify** on `clifford` (prod VPS) upon pushing to the `main` branch.
+`make deploy` syncs the working tree to `clifford` via `manual-app`, rebuilds
+the container, and then runs `scripts/smoke.ts` against production. Smoke
+compares a fingerprint of the local `server/`, `templates/`, `public/`, and
+`content/` trees against `/api/version`, so a deploy that silently no-ops fails
+the check instead of looking successful. It also fetches every blog asset and
+compares bytes.
+
+Nothing auto-deploys on push.
 
 ## Architecture
 
-### Tech Stack
-- **Runtime:** Bun (Blazing fast TS execution)
-- **Framework:** Hono (Lightweight and fast web framework)
-- **Frontend:** Static HTML + CSS Tokens + Build-time script injection
-- **Storage:** JSONL append-only files (Simple, transparent, no DB required)
-- **Real-time:** Server-Sent Events (Native, efficient live updates)
-- **Notifications:** ntfy.sh & Twilio SMS
-
-### File Structure
+- **Runtime:** Bun + Hono
+- **Public pages:** `templates/index.html` and `templates/admin.html`, rendered
+  at boot (analytics injection, latest-posts list, asset content hashes). Other
+  static files are served from `public/`.
+- **Blog:** server-rendered from `content/blog/`. Not Markdown — each post is a
+  directory with `meta.json` and an `index.html` fragment.
+- **Storage:** append-only JSONL under `data/`. No database.
+- **Real-time:** Server-Sent Events for live replies.
+- **Notifications:** ntfy, with optional Twilio SMS.
 
 ```
-drose_io/
-├── server/
-│   ├── index.ts                  # Main entry point
-│   ├── api/                      # API endpoint handlers
-│   │   ├── blog.ts               # Blog management
-│   │   ├── threads.ts            # Messaging logic
-│   │   └── sse.ts                # Real-time streaming
-│   ├── storage/                  # Data persistence layer
-│   └── routes/                   # SSR routes (e.g., Blog)
-├── public/
-│   ├── index.html                # Homepage
-│   ├── admin.html                # Admin Dashboard
-│   └── assets/
-│       ├── css/                  # Zerg Glass design system
-│       └── js/                   # Real-time widget logic
-├── content/
-│   └── blog/                     # Markdown post storage
-├── data/
-│   ├── threads/                  # Conversation history
-│   └── blocked/                  # Visitor blocklist
-├── scripts/
-│   └── inject-umami.ts           # Build-time analytics injection
-└── Makefile                      # Task automation
+server/
+  index.ts              entry point, routes, cache headers
+  render/               boot-time page rendering, asset hashing
+  fingerprint.ts        deployment identity
+  blog/                 loader, layout, RSS, sitemap, assets
+  api/                  threads, SSE, push, analytics, creature
+  storage/              JSONL persistence
+templates/              index.html, admin.html (rendered, not served raw)
+public/                 CSS, JS, images, static XML
+content/blog/<slug>/    meta.json + index.html + assets/
+scripts/
+  smoke.ts              post-deploy verification
+  figures/              generators for blog figures containing numbers
 ```
 
-## API Endpoints
+## Writing
 
-### Public
-- `POST /api/feedback` - Send initial ping or message.
-- `GET /api/threads/:visitorId/messages` - Get history.
-- `GET /api/threads/:visitorId/stream` - Live message stream (SSE).
-- `GET /blog` - View all published posts.
-- `GET /blog/:slug` - Read a specific post.
+A post is `content/blog/<slug>/meta.json` plus an `index.html` fragment.
+`status` is `published` or `draft`; drafts 404 and drop out of `/blog`, RSS, and
+the sitemap, but remain readable at `?preview=1`. The blog index, feeds,
+sitemap, and homepage list are all derived from `meta.json`.
 
-### Admin (Requires Bearer Auth)
-- `GET /api/admin/threads` - List all active conversations.
-- `POST /api/admin/threads/:visitorId/reply` - Send reply to visitor.
-- `DELETE /api/admin/threads/:visitorId` - Archive/delete thread.
-- `GET /api/admin/blog/posts` - List all posts (including drafts).
-- `POST /api/admin/blog/posts` - Create new post.
-- `PATCH /api/admin/blog/posts/:slug` - Update post content/status.
+There is no admin CRUD UI for posts. Posts are edited as files.
+
+See `AGENTS.md` for the full content model, date conventions, and the figure
+and citation rules.
+
+## API
+
+Public:
+
+- `POST /api/feedback` — send a ping or message
+- `GET /api/threads/:visitorId/messages` — history
+- `GET /api/threads/:visitorId/stream` — live updates (SSE)
+- `GET /api/health` — liveness
+- `GET /api/version` — deployment fingerprint
+
+Admin (Bearer auth):
+
+- `GET /api/admin/threads`, `POST /api/admin/threads/:visitorId/reply`,
+  `POST /api/admin/threads/:visitorId/read`,
+  `DELETE /api/admin/threads/:visitorId`
+- `GET /api/admin/stream`, `GET /api/admin/inbox/health`
+- `GET /api/admin/analytics/{summary,insights,deep}`
 
 ## Configuration
 
-### Environment Variables
-- `ADMIN_PASSWORD`: For admin dashboard access.
-- `NTFY_TOPIC`: For mobile push notifications.
-- `UMAMI_WEBSITE_ID`: For analytics injection.
-- `TWILIO_*`: (Optional) For SMS notification fallbacks.
+- `ADMIN_PASSWORD` — admin access
+- `NTFY_SERVER`, `NTFY_TOPIC` — push notifications
+- `UMAMI_ENABLED`, `UMAMI_WEBSITE_ID`, `UMAMI_DOMAINS` — analytics. Injection
+  happens at render time, so these must be present in the running container,
+  not at image build.
+- `TWILIO_*` — optional SMS fallback
 
 ## License
+
 MIT

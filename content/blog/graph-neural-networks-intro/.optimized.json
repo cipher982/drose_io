@@ -1,30 +1,30 @@
 {
   "assets/1*sMJUOuOc7qJTsOxZj-4HXQ.png": {
-    "mtimeMs": 1784917255418.181,
+    "hash": "df6880a64c246b77",
     "bytes": 703027
   },
   "assets/image-3.png": {
-    "mtimeMs": 1784917255504.012,
+    "hash": "2b158502d66ffc44",
     "bytes": 9249
   },
   "assets/image-2.png": {
-    "mtimeMs": 1784917255531.3423,
+    "hash": "9e2871b2ded22677",
     "bytes": 19803
   },
   "assets/image-6.png": {
-    "mtimeMs": 1784917255549.3293,
+    "hash": "879cf39f51eab8d8",
     "bytes": 2607
   },
   "assets/image-7.png": {
-    "mtimeMs": 1777741447812.707,
+    "hash": "e17058a30651fa89",
     "bytes": 161650
   },
   "assets/image-5.png": {
-    "mtimeMs": 1777741447874.534,
+    "hash": "7e8b4b042c88a265",
     "bytes": 4029
   },
   "assets/image-4.png": {
-    "mtimeMs": 1784917255695.7996,
+    "hash": "f955bf126f97bb37",
     "bytes": 7171
   }
 }

@@ -76,12 +76,15 @@ export async function blogAsset(c: Context) {
 
   const file = Bun.file(requested);
   const mime = MIME[extname(requested).toLowerCase()] || 'application/octet-stream';
-  return new Response(file, {
-    headers: {
-      'Content-Type': mime,
-      'Cache-Control': c.req.query('v')
-        ? 'public, max-age=31536000, immutable'
-        : 'public, max-age=86400, must-revalidate',
-    },
-  });
+  const headers = {
+    'Content-Type': mime,
+    'Content-Length': String(file.size),
+    'Cache-Control': c.req.query('v')
+      ? 'public, max-age=31536000, immutable'
+      : 'public, max-age=86400, must-revalidate',
+  };
+  // HEAD must report a real Content-Length; without the explicit header it
+  // reports 0, which misleads crawlers and any size-based verification.
+  if (c.req.method === 'HEAD') return new Response(null, { headers });
+  return new Response(file, { headers });
 }

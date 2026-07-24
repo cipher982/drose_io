@@ -8,8 +8,9 @@ bun.lockb
 # Environment
 .env
 
-# Data storage
-data/
+# Data storage (anchored: an unanchored `data/` also matches nested dirs like
+# content/blog/<slug>/assets/demos/data, which is how demo JSON went missing)
+/data/
 
 # Project-specific instructions
 CLAUDE.md

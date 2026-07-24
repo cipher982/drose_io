@@ -10,11 +10,9 @@ RUN bun install --frozen-lockfile
 # Copy source code and scripts
 COPY server ./server
 COPY public ./public
+COPY templates ./templates
 COPY content ./content
 COPY scripts ./scripts
-
-# Run build-time tasks (like Umami injection)
-RUN bun run build
 
 # Create data directories for persistence
 RUN mkdir -p /app/data/visitors /app/data/pepper-logs
@@ -22,5 +20,5 @@ RUN mkdir -p /app/data/visitors /app/data/pepper-logs
 # Expose port
 EXPOSE 3000
 
-# Start server using the start script which includes any runtime injections
+# Templates render at runtime, so analytics env vars are available at render time
 CMD ["bun", "run", "start"]

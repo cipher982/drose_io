@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { buildUmamiScript } from '../umami';
+import { assetUrl } from '../render/assets';
 
 const SITE_URL = 'https://drose.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/assets/images/david-og.jpg`;
@@ -193,8 +194,8 @@ function pageShell(opts: {
 <meta name="twitter:description" content="${esc(opts.description)}">
 <meta name="twitter:image" content="${esc(DEFAULT_OG_IMAGE)}">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="stylesheet" href="/assets/css/tokens.css?v=e54d4ab1">
-<link rel="stylesheet" href="/assets/css/win98-theme.css?v=adf78f17">
+<link rel="stylesheet" href="${assetUrl('/assets/css/tokens.css')}">
+<link rel="stylesheet" href="${assetUrl('/assets/css/win98-theme.css')}">
 ${buildUmamiScript()}
 <style>${STYLES}</style>
 ${opts.extraHead || ''}

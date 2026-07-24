@@ -17,14 +17,21 @@
 import { readdir, stat, readFile, writeFile } from "node:fs/promises";
 import { join, extname, basename, dirname, relative } from "node:path";
 import sharp from "sharp";
+import { createHash } from "node:crypto";
 
 const BLOG_ROOT = new URL("../content/blog/", import.meta.url).pathname;
 const MAX_WIDTH = 1840;
 const PNG_OPTS = { compressionLevel: 9, palette: true } as const;
 const JPEG_OPTS = { quality: 82, mozjpeg: true } as const;
 const WEBP_OPTS = { quality: 82 } as const;
+/** Minimum fractional size win before rewriting a tracked file. */
+const MIN_SAVINGS = 0.03;
 
-type Manifest = Record<string, { mtimeMs: number; bytes: number }>;
+function sha256(buf: Buffer | Uint8Array): string {
+  return createHash("sha256").update(buf).digest("hex").slice(0, 16);
+}
+
+type Manifest = Record<string, { hash: string; bytes: number }>;
 
 async function walk(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -48,7 +55,11 @@ async function loadManifest(slug: string): Promise<Manifest> {
 
 async function saveManifest(slug: string, m: Manifest) {
   const p = join(BLOG_ROOT, slug, ".optimized.json");
-  await writeFile(p, JSON.stringify(m, null, 2));
+  const next = JSON.stringify(m, null, 2);
+  try {
+    if ((await readFile(p, "utf8")) === next) return;
+  } catch {}
+  await writeFile(p, next);
 }
 
 async function processImage(
@@ -64,18 +75,23 @@ async function processImage(
 
   const key = relative(join(BLOG_ROOT, slug), path);
   const st = await stat(path);
+  const currentBuf = await readFile(path);
+  const currentHash = sha256(currentBuf);
   const entry = manifest[key];
-  if (entry && entry.mtimeMs === st.mtimeMs) {
+  // Keyed on the hash of the bytes currently on disk, which are the bytes a
+  // previous run left behind. mtime is not stable across checkouts or touches,
+  // and made every run rewrite the whole tree for 0% savings.
+  if (entry && entry.hash === currentHash) {
     return { before: st.size, after: st.size, skipped: true, webpBytes: 0 };
   }
 
   const before = st.size;
   if (isGif) {
-    manifest[key] = { mtimeMs: st.mtimeMs, bytes: before };
+    manifest[key] = { hash: currentHash, bytes: before };
     return { before, after: before, skipped: true, webpBytes: 0 };
   }
 
-  const buf = await readFile(path);
+  const buf = currentBuf;
 
   // Skip Ultra HDR JPEGs: a second JPEG stream (gain map) appended after the primary,
   // referenced by MPF metadata. Re-encoding with sharp drops the gain map and turns the
@@ -85,7 +101,7 @@ async function processImage(
     const secondSoi = firstSoi >= 0 ? buf.indexOf(Buffer.from([0xff, 0xd8]), firstSoi + 2) : -1;
     const hasMpf = buf.includes(Buffer.from("MPF\x00"));
     if (secondSoi > 0 && hasMpf) {
-      manifest[key] = { mtimeMs: st.mtimeMs, bytes: before };
+      manifest[key] = { hash: currentHash, bytes: before };
       return { before, after: before, skipped: true, webpBytes: 0 };
     }
   }
@@ -101,9 +117,14 @@ async function processImage(
   if (isPng) outBuf = await pipeline.png(PNG_OPTS).toBuffer();
   else outBuf = await pipeline.jpeg(JPEG_OPTS).toBuffer();
 
-  // Only overwrite if we actually saved bytes (or resized).
-  if (outBuf.length < before || needsResize) {
+  // Only overwrite for a meaningful win. Rewriting a PNG to save 0.1% just
+  // churns the git history and buries real changes in the diff.
+  const savedFraction = (before - outBuf.length) / before;
+  const worthWriting = needsResize || savedFraction >= MIN_SAVINGS;
+  if (worthWriting) {
     await writeFile(path, outBuf);
+  } else {
+    outBuf = currentBuf;
   }
 
   // Also emit .webp sibling from the resized source.
@@ -118,7 +139,8 @@ async function processImage(
   }
 
   const newSt = await stat(path);
-  manifest[key] = { mtimeMs: newSt.mtimeMs, bytes: newSt.size };
+  // Record the hash of what is now on disk, so the next run skips it.
+  manifest[key] = { hash: sha256(outBuf), bytes: newSt.size };
   return { before, after: newSt.size, skipped: false, webpBytes: webpSize };
 }
 

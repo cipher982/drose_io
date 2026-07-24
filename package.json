@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "bun run scripts/inject-umami.ts && bun run scripts/inject-latest-posts.ts && bun run scripts/bust-cache.ts",
-    "dev": "bun run scripts/inject-umami.ts && bun run scripts/inject-latest-posts.ts && bun run scripts/bust-cache.ts && bun run server/index.ts",
-    "start": "bun run scripts/inject-umami.ts && bun run scripts/inject-latest-posts.ts && bun run scripts/bust-cache.ts && bun run server/index.ts",
+    "dev": "bun run server/index.ts",
+    "start": "bun run server/index.ts",
+    "smoke": "bun run scripts/smoke.ts",
+    "test": "bun test test/analytics-identity.test.ts",
+    "optimize-images": "bun run scripts/optimize-blog-images.ts",
     "perf": "bun run scripts/perf/run.ts",
     "perf:analyze": "bun run scripts/perf/analyze-cpuprofile.ts",
-    "perf:trace-analyze": "bun run scripts/perf/analyze-trace.ts",
-    "test:unit": "bun test test/analytics-identity.test.ts"
+    "perf:trace-analyze": "bun run scripts/perf/analyze-trace.ts"
   },
   "dependencies": {
     "hono": "^4.0.0",

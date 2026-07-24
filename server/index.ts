@@ -13,8 +13,16 @@ import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
 import { continueThreadGet, continueThreadPost } from './continue/routes';
+import { homePage, adminPage } from './render/pages';
+import { computeFingerprint, fingerprintFileCount } from './fingerprint';
+import { join } from 'path';
 
 const app = new Hono();
+
+const REPO_ROOT = join(import.meta.dir, '..');
+const FINGERPRINT = computeFingerprint(REPO_ROOT);
+const FINGERPRINT_FILES = fingerprintFileCount(REPO_ROOT);
+const STARTED_AT = new Date().toISOString();
 
 // CORS for API endpoints
 app.use('/api/*', cors());
@@ -71,8 +79,18 @@ app.get('/api/push/vapid-public-key', getVapidPublicKey);
 app.get('/m/:token', continueThreadGet);
 app.post('/m/:token', continueThreadPost);
 
-// Admin page
-app.get('/admin', serveStatic({ path: './public/admin.html' }));
+// Rendered pages. These must stay ahead of serveStatic so nothing can serve an
+// unrendered template, and the templates live outside public/ so there is
+// nothing unrendered to serve in the first place.
+const HTML_HEADERS = { 'Content-Type': 'text/html; charset=utf-8' } as const;
+
+app.get('/', (c) => c.body(homePage(), 200, HTML_HEADERS));
+app.get('/index.html', (c) => c.body(homePage(), 200, HTML_HEADERS));
+
+// /admin.html is requested by the service worker and by push notification
+// click-through, so both spellings have to render.
+app.get('/admin', (c) => c.body(adminPage(), 200, HTML_HEADERS));
+app.get('/admin.html', (c) => c.body(adminPage(), 200, HTML_HEADERS));
 
 // Analytics dashboard (admin-gated)
 app.get('/api/admin/analytics/summary', handleAnalyticsSummary);
@@ -100,6 +118,14 @@ app.get('/api/health', (c) => c.json({
   connections: connectionManager.getStats(),
 }));
 
+// Deployment identity. scripts/smoke.ts compares this against the local
+// checkout, so a stale deploy fails verification even when every route is 200.
+app.get('/api/version', (c) => c.json({
+  fingerprint: FINGERPRINT,
+  files: FINGERPRINT_FILES,
+  startedAt: STARTED_AT,
+}));
+
 // Fix HEAD requests for XML files (Hono serveStatic bug workaround)
 // Google Search Console uses HEAD requests to check sitemaps before fetching
 // Without this, serveStatic returns content-length: 0 for HEAD requests
@@ -123,11 +149,11 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-// Serve static files (HTML, CSS, JS, images)
+// Serve static files (CSS, JS, images)
 app.use('/*', serveStatic({ root: './public' }));
 
-// Fallback to index.html for SPA routing
-app.get('/*', serveStatic({ path: './public/index.html' }));
+// Fallback to the rendered homepage for SPA routing
+app.get('/*', (c) => c.body(homePage(), 200, HTML_HEADERS));
 
 const port = parseInt(Bun.env.PORT || '3000');
 console.log(`🚀 Server running on http://localhost:${port}`);

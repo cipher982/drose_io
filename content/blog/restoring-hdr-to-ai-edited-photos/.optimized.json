@@ -1,18 +1,18 @@
 {
   "assets/examples/beach_ultrahdr.jpg": {
-    "mtimeMs": 1777765315901.6265,
+    "hash": "4a9d395ef4fb7c38",
     "bytes": 308952
   },
   "assets/examples/garage_ultrahdr.jpg": {
-    "mtimeMs": 1777765315906.6125,
+    "hash": "24d76e2fba21ca72",
     "bytes": 496375
   },
   "assets/examples/selfie_ultrahdr.jpg": {
-    "mtimeMs": 1777765315909.0369,
+    "hash": "a56a8c375b2397ac",
     "bytes": 232316
   },
   "assets/examples/cafe_ultrahdr.jpg": {
-    "mtimeMs": 1777765315904.2249,
+    "hash": "d25bd4f2a475cd5b",
     "bytes": 446777
   }
 }

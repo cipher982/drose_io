@@ -1,4 +1,5 @@
 import { buildUmamiScript } from '../umami';
+import { assetUrl } from '../render/assets';
 import type { Post } from './types';
 
 const SITE_URL = 'https://drose.io';
@@ -103,8 +104,8 @@ function pageShell(opts: {
 <meta name="twitter:description" content="${esc(opts.description)}">
 <meta name="twitter:image" content="${esc(opts.ogImage)}">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="stylesheet" href="/assets/css/tokens.css?v=e54d4ab1">
-<link rel="stylesheet" href="/assets/css/win98-theme.css?v=adf78f17">
+<link rel="stylesheet" href="${assetUrl('/assets/css/tokens.css')}">
+<link rel="stylesheet" href="${assetUrl('/assets/css/win98-theme.css')}">
 ${buildUmamiScript()}
 <style>${BLOG_STYLES}</style>
 ${opts.extraHead || ''}

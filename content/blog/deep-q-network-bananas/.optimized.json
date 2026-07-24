@@ -1,14 +1,14 @@
 {
   "assets/1*D0Ja6y90ar6kkOMGRinTGQ.png": {
-    "mtimeMs": 1784917256608.0955,
+    "hash": "44e30f403306bd10",
     "bytes": 54232
   },
   "assets/1*9K5HCLXO_cUk3maTuoLlTg.png": {
-    "mtimeMs": 1777741449515.999,
+    "hash": "d457a03dd4887a00",
     "bytes": 994273
   },
   "assets/1*Z4yMUzrqcWvXlKyYrUVbgQ.jpeg": {
-    "mtimeMs": 1784917257047.0366,
+    "hash": "ca4ff40229bf6115",
     "bytes": 12041
   },
   "assets/1*jCgb4RuGs225UhDvP8gLiQ.gif": {
@@ -16,7 +16,7 @@
     "bytes": 920299
   },
   "assets/1*-QDaPQqN-go1QPrG4U3EjA.png": {
-    "mtimeMs": 1784917257070.4998,
+    "hash": "4f2a7e9137fa8aca",
     "bytes": 23414
   }
 }
