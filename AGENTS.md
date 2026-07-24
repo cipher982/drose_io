@@ -171,3 +171,37 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
   accents. Use `tokens.css` variables.
 - Prose: plain and direct. No marketing cadence, no rhetorical flourish, no
   "not X, but Y" constructions. State what happened.
+
+## Misc subsystems
+
+Rarely edited, so kept brief. Read the files before changing any of them.
+
+**Direct messages.** A visitor posts to `/api/feedback`; the thread is appended
+as JSONL under `data/threads/`, and ntfy (optionally Twilio SMS) notifies David.
+Replies stream back over SSE (`server/api/sse.ts`,
+`server/sse/connection-manager.ts`), and he answers from `/admin`, gated by
+`ADMIN_PASSWORD` bearer auth. `/m/:token` is a separate, cookie-free way to
+continue a conversation from a link, rate-limited by token.
+
+This is the only part of the site holding real user data. `data/` is a bind
+mount on clifford, not in the image, and is excluded from deploys — do not
+"clean it up", and be careful with anything that rewrites thread files.
+
+**Pepper** is the sprite creature on the homepage: `public/assets/js/creature.js`
+plus `creature.css` and a spritesheet, with `server/api/creature.ts` for state
+and `server/api/creature-think.ts` for reactions. Note that `creature-think`
+calls the OpenAI API directly (`gpt-5.2`) rather than going through OpenRouter,
+which is the usual default for personal projects. Its logs land in
+`data/pepper-logs/`. Costs money per call, so check the trigger conditions
+before making it chattier.
+
+**Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
+(`server/api/analytics.ts`, admin-gated), with an optional raw collector at
+`ANALYTICS_COLLECTOR_URL`. It logs into Umami with admin credentials from env
+and caches a token. Umami itself runs as a separate manual-app on clifford.
+Treat pageview numbers as lower bounds: the per-path data is top-pages per
+interval, so a missing post is not proven to be zero.
+
+**Service worker.** `public/sw.js` caches shell assets and handles push
+notification clicks. It is easy to forget: if a cached path changes, bump what
+the worker precaches or returning visitors keep the old copy.
