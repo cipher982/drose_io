@@ -22,8 +22,6 @@ David W. Rose is a tinkerer and builder whose projects range from coding agents 
 
 ## Selected writing
 
-- [Where the Branch Commits](https://drose.io/blog/where-the-branch-commits): Residual-stream patching experiments on where small prompt edits change an LLM's output.
-- [Measuring LLM Sensitivity](https://drose.io/blog/measuring-llm-sensitivity): Experiments on which prompt perturbations change model trajectories.
 - [Nearby Prompts, Distant Trajectories](https://drose.io/blog/nearby-prompts-distant-trajectories): Why small prompt changes can produce diverging LLM outputs.
 - [Restoring HDR to AI-Edited Photos](https://drose.io/blog/restoring-hdr-to-ai-edited-photos): Technical account of reconstructing HDR gain maps after image editing.
 

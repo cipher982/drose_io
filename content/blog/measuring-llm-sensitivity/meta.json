@@ -11,6 +11,6 @@
     "research",
     "measurement"
   ],
-  "status": "published",
+  "status": "draft",
   "heroImage": "/blog/measuring-llm-sensitivity/assets/figures/token_micro_v2_category_heatmap.png"
 }
