@@ -1,54 +1,49 @@
-<p>I sometimes use the latest AI image-editing tools to touch up photos and remove objects. The problem is that the current tools I have tried, including the OpenAI and Gemini image-editing paths, return an image with the HDR layer missing. That is the pop you see in the brightness of the sky in an iPhone photo: a layer called the <em>gain map</em>.</p>
+<p>I sometimes use the latest AI image-editing tools to touch up photos and remove objects. The problem is that the current batch I have tried, including OpenAI and Gemini, strip the HDR layer. That is the pop you see in the brightness of the sky in an iPhone photo. Specifically, it is a layer called the <em>gain map</em>.</p>
 
-<p>Picture formats have changed over the years. We still see a box of pixels on the screen, but more information is being stored alongside those pixels. One practical way to make HDR images work across old and new devices is to keep an ordinary SDR image and attach extra information that HDR-capable software can use. A gain map is that extra information: a second image that tells a compatible display how much brighter to render each part of the base image.</p>
+<p>Picture formats have changed a lot over the years. While we just see a box of pixels on the screen, more stuff is getting stuffed into the data itself. One of the modern ways to keep HDR photos compatible across devices is to include a standard SDR image and an additional grayscale gain map. Its job is to tell an HDR-capable display how much brighter to render each of those base pixels. Google and Apple ended up with different ways to structure this metadata, although the formats have started to converge around ISO 21496-1.</p>
 
-<p>The Google <a href="https://developer.android.com/media/platform/hdr-image-format" rel="noopener">Ultra HDR specification</a> describes this as a conventional low-dynamic-range image plus a logarithmic-range gain map. The format is backwards-compatible: an old viewer displays the SDR image, while a viewer that understands the metadata combines the two renditions. Adobe's <a href="https://helpx.adobe.com/camera-raw/desktop/hdr-and-advanced-output/gain-map.html" rel="noopener">gain-map documentation</a> describes the same basic model and notes that gain maps are now standardized in ISO 21496-1.</p>
-
-<p>The file I am working with is a JPEG with two images inside it: the normal SDR JPEG and an additional grayscale gain-map JPEG appended to it. The gain map says how much brighter each corresponding region can become when the display has headroom above SDR white. That is the part the AI editor throws away.</p>
+<p>Now if we return to the image-editing tools of the modern AI stack, they operate on the simpler box of pixel values I brought up earlier. A matrix of pixels. Neural networks love matrices. The current crop just tosses out the HDR data, so if you want to edit a street sign out of a nature photo, the result looks flat next to the unedited ones on your MacBook or iPhone.</p>
 
 <figure>
   <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/beach_ultrahdr.jpg" alt="Beach photo after HDR gain-map restoration, rendered as an Ultra HDR JPEG" loading="lazy" decoding="async" width="1400" height="763">
-  <figcaption>A restored Ultra HDR JPEG. On an HDR-capable browser and display, the sky and specular highlights sit above SDR white. Everywhere else, it is an ordinary-looking JPEG.</figcaption>
+  <figcaption>A restored Ultra HDR JPEG. If you are viewing this on an HDR-capable browser and display, the sky and specular highlights sit above SDR white. If you are not, this looks like a normal JPEG.</figcaption>
 </figure>
 
-<h2>What the AI editors do</h2>
+<p><a href="https://developer.apple.com/videos/play/wwdc2023/10181/" rel="noopener">Apple says iPhones have been capturing gain-map HDR photos since 2020</a>, and Google introduced <a href="https://developer.android.com/media/grow/ultra-hdr" rel="noopener">Ultra HDR with Android 14</a>. It is two parts, remember? The first is an 8-bit SDR JPEG, the kind of file any software written in the last thirty years can decode. The second is a grayscale image called the gain map, stored as another JPEG, which says how many stops brighter each part of the image should be rendered if the display can go brighter than SDR white.</p>
 
-<p>The implementation details differ between products. At the boundary, the tools I tested have the same shape: the incoming file gets decoded to pixel data, that data runs through an image model, and the result gets encoded as a new JPEG or PNG. The code that reads metadata, applies orientation, and writes the output is usually a separate image-library path. That path knows how to write pixels. It does not necessarily know that a second JPEG and a set of gain-map parameters need to survive beside them.</p>
+<p>This is not all HDR. Other formats store HDR pixels directly, including <a href="https://developer.apple.com/videos/play/wwdc2023/10181/" rel="noopener">10-bit HEIF</a> and <a href="https://aomediacodec.github.io/av1-avif/" rel="noopener">AVIF</a>. The gain-map design is more pragmatic for a JPEG because it does not require a new codec or file extension. Old software can ignore the extra data and show the SDR image.</p>
 
-<p>Neural networks like matrices, so this simplified pipeline is natural: decode the image into an RGB tensor, run a diffusion model, a segmentation-and-inpainting model, or another pixel-processing operation, then encode the output. The problem is that the gain map is not just a decorative overlay. It describes the relationship between the base pixels and their brighter rendition.</p>
+<h2>How the AI editors work</h2>
 
-<p>If an editor preserved the old gain map byte for byte, the map could still be wrong. The SDR pixels it was calibrated against are no longer the same pixels. Add or remove an object, change the color of a wall, or alter a local contrast boundary and the old gain map no longer lines up with the edited image. Google's <a href="https://developer.android.com/media/grow/ultra-hdr/edit" rel="noopener">Ultra HDR editing guidance</a> makes the same distinction: simple geometric edits can transform the gain map along with the base image, but edits that change image contents may require modifying or removing it.</p>
+<p>Each AI image editor I have looked at has roughly the same shape. The incoming file gets decoded into an RGB tensor. That tensor runs through some model, maybe diffusion or a segmentation-plus-inpainting pipeline. The output tensor gets encoded back to a JPEG or PNG and sent to the user. The piece that reads metadata, applies orientation, and writes the output is outside the model itself.</p>
 
-<p>So the editor has two real options. It can preserve and regenerate the gain map as part of an HDR-aware pipeline, or it can return a plain SDR image. The tools I tested take the second path. If I edit a street sign out of a nature photo, the result looks flatter beside the unedited original on my iPhone or MacBook because the HDR rendition is gone.</p>
+<p>If the editor preserved the gain map byte for byte, the map would no longer be correct because the SDR pixels it was calibrated against are no longer the same pixels. The gain map describes the luminance difference between the SDR image and its brighter rendition. If you change the SDR image, the stencil-like overlay of HDR gain may no longer line up. Google's <a href="https://developer.android.com/media/grow/ultra-hdr/edit" rel="noopener">own editing guide</a> makes the same distinction: crops and rotations can transform the gain map along with the base image, but edits to the actual contents may require changing or removing it.</p>
 
-<h2>Two metadata paths in one JPEG</h2>
+<h2>Two kinds of gain-map metadata</h2>
 
-<p>This is not all of HDR, and it is not the only way to store HDR images. HEIF, AVIF, and other formats have their own ways to carry high-dynamic-range information. The <a href="https://aomediacodec.github.io/av1-avif/v1.2.0.html#general" rel="noopener">AVIF specification</a>, for example, supports HDR images and tone-map-derived image items. I am staying with JPEG here because the backward-compatible behavior is useful on the web: software that knows nothing about gain maps can still display the base image.</p>
+<p>One is the Google-Adobe format. Google defined it in the <a href="https://developer.android.com/media/platform/hdr-image-format" rel="noopener">Ultra HDR spec</a> that shipped with Android 14. The gain-map parameters live in an XMP packet in the primary JPEG, in an <code>hdrgm</code> namespace. There is a Container directory with a Primary item and a GainMap item. The GainMap item has a <code>Length</code> pointing at the size of the appended gain-map JPEG, and a Multi-Picture Format (MPF) marker points to where that second JPEG starts. Chrome on a capable display can parse this and render HDR.</p>
 
-<p>The JPEG I wanted had to satisfy two related metadata conventions. The first is Google's Ultra HDR path. Its XMP packet carries the gain-map parameters and a Container directory with a Primary item and a GainMap item. The GainMap item has a length, and an MPF offset table points to the second JPEG inside the file. A compatible browser can use that information to reconstruct the brighter rendition.</p>
+<p>The second is ISO 21496-1. The current iPhone files I inspected have an APP2 segment whose payload starts with <code>urn:iso:std:iso:ts:21496:-1</code>, and it appears in both the primary image and the gain-map image. In my tests, Preview.app on macOS and Photos on iOS would not show HDR from the Google XMP alone. With the ISO markers, they did. Current Android guidance now recommends encoding both kinds of metadata for maximum compatibility, so this is not just an Apple workaround anymore.</p>
 
-<p>The second is the ISO 21496-1 gain-map path. The iPhone JPEGs I inspected carried an APP2 segment whose payload starts with <code>urn:iso:std:iso:ts:21496:-1</code>. In my tests, Preview.app on macOS and Photos on iOS needed those ISO markers even when the Google XMP was present. I therefore put both sets of metadata into my output rather than treating them as competing formats.</p>
-
-<p>A working file carries:</p>
+<p>For my files to render as HDR in both Chrome and Apple's photo apps, they need all of this:</p>
 
 <ul>
-  <li>the Google Container XMP for viewers that understand Ultra HDR;</li>
-  <li>ISO 21496-1 markers for the Apple path I observed;</li>
-  <li>the <code>hdrgm</code> gain-map parameters in places the readers can find them;</li>
-  <li>the MPF offset table linking the primary image to the gain map; and</li>
-  <li>an ICC profile for color handling.</li>
+  <li>the Google Container and <code>hdrgm</code> XMP;</li>
+  <li>the ISO 21496-1 markers and parameters;</li>
+  <li>the MPF offset table that links the primary image to the gain map; and</li>
+  <li>an ICC profile for color accuracy.</li>
 </ul>
 
-<p>All of this goes near the front of the file, before the actual image data starts. The file still opens as a JPEG when one of those pieces is missing. That is what makes these failures difficult to diagnose: a broken HDR file often looks like a working SDR file.</p>
+<p>All of this goes at the front of the file in a specific order, before the actual image data starts. It took a bit of trial and error to figure out.</p>
 
 <p>The file structure, for one of my actual outputs, looks like this:</p>
 
 <pre><code>PRIMARY IMAGE (~223 KB):
   SOI (start of image)
   APP0 JFIF                                 16 bytes
-  APP1 XMP + Container + hdrgm           1,486 bytes   &lt;- Ultra HDR readers need this
+  APP1 XMP + Container + hdrgm           1,486 bytes   &lt;- Chrome needs this
   APP2 MPF (offset table)                   88 bytes   &lt;- links primary to gain map
-  APP2 ISO 21496-1 marker                   34 bytes   &lt;- Apple readers need this
+  APP2 ISO 21496-1 marker                   34 bytes   &lt;- Preview.app needs this
   APP2 ICC_PROFILE                         604 bytes
   DQT, SOF0, DHT, SOS, image data...
 
@@ -56,7 +51,7 @@ GAIN MAP (~10 KB):
   SOI
   APP0 JFIF                                 16 bytes
   APP2 ICC_PROFILE                         604 bytes
-  APP2 ISO 21496-1 marker + params          91 bytes   &lt;- Apple readers need this
+  APP2 ISO 21496-1 marker + params          91 bytes   &lt;- Preview.app needs this
   APP1 XMP + hdrgm params                  616 bytes   &lt;- redundant, also helpful
   DQT, SOF0, DHT, SOS, gain-map pixels...
 
@@ -65,20 +60,18 @@ APP segments at the front of each one.</code></pre>
 
 <h2>Building Ultra HDR JPEGs without libultrahdr</h2>
 
-<p>Google publishes <a href="https://github.com/google/libultrahdr" rel="noopener">libultrahdr</a>, the reference codec for the Ultra HDR format. It is the sensible choice if you want a maintained implementation of the format. I looked at it and chose not to make it a runtime dependency for this service.</p>
+<p>Google publishes a reference C++ library called <a href="https://github.com/google/libultrahdr" rel="noopener">libultrahdr</a> that knows how to produce these files. It works, and for a general-purpose encoder it is the obvious choice. I only needed one narrow operation: combine an already-encoded SDR JPEG and gain-map JPEG using the metadata layout I had tested in Chrome and Apple's apps. I also wanted to understand the bytes. For that job, a few hundred lines of Python were easier for me to inspect and change than another compiled dependency. Code is cheap now, so I wrote it myself.</p>
 
-<p>My service runs on a small CPU VPS. I wanted a narrow Python component that accepted the SDR JPEG, the gain-map JPEG, and a metadata object, then emitted the final bytes. Pulling a substantial C++ codec into that service would have meant another build and packaging surface to maintain. That is a tradeoff for this particular deployment, not a claim that libultrahdr is a bad library.</p>
+<p>The module is called <code>direct_ultrahdr.py</code>. It takes the primary SDR JPEG, the gain-map JPEG, and a metadata object, then emits the final Ultra HDR JPEG bytes in about six hundred lines of Python.</p>
 
-<p>So I wrote <code>direct_ultrahdr.py</code>. It constructs the file by hand in about six hundred lines of Python. The pieces are:</p>
+<p>The pieces are:</p>
 
 <ul>
   <li>Walk the primary JPEG and the gain-map JPEG to find the sequence of APP markers each one starts with.</li>
   <li>Build the XMP packets as plain strings. The Container XMP for the primary image goes into an APP1 segment with the Adobe XMP identifier <code>http://ns.adobe.com/xap/1.0/</code>. The <code>hdrgm</code> XMP for the gain map goes into the same kind of APP1 segment in the gain-map JPEG.</li>
-  <li>Build the MPF APP2 segment. MPF is a CIPA standard with a TIFF-style header: big-endian, IFD at offset 8, and entries for the two images. The primary image lives at offset 0 with size <code>sdr_size</code>; the gain map lives at offset <code>sdr_size</code> with size <code>gainmap_size</code>.</li>
-  <li>Build the ISO 21496-1 APP2 segments. This is the one piece I did not build from the public specification. I pulled an HDR JPEG from a current iPhone, opened it in a hex editor, found the two APP2 segments whose payload started with <code>urn:iso:std:iso:ts:21496:-1</code>, and copied them as byte constants. The primary one is 36 bytes. The gain-map one is 93 bytes and includes gain-map parameters as packed integers.</li>
+  <li>Build the MPF APP2 segment. MPF is a CIPA standard (DC-X007) with a TIFF-style header: big-endian, IFD at offset 8, three tags. <code>0xB000</code> is the MPF version (<code>"0100"</code>), <code>0xB001</code> is the number of images (2), and <code>0xB002</code> is an MPEntry table with one entry per image. Each entry is 16 bytes: attributes, image size, offset relative to the start of the primary image, and two dependency fields. The primary image lives at offset 0 with size <code>sdr_size</code>, and the gain map lives at offset <code>sdr_size</code> with size <code>gainmap_size</code>.</li>
+  <li>Build the ISO 21496-1 APP2 segments. This is the one piece I did not build from the spec. I pulled an HDR JPEG off a current iPhone, opened it in a hex editor, found the two APP2 segments whose payload started with <code>urn:iso:std:iso:ts:21496:-1</code>, and copied them verbatim into my code as byte constants. The primary one is 36 bytes. The gain-map one is 93 bytes and includes gain-map parameters as packed integers. I know roughly what the fields are, but the spec is behind ISO's paywall and the easier path was to observe what Apple actually accepts.</li>
 </ul>
-
-<p>I am not thrilled about shipping byte literals that came out of a hex dump. The specification is not freely available, while the iPhone file is a concrete sample that Preview.app accepts. For this implementation, observed device output was the ground truth.</p>
 
 <p>Those constants look like this in the source:</p>
 
@@ -92,7 +85,9 @@ ISO_21496_GAINMAP_APP2 = bytes.fromhex(
     "28eb29000f4240000d5810000f42400000000a000f42400000000a000f4240"
 )</code></pre>
 
-<p>The hex is the string <code>urn:iso:std:iso:ts:21496:-1</code> followed by numeric fields. With those pieces, constructing the final file is mechanical: insert the APP segments into the front of the primary JPEG, before the Start of Scan marker; insert the matching segments into the gain-map JPEG; concatenate the two images; and patch the JFIF APP0 to include the four-byte <code>AMPF</code> marker that matches the iPhone files I inspected.</p>
+<p>The hex is the string <code>urn:iso:std:iso:ts:21496:-1</code> followed by some numeric fields. I am not thrilled about shipping byte-literal constants that came out of a hex dump. But this is what the iPhone itself produces and what Preview.app accepts.</p>
+
+<p>With those pieces, constructing the final file is mechanical. Insert the APP segments into the front of the primary JPEG, before the Start of Scan marker. Insert the matching APP segments into the gain-map JPEG. Concatenate. Patch the JFIF APP0 to include the four-byte <code>AMPF</code> marker that signals this is a multi-picture file. Yay, done.</p>
 
 <p>A short sanity-check function I keep around for any file anyone sends me:</p>
 
@@ -120,50 +115,37 @@ ISO_21496_GAINMAP_APP2 = bytes.fromhex(
     for name, ok in checks.items():
         print(f"  {'OK ' if ok else 'NO '} {name}")</code></pre>
 
-<p>These checks do not prove that every browser or photo application will render HDR. They do tell me whether I have included the pieces that my tested Chrome and Apple viewers expect, and which part is missing when one of my outputs falls back to SDR.</p>
+<p>If all six are true, the files I generate render as HDR in both Chrome and Preview.</p>
 
 <h2>Where the gain map comes from</h2>
 
-<p>There is a more interesting problem underneath the file format. You have an edited SDR image, the gain map is gone, and you want a new one. How do you produce it?</p>
+<p>I have glossed over the interesting part. You have an edited SDR image, the gain map is gone, and you want a new gain map. How do you produce one?</p>
 
-<p>You cannot reconstruct the exact original gain map. The original map encoded information about scene luminance that the camera captured, and that information is gone. You can produce a <em>plausible</em> gain map: one that lifts the right regions on an HDR display and looks like something an HDR image pipeline could have made for the edited pixels. That is reconstruction, not recovery.</p>
+<p>You cannot reconstruct the exact original gain map because it encoded the camera pipeline's HDR rendition, information that is no longer present in the edited SDR image. But you can produce a plausible gain map: one that an HDR display can use to lift the right regions, and that looks like something the iPhone pipeline might have made for an image with those pixels.</p>
 
-<p>The naive version is straightforward. Compute the luminance of each SDR pixel, stretch the bright end of the range, and call that the gain map. It kind of works. Highlights lift a little and skies get more punch. But the output is generic: every sky gets the same boost, every reflection gets the same boost, and the map does not know what a face is. Apply it uniformly and skin tones get lifted along with the highlights.</p>
+<p>The naive version is straightforward. Compute the luminance of each SDR pixel, stretch the bright end of the range, and call that the gain map. This is roughly what synthetic inverse-tone-mapping methods do. It kind of works, but the output is generic: every sky is boosted the same amount, every reflection is boosted the same amount, and the map does not know what a face is. Apply it uniformly and skin tones also get lifted. In the iPhone files I looked at, specular highlights and bright sources get pushed a lot, midtones get lifted a little, and skin and shadows are mostly left alone.</p>
 
-<p>My own comparisons with iPhone images suggested a more selective result: specular highlights and bright sources get the strongest lift, midtones get less, and skin and shadows are mostly left alone. That observation is about the files I tested, not a claim that every iPhone image uses the same fixed rule.</p>
+<p>The less naive version is a neural network trained to produce a gain map. The one I landed on is <a href="https://openreview.net/forum?id=GtHRhpgpzB" rel="noopener">GMNet, from the ICLR 2025 paper <em>Learning Gain Map for Inverse Tone Mapping</em></a> by Liao et al. It is small, it runs on CPU, and the authors published <a href="https://github.com/qtlark/GMNet" rel="noopener">trained weights and both synthetic and real-world datasets</a>.</p>
 
-<p>The less naive version is a neural network trained to predict a gain map from the SDR image. The one I landed on is <a href="https://openreview.net/pdf?id=GtHRhpgpzB" rel="noopener">GMNet</a>, from the ICLR 2025 paper <em>Learning Gain Map for Inverse Tone Mapping</em> by Yinuo Liao, Yuanshen Guan, Ruikang Xu, Jiacheng Li, Shida Sun, and Zhiwei Xiong. The authors also released the <a href="https://github.com/qtlark/GMNet" rel="noopener">code, checkpoints, and datasets</a>. That made it a useful starting point: the model is explicitly trained for gain-map prediction rather than generic image enhancement.</p>
+<p>GMNet has two branches. A global branch takes a 256&times;256 thumbnail of the input and extracts scene-level features. From those it produces three things: a small 3&times;3 kernel to apply dynamically to the local branch, a channel-attention vector, and a single scalar called <code>qmax</code> that is the ceiling on the boost. A local branch takes the full-resolution input and runs it through residual blocks. The two branches meet when the local features are convolved with the global-branch-produced kernel, the channel attention is applied, and the result is upsampled with pixel shuffle back to full resolution. Okay, that was messy, but at the end you have the gain map, along with <code>qmax</code>, which tells you the <code>GainMapMax</code> value to write into the metadata.</p>
 
-<p>GMNet has two branches. A global branch takes a 256&times;256 thumbnail of the input and extracts scene-level features. From those features it produces a small 3&times;3 kernel for the local branch, a channel-attention vector, and a scalar called <code>qmax</code> that acts as the global ceiling on the allowed boost. A local branch takes the full-resolution input through residual blocks. The branches meet when the local features are processed with the dynamically produced kernel, channel attention is applied, and the result is upsampled with pixel shuffle.</p>
-
-<p>The architecture is useful because the two branches answer different questions. The global branch can see that the image is a sunset and decide that the sky should get a larger boost than the foreground. The local branch has enough resolution to paint that decision onto the correct regions. The boost kernel is produced by the network rather than fixed, so the same model can handle a noon beach shot and a candlelit dinner.</p>
+<p>The global branch sees the whole scene and decides, for example, that this is a sunset, the sky should get a big boost, and the foreground should not. The local branch has enough resolution to paint that decision onto the right pixels. The fact that the boost kernel itself is network-produced, rather than fixed, is how the same model handles a noon beach shot and a candlelit dinner.</p>
 
 <figure>
   <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/cafe_ultrahdr.jpg" alt="Restored Ultra HDR JPEG of a dimly lit cafe scene, with pendant lights as the bright highlights" loading="lazy" decoding="async" width="925" height="1522">
-  <figcaption>A cafe at night. The pendant lights are where the gain map concentrates its boost. On an HDR display the bulbs sit above SDR white while the table, wine, and faces stay in their normal range.</figcaption>
+  <figcaption>A cafe at night. The pendant lights are where the gain map concentrates its boost. On an HDR display the bulbs sit well above SDR white while the wood of the table, the wine, and the faces stay in their normal SDR range. On a non-HDR display or browser, this is just a JPEG.</figcaption>
 </figure>
 
-<p>The output of the pipeline is the SDR image I uploaded, unchanged; a grayscale gain-map image derived from GMNet's prediction; and gain-map metadata containing the minimum, maximum, gamma, offsets, and display-capacity values. Those pieces go to the Ultra HDR packager, which produces a file that my tested Chrome and Apple viewers understand.</p>
+<p>The output of the whole pipeline is the SDR image you uploaded, unchanged; a grayscale gain-map image derived from GMNet's prediction; and the gain-map metadata (min, max, gamma, offsets, capacity min, and capacity max) that goes into the Google XMP and ISO 21496-1 payload. Those three pieces get handed to the Ultra HDR packager, and out comes a file Chrome and Preview both understand.</p>
 
 <h2>Did you notice the HDR photos?</h2>
 
-<p>I wanted to know how many visitors to my sites were using devices that could render the result correctly.</p>
+<p>I was wondering which visitors to my sites were on devices that would actually render these correctly.</p>
 
-<p>Browsers expose one useful signal through the <a href="https://www.w3.org/TR/mediaqueries-5/#dynamic-range" rel="noopener"><code>dynamic-range</code> media feature</a>. In JavaScript, <code>window.matchMedia('(dynamic-range: high)')</code> reports whether the browser-display combination advertises a high dynamic range. I also record the WebGL renderer string as a rough device signal. It is not a display-capability test, but it helps explain the hardware behind a result.</p>
+<p>Browsers expose one direct signal: the <a href="https://www.w3.org/TR/mediaqueries-5/#dynamic-range" rel="noopener">CSS media query</a> <code>window.matchMedia('(dynamic-range: high)')</code>, which reports whether the browser and output device say they support high peak brightness, high contrast, and more than 8 bits per color channel. It does not guarantee that HDR mode is currently active. I also collect the WebGL renderer string. That does not tell me whether the display is HDR, but it gives me a rough device and GPU class to help interpret the results.</p>
 
-<p>In the sample I collected, about 20% of unique visitors hit <code>dynamic-range: high</code>. Counting events instead of visitors produced about 40% HDR-capable sessions. The sample is small and the collection path is noisy, so these are measurements of my visitors, not a market-wide estimate. The rest were on hardware that could not go brighter than SDR, on browsers without the HDR rendering path enabled, or on operating systems where the relevant support was unavailable.</p>
+<p>Among my unique visitors, about 20% hit <code>dynamic-range: high</code>. If I count events rather than unique visitors, HDR-capable sessions account for 40%. The rest are on hardware that cannot go brighter than SDR, on browsers without the HDR rendering path enabled, or on OS versions that have not shipped gain-map rendering yet.</p>
 
-<p>The format is designed to degrade gracefully. On a capable display, the gain map can make the image visibly brighter. On everything else, the base image still works as a normal JPEG. That is useful for distribution, even though most of the audience will not see the extra range.</p>
+<p>Apps and uploads are messier. Some preserve HDR on upload but only render it inside their native app, not in the web viewer. Some preserve it everywhere. <a href="https://engineering.fb.com/2024/03/26/android/instagram-threads-hdr-photos/" rel="noopener">Meta has written about HDR photo support in Instagram and Threads</a>, and the state of the art there is better than it was a few years ago, but it is still platform- and device-specific.</p>
 
-<p>Upload behavior is a separate problem. <a href="https://engineering.fb.com/2024/03/26/android/instagram-threads-hdr-photos/" rel="noopener">Meta has publicly described HDR photo support in Instagram and Threads</a>, but that establishes product support, not a guarantee that every upload path preserves every gain-map variant or renders it in every client. The result can depend on the platform, app version, browser, and device. The only reliable test for a specific workflow is to upload the actual file and inspect it again on the client that matters.</p>
-
-<h2>Where this lands</h2>
-
-<p>The project is a consumer photo format with a second image stitched into it, an AI editor that discards that image, a neural network that predicts a replacement, and a packager that has to satisfy more than one reader. The difficult part was not producing a plausible gain map. It was the surrounding mechanics: understanding the metadata, choosing how much of the format to implement, and checking the resulting bytes against real files from real devices.</p>
-
-<figure>
-  <img src="/blog/restoring-hdr-to-ai-edited-photos/assets/examples/garage_ultrahdr.jpg" alt="Restored Ultra HDR JPEG of a silver car in a dim garage, with bright ambient and reflection highlights" loading="lazy" decoding="async" width="1400" height="1045">
-  <figcaption>Reflections on the paint and chrome are where the gain map does most of its work here. On a capable display, the ambient lights come up above SDR white and the car reads closer to how it looked in person.</figcaption>
-</figure>
-
-<p>If you edit iPhone photos through AI tools and the output looks subtly flat beside the original, the gain map may have been dropped. You can check for the <code>hdrgm</code> namespace, the ISO 21496-1 marker, and the second JPEG image. Reconstructing the original is impossible, but reconstructing a useful gain map is practical. Whether it is worth doing depends on where the photos are going.</p>
+<p>Okay, thanks for reading!</p>
