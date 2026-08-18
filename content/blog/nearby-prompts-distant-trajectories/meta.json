@@ -1,8 +1,9 @@
 {
-  "title": "Nearby Prompts, Distant Trajectories",
+  "title": "Are LLMs Chaotic?",
   "slug": "nearby-prompts-distant-trajectories",
-  "summary": "Chaos isn't randomness. It's deterministic amplification of small differences. I spent a few weeks asking how far that lens gets us with modern LLMs at inference time. Part 1 of three: the framing.",
+  "summary": "LLMs are deterministic, but small changes to a prompt can produce completely different outputs. I explored that sensitivity through the lens of dynamical systems and chaos.",
   "publishedAt": "2026-07-24T12:00:00.000Z",
+  "updatedAt": "2026-08-18T12:00:00.000Z",
   "tags": [
     "llm",
     "chaos-theory",

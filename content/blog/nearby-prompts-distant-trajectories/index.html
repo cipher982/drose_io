@@ -1,172 +1,94 @@
-<p>Spin up a local LLM on your device and set everything to be deterministic: zero temperature, no sampling, batch size 1, etc. Then type any random sentence and it will output the same response. LLMs by themselves are inherently deterministic. This has become fuzzy over the years. We add sampling and temperature for variance and we batch requests to handle more users, so don't expect this to work on ChatGPT. But back to our experiment. If you then add just a single extra space somewhere in your deterministic query, you get a different result, maybe! There are a lot of parameters in an AI model. Sometimes the littlest things have no effect, sometimes they can flip the meaning of the response completely. What if the first token generated had logits for <code>yes=4.200</code> and <code>no=4.198</code> then a slight disturbance in the forward passes resulted in <code>yes=4.200</code> and <code>no=4.203</code>. An answer starting with Yes is now a No. (to be fair this would be quite an uncertain LLM)</p>
+<p>LLMs are inherently deterministic. While you may hit regenerate on ChatGPT and see a new response, that's more an artifact of the harness they are running in. If you run a local model, set temperature to zero, and disable sampling and batching, you can hit generate over and over on the same prompt and get the same response. But what happens if you add a comma or an extra space somewhere? Or paraphrase the question? That's what I spent time exploring: how sensitive is the output of an LLM call to its inputs? I always had an interest in dynamical systems (chaos), and this seemed to overlap with the same ideas. Could two questions that to a human appear semantically the same generate completely divergent outputs when passed to an LLM?</p>
 
-<p>That something has a name in physics: sensitive dependence on initial conditions. The butterfly effect is the line everyone knows, it's a synonym for randomness, or cosmic bad luck, or the vague idea that small things sometimes matter. More technically it's a specific property of a specific kind of system: deterministic amplification of small differences. Given two almost identical starting points, the trajectories peel apart at a rate you can measure. What if that extra space or an errant punctuation gets amplified in LLM generations? What if the entire response changes its meaning?</p>
-
-<p>This post lays out the framing carefully. What chaos actually is, why it isn't randomness, why neural networks sit in the neighborhood of chaotic systems, and what "state" even means in a language model.</p>
-
-<p>This is the first of three posts, just the initial conditions. The second is the experiment, where I move on to real models and get into what moves and what doesn't. The third goes inside the network: if small prompt changes push the model onto a different branch, can we find the exact position where the branch happens, and patch it to undo the flip? Both are being rewritten and will go up shortly.</p>
-
-<h2>What I am and am not claiming</h2>
-
-<p>Let me get the obvious objections out of the way first, because I am going to play a bit loose with the rules.</p>
-
-<p>I am not claiming LLMs are chaotic in the formal sense. Classical chaos requires things LLMs don't have: an infinitely iterated map, the ability to take perturbations to zero, asymptotic time. LLMs have finite depth, finite context, and a discrete token space. You cannot (cleanly) take the limit needed for a Lyapunov exponent.</p>
-
-<p>I am not claiming bigger models are more stable. I am not claiming reasoning models are more stable. I am not claiming that lower divergence is better. Stability is just one property, it's not a score. A model that outputs "the the the the" forever, regardless of the prompt, is extremely stable. But it's not very useful!</p>
-
-<p>I am not claiming that sentence-embedding cosine distance is ground truth for "how much did the output change." It's just a proxy for purposes here.</p>
-
-<p>What I am claiming is something narrower. At inference time, an LLM is what I'd call a hybrid sequential system. Continuous activations flowing through a stack of layers, feeding a discrete branching process at the output. Small changes in the input can do one of two things. They can move the next-token distribution a little (a bulk shift), or they can flip the argmax onto a different branch (a boundary crossing). Once a branch flips autoregression takes over and the rest of the generation runs on a different prefix. The system compounds. Sound familiar?</p>
-
-<p>Whether that compounding is big enough to care about depends on the model, the prompt, and the metric. That's an empirical question and it's the one the rest of this work tries to answer.</p>
+<p>When an LLM is generating output, it's inference. It is a sequential system where the activations flow through the layers and the final output is a branched process. The final layer produces a set of logits, one for each possible token, and under greedy decoding the highest score wins. At first it seems like yes, that could be brittle. If you have two logits that represent two opposite words (let's just say <code>True</code> and <code>False</code> to keep it simple), imagine if the value of <code>False</code> was 4.21 and <code>True</code> was 4.23. <code>True</code> is the answer the LLM gives. But notice those values are quite close! Some shifts in earlier layers could flip those and it gets <code>False</code>. I wanted to try and quantify this. Though this example is simplistic, you could see how more inconsequential wording at the start of a response could compound over time. Start with "Usually" vs. "Typically," and while semantically close, they may be the initial shift that leads to a completely different sentence.</p>
 
 <h2>Chaos isn't randomness</h2>
 
-<p>It's worth spending time on the physics, because the word "chaos" is doing a lot of work in this post, and the only way to use it fairly is to remember what it originally means.</p>
+<p>It can be helpful to get the technicals right at the start, as vibes-wise chaos and randomness seem related. But chaos is just the amplification of small differences. Since systems operate over sequences (think time), each point in the sequence could be only 2% different, but over a hundred steps that compounds!</p>
 
-<p>Chaos, in the technical sense, is deterministic amplification of small differences. Take two pendulums. Same mass/length/gravity and same initial push, except one is released at an angle that's off by half a degree. In a simple single pendulum, that half-degree difference stays small forever. The two pendulums track each other. But in a double pendulum, where the second arm is attached to the first and free to swing, that half-degree difference grows. Within a few seconds the two pendulums are in completely different places. Not because of noise or a random kick. Because the equations of motion, running deterministically, take the tiny gap you started with and stretch it.</p>
+<p>You can characterize a system using the Lyapunov exponent (<code>λ</code>). With two trajectories starting a distance <code>δ(0)</code> apart, their separation at time <code>t</code> grows roughly like <code>|δ(t)| ≈ |δ(0)| · e^(λt)</code>. If the number is positive, the gap grows exponentially. If it is negative, the gap collapses and the trajectories converge. It can also be zero, meaning the separation stays at roughly the same scale.</p>
 
-<figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/double-pendulum-divergence.png" alt="Two double pendulums released with angles differing by half a degree, diverging over time" loading="lazy" decoding="async" width="1840" height="659">
-</figure>
-
-<p>If you calculate the system's exact path over time using its laws of motion, you get a number that measures how fast neighboring trajectories split apart: the Lyapunov exponent (<code>λ</code>). If two trajectories start a distance <code>δ(0)</code> apart, their separation at time <code>t</code> grows roughly like <code>|δ(t)| ≈ |δ(0)| · e^(λt)</code>. If the exponent is positive, the gap grows exponentially. If zero, the system is on the edge. If negative, the gap shrinks, and small differences get forgotten.</p>
-
-<p>The Lyapunov exponent is the formal content of "the butterfly effect." It's a time-averaged local stretching rate. It's what lets us say something precise about how fast a weather forecast degrades or how predictable a pool shot is after the sixth collision (answer: not very).</p>
-
-<p>The cleanest teaching example of this is the logistic map.</p>
+<p>So the Lyapunov exponent quantifies what you would call "the butterfly effect." It's a time-averaged local stretching rate that makes it hard to predict weather more than a few weeks out or where all the balls will end up after the break in a game of pool.</p>
 
 <figure>
   <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/logistic-bifurcation.png" alt="Bifurcation diagram of the logistic map" loading="lazy" decoding="async" width="1840" height="911">
-  <figcaption>The logistic map bifurcation diagram. The x-axis is a growth parameter, not time. Each vertical slice is a different, independent system.</figcaption>
 </figure>
 
-<p>The chart above is a bifurcation diagram, and it is possibly the most misread image in applied math. The x-axis is <code>r</code>, the knob. It is not time. Each vertical slice is an independent experiment: fix <code>r</code>, iterate for thousands of steps, throw away the transient, plot every value the system ends up visiting. For low <code>r</code> the system settles on one value, so the slice is one dot. Turn <code>r</code> up past about 3, and the system can't hold onto a single value anymore. It starts alternating between two values forever. Period two. Turn it up more, four values. Eight. Sixteen. The splits accelerate, pile up, and by <code>r</code> around 3.57 the column is a smear. The system never repeats.</p>
+<p>What I found while learning about the Lyapunov exponent for LLMs is that trained neural networks sit near the chaos boundary. They balance on that edge because it is where training works best.</p>
 
-<p>The reason this chart is a canonical piece of applied math isn't because dripping faucets are interesting, though they happen to be in this same universality class. It's because Feigenbaum showed in 1978 that a huge class of one-dimensional folding maps follows this same period-doubling route to chaos, with the same constant in front of it. Fluid onset in certain convection regimes. Some laser intensities. Some electronic oscillators. Heart arrhythmias, at some knob settings. All with this bifurcation cascade. The logistic map is representative of a broad class.</p>
+<p><a href="https://doi.org/10.1016/0167-2789(90)90064-V">Langton, 1990, "Computation at the Edge of Chaos."</a> Cellular automata. Langton showed that the ability to propagate signals over long distances and remember things happens in a small band between ordered (everything freezes) and chaotic (signals decorrelate to noise).</p>
 
-<h2>Trained neural networks sit near the chaos boundary</h2>
+<p><a href="https://arxiv.org/abs/1606.05340">Poole et al. 2016</a>, <a href="https://arxiv.org/abs/1611.01232">Schoenholz et al. 2017</a>. Deep feedforward networks. They show that at random initialization, signals propagating through a deep network either shrink to zero (vanishing gradients) or blow up (exploding gradients). So you want initialization somewhere in the middle to have a good training run. You see the practical consequences of this in residual streams, normalization, and better optimizers. The core goal remains reliable signal and gradient propagation.</p>
 
-<p>So where do LLMs come in? The claim is not that I have proven LLMs are chaotic, but the family of systems LLMs belong to is already known to live in a narrow band between ordered and chaotic regimes, because that happens to be where training is most effective.</p>
-
-<p>Langton, 1990, "Computation at the Edge of Chaos." Cellular automata. Langton showed that interesting computation, meaning the ability to propagate signals over long distances and remember things, happens in a narrow parameter band between fully ordered (everything freezes) and fully chaotic (signals decorrelate to noise).</p>
-
-<p>Poole et al. 2016, Schoenholz et al. 2017. Deep feedforward networks. They show that at random initialization signals propagating through a deep network either shrink to zero (ordered regime, gradient vanishes) or blow up (chaotic regime, gradient explodes). Initialization near the edge between those regimes is what mean-field theory predicts will train well, and empirically does in vanilla feedforward stacks. You see modern techniques that focus on this such as residual streams, normalization, and better optimizers, but the underlying premise goes back to our idea that the "edge of chaos" is a specific surface in hyperparameter space. The closer you sit to this space the more reliably signals and gradients propagate.</p>
-
-<p>I have to be careful with how I use this. The edge-of-chaos literature is about signal propagation during training in feedforward networks, not about prompt sensitivity during greedy decoding of a trained autoregressive LLM. One does not automatically imply the other. The most I'd claim is that the two phenomena share mathematical ancestry (stretching, gradient dynamics, sensitive dependence), and the vocabulary from one is disciplined enough to be useful when discussing the other, without me claiming they're identical.</p>
-
-<p>That said to say: the conditions under which deep networks are trainable overlap with the conditions the signal-propagation literature calls edge-of-chaos, and that's the vocabulary I'm going to reach for. Chaos theory supplies disciplined vocabulary for describing sensitivity in a system that discretizes stretched continuous states into branch points.</p>
-
-<p>That's what buys me permission to use chaos vocabulary for LLMs at all. The real question isn't "are LLMs chaotic." It's narrower: "for a given trained LLM at inference time, on this input, how much does the response function amplify a small change, and does that vary in ways we can measure?"</p>
-
-<h2>So, is an LLM a dynamical system?</h2>
+<h2>So is an LLM a dynamical system?</h2>
 
 <p>Let's think.</p>
 
-<p>A dynamical system has state. LLMs have state: per-layer residual activations, logits, the prefix of tokens generated so far, the KV cache that backs attention over that prefix. That's a lot of state.</p>
+<p>A dynamical system has state. LLMs have state: per-layer residual activations, logits, the KV cache, and the generated tokens so far.</p>
 
-<p>A dynamical system has iteration. LLMs iterate: each forward pass produces a token, the token gets appended to the prefix, the prefix conditions the next forward pass. That's autoregression. The same function applied repeatedly, with the output of step <code>n</code> fed back as input to step <code>n+1</code>. The logistic map also has this shape. So does every other iterated map in the dynamical systems textbook.</p>
+<p>A dynamical system has iteration. LLMs iterate: each forward pass produces a token, which gets appended to the prefix and then conditions the next forward pass. So you have autoregression through a repeated function.</p>
 
-<p>A dynamical system is typically deterministic, at least when you want to analyze it. LLMs are deterministic under argmax decoding: <code>do_sample=False</code> in the HuggingFace transformers API, which picks the highest-logit token at every step. Run the same prompt through the same weights twice with argmax decode, and you get byte-identical output up to GPU kernel nondeterminism. As a quick example: because bf16 is non-associative, changing the batch size can change the reduction order of a sum enough to flip the argmax on a low-margin token. So I run every generation at batch size one. The remaining kernel-level nondeterminism is tiny and not the source of the effects I'm measuring.</p>
+<p>A dynamical system is typically deterministic. LLMs are typically deterministic if you aren't specifically using techniques to make them otherwise, such as sampling or temperature. Yes, you can get byte-identical output up to GPU kernel nondeterminism. You can nit this a bit because bf16 arithmetic is non-associative: changing the batch size can change the reduction order of a sum enough to flip the resulting top logit.</p>
 
 <figure>
   <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/hybrid-system-v2.png" alt="Diagram of an LLM as a hybrid system: a continuous panel showing smooth activation flow from layer 1 to layer N, an argmax step, and a discrete panel showing two token trajectories diverging after one flipped argmax" loading="lazy" decoding="async" width="1122" height="1402">
 </figure>
 
-<p>A dynamical system can amplify small input differences. LLMs can too, at least sometimes, which is what the experiment in part two sets out to measure. The example from the top of this post is a real datapoint, and here it is with the specifics: The model is OLMo-3 7B (open weights, so the run reproduces). Prompt A: "write a concise Python palindrome function." Prompt B: the exact same string, with a single trailing space after the period. Again conditions are: Argmax decode, same weights, same seed, and no temperature.</p>
+<p>When we think about amplifying small differences, here is one example I encountered. With OLMo-3 7B, I submitted <code>write a concise Python palindrome function.</code> and <code>write a concise Python palindrome function. </code>, the exact same string with a single trailing space at the end.</p>
 
-<p>Prompt A gives a clean utility function with a docstring. Prompt B gives a chatty conversational preamble followed by a one-liner implementation. Two different answers from one trailing space character in the prompt. That's the kind of thing the rest of this work asks: how often, in which models, and under what conditions. The answer is more structured than "any byte flips the model," but it's also much less boring than "they're basically the same."</p>
+<p>Prompt A returned a utility function with a docstring. Prompt B returned a conversational preamble followed by a one-line implementation. So we know that not every edit makes much of a difference, but also that the results are not always the same.</p>
 
-<p>So on the checklist, an LLM at inference has state, has iteration, is deterministic, and can amplify small input changes. Ok so far it fits, we can now pivot to the magnitude of the effect.</p>
+<p>Confirmed: LLMs have state, iterate, are deterministic, and amplify small input changes.</p>
 
-<p>Another hedge before I continue. Classical chaos wants to take input perturbations to zero, because the math is an asymptotic statement about infinitesimal separations. Token space is discrete. The smallest perturbation in token space is one token. You can't take the limit. So anything I do here is going to be a finite-perturbation probe of a discretized system, so we can not precisely compute a classical Lyapunov exponent at the text level.</p>
+<p>A bit of a nit: in classical chaos, you start with the points being very close together, taking their separation toward zero because the real world is continuous. But LLMs use tokens! It's discrete! So the smallest change we can make is one token. We can't take that limit, but we will ignore this.</p>
 
 <h2>An interactive detour</h2>
 
-<p>If the stretching-rate argument above felt abstract, it might help to actually see a ripple propagate through something that sort of looks like a tiny network. Just a fun example, it is not a real language model or even a real neural net. It's a few rows of cells where each cell's next state depends on its current state and its neighbors, and you can click to perturb one cell and watch the disturbance spread.</p>
-
-<p>The purpose is just building intuition: the same local rule can either swallow a disturbance or amplify it depending on the regime. Click around a bit.</p>
+<p>Here you can see a heatmap of the divergences in a few different scenarios as they go through the layers.</p>
 
 <figure>
   <iframe src="/blog/nearby-prompts-distant-trajectories/assets/demos/ripple.html" width="100%" height="560" loading="lazy" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);"></iframe>
-  <figcaption>Ripple toy. Click a cell to perturb it. Watch the disturbance either die out or spread, depending on the parameters.</figcaption>
 </figure>
 
-<p>What this shows you isn't specific to language models. It's showing you the condition for chaos: a local rule that when iterated over state can take a tiny perturbation and not let it dissipate. The logistic map has this property at high <code>r</code>. A double pendulum has it at moderate-to-high energies. A signal-propagation-tuned neural net has it in the regime where it's trainable.</p>
+<h2>Other work</h2>
 
-<h2>Temperature and Sampling</h2>
+<p>While my work is on the outer token space, I found a rigorous version of this dynamics-as-LLMs framing in a paper by <a href="https://arxiv.org/abs/2503.13530">Li et al. 2025</a>, wherein they look deeper into the activation space. They call it quasi-Lyapunov because classical Lyapunov needs infinite iteration of a fixed map, and LLMs have finite depth. The finite-depth analog is a per-layer hidden-state growth ratio: take the residual stream at layer <code>n</code> and ask how much bigger it is by layer <code>n+1</code>. Average that over layers for the per-layer stretching rate. So that is the time-averaged local stretching rate from earlier, but with "time" replaced by "depth."</p>
 
-<p>Temperature is a parameter that controls <em>sampling</em>. You have a fixed next-token distribution, computed by the model for a given input. Temperature <code>T</code> rescales the logits before the softmax: <code>p_i ∝ exp(logit_i / T)</code>. As <code>T</code> goes to zero, the distribution collapses to the argmax (all mass on the max-logit token). At <code>T = 1</code>, you get the raw distribution. As <code>T</code> grows, the distribution flattens toward uniform. Temperature is how peaked or flat the distribution is, when you draw from it.</p>
+<p>The number they get is about 1.32x per layer in the first ten layers, falling to roughly 1.08x in later layers, which ends up around two orders of magnitude once compounded over the model depth. That magnitude growth is not itself a measure of perturbation growth, but their separate quasi-Lyapunov analysis does show small perturbations converging in shallow layers and diverging in deeper ones.</p>
 
-<p>Sensitivity is a different question. Sensitivity asks: when the input changes a little, how much does the distribution <em>itself</em> move? Before you sample anything. You have a distribution given the original prompt, and a distribution given the perturbed prompt, and the question is the distance between those two distributions. These are orthogonal axes. You can have zero sampling noise (temperature zero) and still see the output move a lot. You can also have high sampling noise and a rock-solid distribution.</p>
+<p>They also decompose the final residual norm by source:</p>
 
-<p>Here's the 2x2 that unsticks it for me. Same prompt at temperature zero gives byte-identical output, which is just determinism. Same prompt above temperature zero gives different draws from the same underlying distribution, which is sampling noise and not very interesting. A different prompt above temperature zero changes both the draws and the distribution at once, so you can't tell the two effects apart; that cell is confounded and useless. The cell that matters is a different prompt at temperature zero: the sampling step is gone, so any movement in the output is the response function of the model itself. The distribution moved, and nothing else could have moved it. That's the clean probe.</p>
+<ul>
+  <li>MLP contributions account for 55.8%</li>
+  <li>Attention contributions account for 44.2%</li>
+  <li>The initial input embedding accounts for 0.0009%</li>
+</ul>
 
-<p>That last cell, different prompt at temperature zero, is what the rest of this project measures. The whole experimental apparatus is built around stripping out sampling so that what's left is the model's functional response to input.</p>
-
-<p>One line, because this is the pedagogical linchpin: temperature samples from a distribution. Sensitivity asks how far the distribution moved. If you only remember one thing from this post, I'd take that.</p>
-
-<h2>Meaning-preserving perturbations</h2>
-
-<p>There's a subtlety here that matters for how you interpret any of the results. When a prompt perturbation produces a different output, that's not necessarily the model making a mistake. A double pendulum isn't <em>wrong</em> when it lands somewhere different after a half-degree nudge. The physics is working as advertised. The pendulum is expressing sensitive dependence, which is a property of the system, not a bug.</p>
-
-<p>Same bar for LLMs. If I ask <code>"recommend a book like Dune"</code> and the model says <em>Foundation</em>, and I ask <code>"recommend a book like Dune "</code> (with a trailing space) and the model says <em>The Left Hand of Darkness</em>, both answers are defensible recommendations to a human reader. Neither is a hallucination. The model picked a different basin of its response manifold.</p>
-
-<p>It also tells me what the right quantity to measure is. Not just "how much did the output change," but output change per unit of <em>meaning-preserving</em> input change. If you stick the word "NOT" in front of the prompt, of course the output moves. The meaning changed and the model is working correctly. The interesting case is when the meaning didn't change, and the output moved anyway. That's where the chaos lens starts to pay off.</p>
-
-<figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/branching-continuations.png" alt="Branching continuations from similar prompts" loading="lazy" decoding="async" width="1376" height="768">
-</figure>
-
-<p>"Meaning-preserving" is not a robust term here but it should help differentiate. A synonym swap isn't perfectly meaning-equivalent, a paraphrase really does shift nuance, and whether ending a sentence in two periods instead of one carries any semantic load is a question for a linguist. The perturbations I use in the second post aren't claimed to be semantically identical to the original. They're claimed to be the kind of change a human reader wouldn't flag as asking a different question. It's a soft version of meaning preservation but the right one for the probe: changes that feel invisible yet still sometimes move the output.</p>
-
-<h2>State, and what Li et al. actually measured</h2>
-
-<p>Let's pause again because I am not the first person to try to put dynamical systems vocabulary on an LLM, and there's a specific paper that did the rigorous version of this inside activation space while I was doing the broad version of it at the output-text level. These are complementary though do focus on different abstraction layers.</p>
-
-<p>The paper is Li et al. 2025, quasi-Lyapunov analysis on a Qwen2 model. They call it <em>quasi</em>-Lyapunov because classical Lyapunov needs infinite iteration of a fixed map, and LLMs have finite depth. The finite-depth analog is a per-layer hidden-state growth ratio: take the residual stream at layer <code>n</code>, and ask how much bigger it is by layer <code>n+1</code>. Average that over layers, and you get a per-layer stretching rate. Which is: the time-averaged local stretching rate, but with "time" replaced by "depth." Think of the model weights being millions (billions?) of strings laid out in the physical world, linking together all the layers. Drop a weight on earlier layers, or pluck them, how does that propagate?</p>
-
-<p>The number they get is about 1.32x per layer in the first ten layers, falling to roughly 1.08x in later layers. Compounded over depth, that's still two orders of magnitude of amplification. A tiny perturbation in the input embedding becomes a meaningful perturbation in the final residual stream.</p>
-
-<p>The sharper framing, though, is their residual-stream decomposition at the final layer. Decomposing the final residual norm by source: MLP contributions account for 55.8%, attention contributions for 44.2%, and the initial input embedding for 0.0009%. Ok that feels pretty chaotic: we perturb the 0.0009% and watch the rest of the stream move. Almost everything that ends up in the output is transformations done inside the network. The input is a tiny seed and the network amplifies it.</p>
+<p>Ok, that feels pretty chaotic: we perturb the 0.0009% and watch the rest of the stream move. Almost everything that ends up in the output is transformations done inside the network. The input is the tiny seed getting amplified through the network.</p>
 
 <figure>
   <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/depth-compounding.png" alt="Log-scale plot of hidden-state magnitude relative to the input across 38 transformer layers, rising steeply at 1.32x per layer through layer 9 then bending to 1.08x per layer, reaching 122x by layer 38" loading="lazy" decoding="async" width="1870" height="935">
   <figcaption>Per-layer stretching, compounded across depth, replotted from the piecewise fit in Li et al. Figure 2. The rate drops off after layer 9, but the growth keeps compounding.</figcaption>
 </figure>
 
-<p>The paper has one more result I want to mention. They compute the QLE for perturbations introduced at each layer and plot it as a heatmap. Shallow layers mostly converge: perturb them and the difference gets squeezed back out. Deep layers diverge, and strongly. So the chaotic behavior isn't spread evenly through the stack, it concentrates in the later layers. That matters for the third post, which goes looking for the specific position where a branch gets committed.</p>
+<p>Another finding is that the shallow layers mostly converge while the deep layers diverge, and strongly. So the chaotic behavior concentrates in the later layers.</p>
 
-<p>Here's the demo I built while I was trying to internalize this. It's a toy visualization of a perturbation propagating through a stack of "layers" with a stretching rate you can adjust. Not real activations, but the right shape.</p>
+<p>Here's a demo I built while trying to internalize this. It's a toy visualization of a perturbation propagating through a stack of "layers," with a stretching rate you can adjust.</p>
 
 <figure>
   <iframe src="/blog/nearby-prompts-distant-trajectories/assets/demos/activation_ripple.html" width="100%" height="560" loading="lazy" style="border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);"></iframe>
   <figcaption>Perturbation propagation through a stack with a per-layer stretching factor.</figcaption>
 </figure>
 
-<p>Li et al. ran one model. They defined a token-level iterative exponent in their paper but never actually computed it, and they never compared across models. That gap is exactly where my experiments sit. I'm not doing the rigorous activation-space math they did. I'm doing the shadow at the output level, across a zoo of models, to ask which models are more sensitive and where the failure modes of the measurement lie.</p>
+<h2>Where this post converges</h2>
 
-<p>Also worth naming: Geshkovski et al. 2023 treat attention layers as interacting-particle dynamics, tokens as particles, attention as the interaction force. Tomihari and Karakida 2025 do a Jacobian-Lyapunov analysis specifically for self-attention.</p>
+<p>The stability of a generation depends on two things:</p>
 
-<h2>Consolidating this all</h2>
+<ul>
+  <li>How much the input perturbation gets amplified through the continuous stretching.</li>
+  <li>How many thin boundaries the generation passes through, where a small logit perturbation is enough to flip the top-1.</li>
+</ul>
 
-<p>An LLM at inference time is a hybrid system. Continuous activations flowing through a stack of transformer layers, producing a next-token distribution. A discrete selection (argmax, or sampling) picks one token from that distribution. The chosen token appends to the prefix. The prefix is the input to the next forward pass. Repeat.</p>
+<p>The first comes from the weights and the input (Li et al.'s per-layer growth ratio), while the second is also a combination of those weights and the prompt: whether you end up near boundaries with margins low enough to flip based on the residuals.</p>
 
-<p>The continuous part stretches. Li et al. quantify the stretching at roughly 1.32x per layer in activation space for the Qwen2 model they analyze. The stretching means that a small perturbation in the input, carried through the stack, becomes a meaningful perturbation in the logits at the output.</p>
-
-<p>Then what? The discrete part branches. At the top-1 selection step, a perturbation can do one of two things. If the perturbation is small relative to the margin between top-1 and top-2 logits, the argmax stays the same, no branching and same output token. If the perturbation is large relative to the margin, the argmax flips and the branch changes. Now, once a branch flips the prefix for every subsequent forward pass is different and the entire downstream trajectory is different. That's where we can see things begin to compound.</p>
-
-<p>So the stability of a generation depends on two things. One: how much the input perturbation gets amplified through the continuous stretching. Two: how many thin boundaries the generation passes through, where a small logit perturbation is enough to flip the top-1. The first is a property of the weights (Li et al.'s per-layer growth ratio). The second is a property of the weights <em>and</em> the prompt, because whether a given step sits on a low-margin boundary depends on what the model is trying to do at that step.</p>
-
-<p>This is why I don't want to give you a single scalar "how chaotic is this LLM" number. The system doesn't have one. It has a stretching rate and it has a boundary-density pattern over generation. A later post goes one step further and asks whether the boundary flip is causally localizable in the forward pass: given a prompt pair that branches, is there a specific residual-stream position where the flip is already committed, such that patching it from the unedited run into the edited run puts the model back on the original trajectory?</p>
-
-<figure>
-  <img src="/blog/nearby-prompts-distant-trajectories/assets/figures/token-decision-boundary.png" alt="Token decision boundary" loading="lazy" decoding="async" width="1376" height="768">
-  <figcaption>A thin boundary between top-1 and top-2 logits. A small perturbation elsewhere in the prompt can cross it. One flip, autoregression runs with the different prefix, output diverges.</figcaption>
-</figure>
-
-<h2>What I did next</h2>
-
-<p>Given the lens above, the question I wanted to answer is: across a reasonable slice of publicly available models, how sensitive are they to meaning-preserving prompt perturbations?</p>
-
-<p>I collected a varied set of open source models, spun them up on my own hardware and started running the experiments. To be continued.</p>
+<p>So you can't really say "how chaotic is this LLM?" with a single number. It has a stretching rate, and it has a boundary-density pattern over generation.</p>
