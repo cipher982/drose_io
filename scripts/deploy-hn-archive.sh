@@ -54,11 +54,11 @@ cleanup() {
 trap cleanup EXIT
 
 /usr/bin/rsync -a --delete \
-  --exclude='.git' \
-  --exclude='data' \
-  --exclude='.env' \
-  --exclude='.env.*' \
-  --exclude='node_modules' \
+  --exclude='/.git' \
+  --exclude='/data' \
+  --exclude='/.env' \
+  --exclude='/.env.*' \
+  --exclude='/node_modules' \
   "$source_dir/" "$stage/"
 
 if [[ -e "$CURRENT" ]]; then
