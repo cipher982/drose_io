@@ -228,6 +228,21 @@ async function main(): Promise<void> {
   });
   if (hnPostFailures === 0) pass(`all ${hnPublished.length} published HN briefs reachable`);
 
+  const latestHn = hnPublished[0];
+  if (latestHn) {
+    const latestHtml = await text(`/digests/hn/${latestHn.slug}`);
+    if (latestHtml && latestHtml.includes(latestHn.title)) {
+      pass(`latest HN brief renders its title (${latestHn.slug})`);
+    } else {
+      fail(`latest HN brief body missing title (${latestHn.slug})`);
+    }
+    if (latestHtml && !/style\s*=\s*["'][^"']*\bcolor\s*:/i.test(latestHtml)) {
+      pass('latest HN brief has no inline light-theme colors');
+    } else if (latestHtml) {
+      fail('latest HN brief still contains inline color styles');
+    }
+  }
+
   for (const draft of hnDrafts) {
     const s = await status(`/digests/hn/${draft.slug}`);
     s === 404 ? pass(`/digests/hn/${draft.slug} 404 (draft)`) : fail(`/digests/hn/${draft.slug} should 404, got ${s}`);

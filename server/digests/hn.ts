@@ -134,6 +134,7 @@ function sanitizeHtml(html: string): string {
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<object[\s\S]*?<\/object>/gi, '')
     .replace(/<embed[\s\S]*?<\/embed>/gi, '')
+    .replace(/\sstyle\s*=\s*(['"])[\s\S]*?\1/gi, '')
     .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
     .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
     .replace(/\s(href|src)\s*=\s*(['"])javascript:[\s\S]*?\2/gi, '');
@@ -158,12 +159,10 @@ const STYLES = `
   .digest-content { margin-top: var(--spacing-4xl); }
   .digest-content h2 { font-size: var(--font-size-2xl); margin: var(--spacing-3xl) 0 var(--spacing-sm); line-height: var(--line-height-tight); }
   .digest-content p, .digest-content li { color: var(--color-blog-body-text); font-size: var(--font-size-xl); line-height: var(--line-height-spacious); }
-  /* Sauron briefs contain inline light-theme colors; the dark site must win. */
-  .digest-content [style*="color"] { color: var(--color-blog-body-text) !important; }
-  .digest-content h2 { color: var(--color-blog-text) !important; }
-  .digest-content a { color: #b8c4ff !important; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-  .digest-content a:hover { color: #e0e7ff !important; }
-  .digest-content div:last-child { color: #cbd5e1 !important; }
+  .digest-content h2 { color: var(--color-blog-text); }
+  .digest-content a { color: #b8c4ff; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .digest-content a:hover { color: #e0e7ff; }
+  .digest-content div:last-child { color: #cbd5e1; }
   .digest-source { margin-top: var(--spacing-4xl); padding-top: var(--spacing-xl); border-top: var(--border-width-thin) solid var(--color-blog-card-border); color: #cbd5e1; font-size: var(--font-size-base); }
   @media (max-width: 640px) {
     .digest-shell { padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-5xl); }

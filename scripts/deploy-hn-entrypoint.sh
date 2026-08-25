@@ -25,4 +25,4 @@ actual="$(/usr/bin/git -C "$fetch_dir/repo" rev-parse HEAD)"
   exit 1
 }
 
-exec "$fetch_dir/repo/scripts/deploy-hn-archive.sh" "$sha" "$fetch_dir/repo"
+"$fetch_dir/repo/scripts/deploy-hn-archive.sh" "$sha" "$fetch_dir/repo"
