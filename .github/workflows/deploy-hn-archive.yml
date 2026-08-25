@@ -1,0 +1,91 @@
+name: Deploy HN archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/digests/hn/**'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Current main ref to deploy (defaults to main)'
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drose-hn-archive-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out deployment target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve and validate target commit
+        id: target
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == push ]]; then
+            sha="$EVENT_SHA"
+            while IFS= read -r path; do
+              case "$path" in
+                content/digests/hn/*) ;;
+                *) echo "push changed a non-HN path: $path" >&2; exit 1 ;;
+              esac
+            done < <(git diff-tree --root --no-commit-id --name-only -r "$sha")
+          else
+            sha="$(git rev-parse HEAD)"
+          fi
+          main_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$main_sha" == "$sha" ]] || {
+            echo "target is not current main: target=$sha main=$main_sha" >&2
+            exit 1
+          }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Deploying $sha"
+
+      - name: Install deploy SSH identity
+        env:
+          DEPLOY_KEY: ${{ secrets.DROSE_SITE_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DROSE_SITE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/drose-site-deploy"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/drose-site-deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy exact commit to Clifford
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/drose-site-deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            drose@5.161.97.53 "deploy $SHA"
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Verify public deployment
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun run scripts/smoke.ts https://drose.io

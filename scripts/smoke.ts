@@ -22,6 +22,7 @@ import { computeFingerprint } from '../server/fingerprint';
 
 const ROOT = join(import.meta.dir, '..');
 const BLOG_DIR = join(ROOT, 'content/blog');
+const HN_DIR = join(ROOT, 'content/digests/hn');
 const BASE = (process.argv[2] || 'https://drose.io').replace(/\/$/, '');
 const CONCURRENCY = 8;
 
@@ -51,11 +52,12 @@ function bust(url: string): string {
 
 type Meta = { title: string; slug: string; status: string; publishedAt: string };
 
-function loadMeta(): { published: Meta[]; drafts: Meta[] } {
+function loadMeta(dir: string): { published: Meta[]; drafts: Meta[] } {
   const published: Meta[] = [];
   const drafts: Meta[] = [];
-  for (const name of readdirSync(BLOG_DIR)) {
-    const metaPath = join(BLOG_DIR, name, 'meta.json');
+  if (!existsSync(dir)) return { published, drafts };
+  for (const name of readdirSync(dir)) {
+    const metaPath = join(dir, name, 'meta.json');
     if (!existsSync(metaPath)) continue;
     let m: Meta;
     try {
@@ -114,7 +116,8 @@ async function text(path: string): Promise<string | null> {
 
 async function main(): Promise<void> {
   console.log(`smoke: ${BASE}`);
-  const { published, drafts } = loadMeta();
+  const { published, drafts } = loadMeta(BLOG_DIR);
+  const { published: hnPublished, drafts: hnDrafts } = loadMeta(HN_DIR);
 
   section('health and identity');
   const health = await text('/api/health');
@@ -197,6 +200,49 @@ async function main(): Promise<void> {
   itemCount > 0 ? pass(`rss.xml has ${itemCount} items`) : fail('rss.xml has no items');
   const sitemapStatus = await status('/blog/sitemap.xml');
   sitemapStatus === 200 ? pass('sitemap.xml 200') : fail(`sitemap.xml returned ${sitemapStatus}`);
+
+  section('HN archive');
+  const hnIndex = await text('/digests/hn');
+  if (!hnIndex) {
+    fail('/digests/hn unreachable');
+  } else {
+    const hnLinked = new Set(Array.from(hnIndex.matchAll(/href="\/digests\/hn\/([0-9]{4}-[0-9]{2}-[0-9]{2})"/g), m => m[1]!));
+    const hnExpected = new Set(hnPublished.map(d => d.slug));
+    const hnMissing = [...hnExpected].filter(s => !hnLinked.has(s));
+    const hnUnexpected = [...hnLinked].filter(s => !hnExpected.has(s));
+    if (hnMissing.length === 0 && hnUnexpected.length === 0) {
+      pass(`/digests/hn lists exactly the ${hnExpected.size} published briefs`);
+    } else {
+      fail('/digests/hn date set differs from local metadata',
+        `missing=[${hnMissing.join(',')}] unexpected=[${hnUnexpected.join(',')}]`);
+    }
+  }
+
+  let hnPostFailures = 0;
+  await mapLimit(hnPublished, CONCURRENCY, async digest => {
+    const s = await status(`/digests/hn/${digest.slug}`);
+    if (s !== 200) {
+      hnPostFailures++;
+      fail(`/digests/hn/${digest.slug} returned ${s}`);
+    }
+  });
+  if (hnPostFailures === 0) pass(`all ${hnPublished.length} published HN briefs reachable`);
+
+  for (const draft of hnDrafts) {
+    const s = await status(`/digests/hn/${draft.slug}`);
+    s === 404 ? pass(`/digests/hn/${draft.slug} 404 (draft)`) : fail(`/digests/hn/${draft.slug} should 404, got ${s}`);
+    const preview = await status(`/digests/hn/${draft.slug}?preview=1`);
+    preview === 200 ? pass(`/digests/hn/${draft.slug}?preview=1 200`) : fail(`HN draft preview returned ${preview}`);
+  }
+  if (hnDrafts.length === 0) pass('no HN drafts to check');
+
+  const hnRss = await text('/digests/hn/rss.xml');
+  const hnItemCount = hnRss ? (hnRss.match(/<item>/g) || []).length : 0;
+  hnItemCount === hnPublished.length
+    ? pass(`HN rss.xml has exactly ${hnItemCount} published briefs`)
+    : fail(`HN rss.xml has ${hnItemCount} items, expected ${hnPublished.length}`);
+  const hnSitemapStatus = await status('/digests/hn/sitemap.xml');
+  hnSitemapStatus === 200 ? pass('HN sitemap.xml 200') : fail(`HN sitemap.xml returned ${hnSitemapStatus}`);
 
   section('post assets (byte-for-byte)');
   type AssetCheck = { url: string; local: string; size: number };

@@ -27,9 +27,13 @@ the container, and then runs `scripts/smoke.ts` against production. Smoke
 compares a fingerprint of the local `server/`, `templates/`, `public/`, and
 `content/` trees against `/api/version`, so a deploy that silently no-ops fails
 the check instead of looking successful. It also fetches every blog asset and
-compares bytes.
+compares bytes, and checks that the HN archive index, every brief, RSS feed,
+and sitemap match this checkout.
 
-Nothing auto-deploys on push.
+Ordinary site changes still deploy with `make deploy`. HN brief commits under
+`content/digests/hn/` trigger `.github/workflows/deploy-hn-archive.yml`, which
+deploys the exact current `main` commit and runs the same production smoke test
+in GitHub Actions. The HN publisher is not granted host or Docker access.
 
 ## Architecture
 
