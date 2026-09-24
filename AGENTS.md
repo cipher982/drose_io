@@ -187,7 +187,7 @@ This is the only part of the site holding real user data. `data/` is a bind
 mount on clifford, not in the image, and is excluded from deploys — do not
 "clean it up", and be careful with anything that rewrites thread files.
 
-**Pepper** is the sprite creature on the homepage: `public/assets/js/creature.js`
+**Pepper** (a boy, he/him; a maltipom) is the sprite creature on the homepage: `public/assets/js/creature.js`
 plus `creature.css` and a spritesheet, with `server/api/creature.ts` for state
 and `server/api/creature-think.ts` for reactions. Note that `creature-think`
 calls the OpenAI API directly (`gpt-5.2`) rather than going through OpenRouter,
