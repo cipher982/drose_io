@@ -1,7 +1,8 @@
 # drose.io
 
-Personal portfolio, writing site, and a direct-message inbox. Visitors can send
-messages that land on my phone; I reply from a mobile admin page.
+Personal portfolio, writing site, and Pepper, a dog who runs the front desk.
+Visitors chat with Pepper; when they want me, he carries the message to my
+Telegram and brings my reply back on the site, by email, or on Telegram.
 
 Live at [drose.io](https://drose.io).
 
@@ -38,14 +39,14 @@ in GitHub Actions. The HN publisher is not granted host or Docker access.
 ## Architecture
 
 - **Runtime:** Bun + Hono
-- **Public pages:** `templates/index.html` and `templates/admin.html`, rendered
+- **Public pages:** `templates/index.html`, rendered
   at boot (analytics injection, latest-posts list, asset content hashes). Other
   static files are served from `public/`.
 - **Blog:** server-rendered from `content/blog/`. Not Markdown — each post is a
   directory with `meta.json` and an `index.html` fragment.
-- **Storage:** append-only JSONL under `data/`. No database.
-- **Real-time:** Server-Sent Events for live replies.
-- **Notifications:** ntfy, with optional Twilio SMS.
+- **Pepper:** `server/pepper/`. One JSONL conversation per visitor under
+  `data/pepper/`; channels are the web chat (SSE for live replies), email
+  (AWS SES on `agents.drose.io`), and Telegram. See `AGENTS.md`.
 
 ```
 server/
@@ -53,9 +54,9 @@ server/
   render/               boot-time page rendering, asset hashing
   fingerprint.ts        deployment identity
   blog/                 loader, layout, RSS, sitemap, assets
-  api/                  threads, SSE, push, analytics, creature
-  storage/              JSONL persistence
-templates/              index.html, admin.html (rendered, not served raw)
+  pepper/               Pepper: conversation store, model, channels, routes
+  api/                  analytics, creature (the sprite)
+templates/              index.html (rendered, not served raw)
 public/                 CSS, JS, images, static XML
 content/blog/<slug>/    meta.json + index.html + assets/
 scripts/
@@ -79,28 +80,23 @@ and citation rules.
 
 Public:
 
-- `POST /api/feedback` — send a ping or message
-- `GET /api/threads/:visitorId/messages` — history
-- `GET /api/threads/:visitorId/stream` — live updates (SSE)
+- `POST /api/pepper/chat`, `GET /api/pepper/history`, `POST /api/pepper/contact`
+- `GET /api/pepper/stream` — David's replies, live (SSE)
+- `GET /m/:token` — continue a conversation from an email link
 - `GET /api/health` — liveness
 - `GET /api/version` — deployment fingerprint
 
-Admin (Bearer auth):
+Webhooks: `POST /api/pepper/telegram`, `POST /api/pepper/email/:secret` (SNS).
 
-- `GET /api/admin/threads`, `POST /api/admin/threads/:visitorId/reply`,
-  `POST /api/admin/threads/:visitorId/read`,
-  `DELETE /api/admin/threads/:visitorId`
-- `GET /api/admin/stream`, `GET /api/admin/inbox/health`
-- `GET /api/admin/analytics/{summary,insights,deep}`
+Admin (Bearer auth): `GET /api/admin/inbox/health`,
+`GET /api/admin/analytics/{summary,insights,deep}`.
 
 ## Configuration
 
-- `ADMIN_PASSWORD` — admin access
-- `NTFY_SERVER`, `NTFY_TOPIC` — push notifications
-- `UMAMI_ENABLED`, `UMAMI_WEBSITE_ID`, `UMAMI_DOMAINS` — analytics. Injection
-  happens at render time, so these must be present in the running container,
-  not at image build.
-- `TWILIO_*` — optional SMS fallback
+See `.env.example`. Every Pepper channel switches off when its variables are
+unset. `UMAMI_ENABLED`, `UMAMI_WEBSITE_ID`, `UMAMI_DOMAINS` drive analytics
+injection at render time, so they must be present in the running container,
+not at image build.
 
 ## License
 

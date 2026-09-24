@@ -1,6 +1,6 @@
 # drose.io
 
-Personal portfolio, direct-message inbox, and public writing site. One
+Personal portfolio, public writing site, and Pepper, the visitor agent. One
 developer, agent-assisted. Not a service anyone pays for: downtime is cheap,
 wrong content is expensive.
 
@@ -49,7 +49,7 @@ example, served at `/digests/hn` with its own feed and sitemap.
 - Public pages: templates in `templates/` rendered at boot; other static files
   served from `public/`.
 - Blog: SSR from `content/blog/`.
-- Storage: JSONL under `data/` for visitor threads.
+- Storage: JSONL under `data/` (Pepper's conversations). No database.
 - Deploy: `make deploy` (manual-app to `clifford`). Nothing auto-deploys.
 
 ## Content model
@@ -140,8 +140,9 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - Umami is injected between `<!-- UMAMI_START -->` / `<!-- UMAMI_END -->` in
   `templates/index.html` at render time. It renders empty when `UMAMI_ENABLED`
   is unset, which is correct for local dev.
-- Local env comes from `.env` (see `.env.example`). Analytics, ntfy, Twilio and
-  the admin password are all optional locally; the site runs without them.
+- Local env comes from `.env` (see `.env.example`). Analytics, Pepper's
+  channels and the admin password are all optional locally; each piece
+  switches off when its variables are unset.
 - `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`.
 
 ## Where to look next
@@ -160,9 +161,8 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - `server/fingerprint.ts` — deployment identity, shared by server and smoke.
 - `scripts/smoke.ts` — post-deploy verification.
 - `server/blog/*` — blog loading, layout, RSS, assets.
-- `server/api/threads.ts`, `server/api/sse.ts`,
-  `server/sse/connection-manager.ts` — direct messages.
-- Pepper agent: `server/pepper/` (chat, relay, Telegram, email), `public/assets/js/pepper-chat.js`.
+- `server/pepper/` — Pepper, the visitor agent (see "Pepper" below), and
+  `public/assets/js/pepper-chat.js`, its chat panel.
 - Pepper sprite: `public/assets/js/creature.js`, `public/assets/css/creature.css`,
   `server/api/creature.ts`.
 
@@ -173,33 +173,64 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - Prose: plain and direct. No marketing cadence, no rhetorical flourish, no
   "not X, but Y" constructions. State what happened.
 
+## Pepper
+
+Pepper (a boy, he/him; a maltipom) is the homepage dog and David's front desk.
+Visitors chat with him; he answers from public site content only, never speaks
+for David, and carries messages to David when asked. David answers from
+Telegram. There is no admin page.
+
+```
+ web chat (/api/pepper/chat)  ─┐                              ┌─► live page (SSE /api/pepper/stream)
+ email  pepper@agents.drose.io ─┼─► data/pepper/conversations ─┼─► email (SES)
+ telegram (visitor or desk)   ─┘     one file per visitor      └─► telegram (visitor chat, David's desk)
+                                           deliver.ts decides where each message goes
+```
+
+`server/pepper/`, one file per job:
+
+- `conversation.ts` — the only store. `data/pepper/conversations/<visitorId>.jsonl`
+  (messages plus relay/contact/telegram-linked events) and
+  `data/pepper/visitors.json` (token, email, Telegram chat, desk topic). One
+  token per visitor is the `/m/<token>` link, the Telegram `start=` payload,
+  and the reply address `pepper+<token>@agents.drose.io`. David's inbox is
+  computed: a visitor waits on David when a relay is newer than his last reply.
+- `pepper.ts` — prompt, site knowledge, the OpenAI call (`gpt-5.2`, override
+  with `PEPPER_MODEL`). Costs money per turn; limits are in `web.ts`.
+- `deliver.ts` — the only place that knows the channels: relay to David,
+  record contact, deliver David's reply everywhere the visitor can be reached.
+- `web.ts` — every HTTP route. `email.ts` and `telegram.ts` — one channel each,
+  in and out.
+
+Channels:
+
+- **Email** is AWS SES both ways on `agents.drose.io` (its own MX record;
+  drose.io's MX stays with Google). Inbound: SES receipt rule → SNS →
+  `POST /api/pepper/email/<PEPPER_WEBHOOK_SECRET>`.
+- **Telegram**: the bot's webhook is `POST /api/pepper/telegram`, registered at
+  boot from `PUBLIC_BASE_URL`. David's private group "Pepper's Desk" has one
+  topic per visitor; replying in a topic answers that visitor.
+- **Sauron** watches `GET /api/admin/inbox/health` (stale unread relays) and
+  `/api/pepper/history` (store readable). Keep both shapes.
+
+Env (Infisical `ops-infra/prod`): `OPENAI_API_KEY`, `PEPPER_SES_ACCESS_KEY_ID`,
+`PEPPER_SES_SECRET_ACCESS_KEY`, `PEPPER_WEBHOOK_SECRET`, `PEPPER_SNS_TOPIC_ARN`,
+`PEPPER_TELEGRAM_BOT_TOKEN`, `PEPPER_TELEGRAM_BOT_USERNAME`,
+`PEPPER_TELEGRAM_DESK_CHAT_ID`, `PEPPER_TELEGRAM_DAVID_USER_ID`,
+`PUBLIC_BASE_URL`; optional `PEPPER_MODEL`, `PEPPER_MAIL_FROM`.
+
+`data/` is a bind mount on clifford, not in the image, and excluded from
+deploys. It holds real visitor conversations: never "clean it up".
+`scripts/migrate-threads-to-pepper.ts` converted the old `data/threads` inbox.
+
 ## Misc subsystems
 
 Rarely edited, so kept brief. Read the files before changing any of them.
 
-**Pepper and direct messages.** Pepper (a boy, he/him; a maltipom) is both the
-wandering homepage sprite (`public/assets/js/creature.js`) and the visitor
-agent behind the "talk to pepper" chat (`public/assets/js/pepper-chat.js`,
-`server/pepper/`). He answers only from public site content
-(`server/pepper/knowledge.ts`), never speaks for David, and relays messages
-when a visitor wants David. Model: OpenAI `gpt-5.2` (`PEPPER_MODEL`), called
-directly, so it costs money per turn; limits live in `server/pepper/routes.ts`.
-
-- Pepper's chat logs live in `data/pepper/`. Only relayed messages go into
-  `data/threads/`, because Sauron's stale-unread watchdog pages on that store.
-- David answers in Telegram ("Pepper's Desk", one topic per visitor) or
-  `/admin`. Both go through `deliverDavidReply` in `server/pepper/relay.ts`:
-  live SSE, email, and the visitor's Telegram chat if they linked it.
-- Email goes out as pepper@drose.io through SES (IAM user
-  `drose-web-pepper-ses`, send-as-pepper only). Replies go to
-  `pepper+<key>@swarmlet.com`, which the Sauron mail Worker spools to the R2
-  bucket `pepper-mail-spool`. `server/pepper/inbound.ts` polls it every 30s.
-  Credentials: Infisical `ops-infra/prod` `PEPPER_*`. drose.io's MX stays
-  Google's; nothing here touches it.
-- `data/` is a bind mount on clifford, not in the image, and is excluded from
-  deploys. It holds real visitor data: do not "clean it up".
-- `/m/:token` continues a conversation from a link; the same token is the
-  Telegram deep-link payload.
+**Pepper's sprite.** `public/assets/js/creature.js` wanders the homepage and
+exposes `window.PepperSprite` for the chat. Its page-load quip is
+`server/api/creature-think.ts` (logs in `data/pepper-logs/`);
+`server/api/creature.ts` state is still stub data.
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at
@@ -207,7 +238,3 @@ directly, so it costs money per turn; limits live in `server/pepper/routes.ts`.
 and caches a token. Umami itself runs as a separate manual-app on clifford.
 Treat pageview numbers as lower bounds: the per-path data is top-pages per
 interval, so a missing post is not proven to be zero.
-
-**Service worker.** `public/sw.js` caches shell assets and handles push
-notification clicks. It is easy to forget: if a cached path changes, bump what
-the worker precaches or returning visitors keep the old copy.
