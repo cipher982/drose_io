@@ -11,7 +11,6 @@ type Scenario = {
   device?: keyof typeof devices;
   block?: {
     umami?: boolean;
-    feedbackWidget?: boolean;
   };
   disableAnimations?: boolean;
   disableBackdropFilter?: boolean;
@@ -208,9 +207,6 @@ async function setupContext(browser: Browser, scenario: Scenario) {
   await context.route('**/*', async (route) => {
     const url = route.request().url();
     if (scenario.block?.umami && url.includes('analytics.drose.io/script.js')) {
-      return route.abort();
-    }
-    if (scenario.block?.feedbackWidget && url.includes('/assets/js/feedback-widget')) {
       return route.abort();
     }
     return route.continue();
@@ -576,10 +572,6 @@ async function main() {
       network: 'slow4g',
       cpuThrottleRate: 4,
       block: { umami: true },
-    },
-    {
-      name: 'desktop (no widget)',
-      block: { umami: true, feedbackWidget: true },
     },
     {
       name: 'desktop (scroll to code)',
