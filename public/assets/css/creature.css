@@ -200,3 +200,24 @@
     padding: 6px 10px;
   }
 }
+
+/* Deliver: running over with David's letter */
+.creature-container[data-state="deliver"] .creature-sprite {
+  animation: walk-bob 0.2s ease-in-out infinite;
+}
+.creature-container[data-state="deliver"].facing-left .creature-sprite {
+  animation: walk-bob-flip 0.2s ease-in-out infinite;
+}
+
+.creature-letter {
+  position: absolute;
+  left: 72px;
+  bottom: 30px;
+  width: 22px;
+  height: 15px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.creature-container.facing-left .creature-letter { left: 6px; }
+.creature-container.carrying .creature-letter { opacity: 1; }

@@ -162,7 +162,8 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - `server/blog/*` — blog loading, layout, RSS, assets.
 - `server/api/threads.ts`, `server/api/sse.ts`,
   `server/sse/connection-manager.ts` — direct messages.
-- Pepper: `public/assets/js/creature.js`, `public/assets/css/creature.css`,
+- Pepper agent: `server/pepper/` (chat, relay, Telegram, email), `public/assets/js/pepper-chat.js`.
+- Pepper sprite: `public/assets/js/creature.js`, `public/assets/css/creature.css`,
   `server/api/creature.ts`.
 
 ## Style
@@ -176,24 +177,29 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 
 Rarely edited, so kept brief. Read the files before changing any of them.
 
-**Direct messages.** A visitor posts to `/api/feedback`; the thread is appended
-as JSONL under `data/threads/`, and ntfy (optionally Twilio SMS) notifies David.
-Replies stream back over SSE (`server/api/sse.ts`,
-`server/sse/connection-manager.ts`), and he answers from `/admin`, gated by
-`ADMIN_PASSWORD` bearer auth. `/m/:token` is a separate, cookie-free way to
-continue a conversation from a link, rate-limited by token.
+**Pepper and direct messages.** Pepper (a boy, he/him; a maltipom) is both the
+wandering homepage sprite (`public/assets/js/creature.js`) and the visitor
+agent behind the "talk to pepper" chat (`public/assets/js/pepper-chat.js`,
+`server/pepper/`). He answers only from public site content
+(`server/pepper/knowledge.ts`), never speaks for David, and relays messages
+when a visitor wants David. Model: OpenAI `gpt-5.2` (`PEPPER_MODEL`), called
+directly, so it costs money per turn; limits live in `server/pepper/routes.ts`.
 
-This is the only part of the site holding real user data. `data/` is a bind
-mount on clifford, not in the image, and is excluded from deploys — do not
-"clean it up", and be careful with anything that rewrites thread files.
-
-**Pepper** (a boy, he/him; a maltipom) is the sprite creature on the homepage: `public/assets/js/creature.js`
-plus `creature.css` and a spritesheet, with `server/api/creature.ts` for state
-and `server/api/creature-think.ts` for reactions. Note that `creature-think`
-calls the OpenAI API directly (`gpt-5.2`) rather than going through OpenRouter,
-which is the usual default for personal projects. Its logs land in
-`data/pepper-logs/`. Costs money per call, so check the trigger conditions
-before making it chattier.
+- Pepper's chat logs live in `data/pepper/`. Only relayed messages go into
+  `data/threads/`, because Sauron's stale-unread watchdog pages on that store.
+- David answers in Telegram ("Pepper's Desk", one topic per visitor) or
+  `/admin`. Both go through `deliverDavidReply` in `server/pepper/relay.ts`:
+  live SSE, email, and the visitor's Telegram chat if they linked it.
+- Email goes out as pepper@drose.io through SES (IAM user
+  `drose-web-pepper-ses`, send-as-pepper only). Replies go to
+  `pepper+<key>@swarmlet.com`, which the Sauron mail Worker spools to the R2
+  bucket `pepper-mail-spool`. `server/pepper/inbound.ts` polls it every 30s.
+  Credentials: Infisical `ops-infra/prod` `PEPPER_*`. drose.io's MX stays
+  Google's; nothing here touches it.
+- `data/` is a bind mount on clifford, not in the image, and is excluded from
+  deploys. It holds real visitor data: do not "clean it up".
+- `/m/:token` continues a conversation from a link; the same token is the
+  Telegram deep-link payload.
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at

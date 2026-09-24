@@ -15,7 +15,7 @@ dev:
 	@bun run server/index.ts
 
 test:
-	@bun test test/analytics-identity.test.ts
+	@bun test test/analytics-identity.test.ts test/pepper.test.ts
 
 BASE ?= https://drose.io
 

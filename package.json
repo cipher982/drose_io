@@ -6,7 +6,7 @@
     "dev": "bun run server/index.ts",
     "start": "bun run server/index.ts",
     "smoke": "bun run scripts/smoke.ts",
-    "test": "bun test test/analytics-identity.test.ts",
+    "test": "bun test test/analytics-identity.test.ts test/pepper.test.ts",
     "optimize-images": "bun run scripts/optimize-blog-images.ts",
     "perf": "bun run scripts/perf/run.ts",
     "perf:analyze": "bun run scripts/perf/analyze-cpuprofile.ts",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "hono": "^4.0.0",
+    "postal-mime": "^3.0.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

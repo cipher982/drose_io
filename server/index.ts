@@ -11,6 +11,9 @@ import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './dig
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
+import pepperRoutes from './pepper/routes';
+import { startInboundPoller } from './pepper/inbound';
+import { ensureWebhook, tg } from './pepper/telegram';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
 import { continueThreadGet, continueThreadPost } from './continue/routes';
 import { homePage, adminPage } from './render/pages';
@@ -71,6 +74,13 @@ app.post('/api/admin/push-subscribe', subscribeToPush);
 app.get('/api/creature/state', getCreatureState);
 app.route('/api/creature', creatureVisit);
 app.route('/api/creature', creatureThink);
+
+// Pepper: visitor chat, relay to David, Telegram desk webhook
+app.route('/api/pepper', pepperRoutes);
+startInboundPoller();
+if (tg.token() && Bun.env.PEPPER_TELEGRAM_WEBHOOK_URL) {
+  ensureWebhook(Bun.env.PEPPER_TELEGRAM_WEBHOOK_URL).catch(e => console.error('pepper webhook registration failed:', e));
+}
 
 // Push notification routes
 app.get('/api/push/vapid-public-key', getVapidPublicKey);

@@ -2,8 +2,6 @@ import type { Context } from 'hono';
 import {
   getMessages,
   getUnreadCount,
-  appendMessage,
-  generateMessageId,
   listThreads,
   deleteThread,
   getUnreadFromVisitor,
@@ -11,8 +9,8 @@ import {
   getInboxHealthSummary,
   isValidVisitorId,
 } from '../storage/threads';
-import { getThreadMeta, continueUrlForToken } from '../storage/thread-meta';
-import { sendVisitorReplyEmail } from '../notifications/visitor-email';
+import { getThreadMeta } from '../storage/thread-meta';
+import { deliverDavidReply } from '../pepper/relay';
 import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 /**
@@ -81,31 +79,9 @@ export async function replyToThread(c: Context) {
       return c.json({ error: 'text required' }, 400);
     }
 
-    const messageId = generateMessageId();
-    const message = {
-      id: messageId,
-      from: 'david' as const,
-      text: text.trim(),
-      ts: Date.now(),
-    };
-
-    appendMessage(visitorId, message);
-
-    const meta = getThreadMeta(visitorId);
-    let emailStatus: 'sent' | 'skipped' | 'failed' | 'none' = 'none';
-    if (meta?.contactEmail) {
-      try {
-        const result = await sendVisitorReplyEmail({
-          to: meta.contactEmail,
-          replyText: message.text,
-          continueUrl: continueUrlForToken(meta.continueToken),
-        });
-        emailStatus = result.skipped ? 'skipped' : result.sent ? 'sent' : 'failed';
-      } catch (error) {
-        console.error('❌ Visitor reply email failed:', error);
-        emailStatus = 'failed';
-      }
-    }
+    const report = await deliverDavidReply(visitorId, text.trim());
+    const messageId = report.messageId;
+    const emailStatus = report.email;
 
     console.log('✅ Reply sent:', { visitorId, messageId, emailStatus });
 

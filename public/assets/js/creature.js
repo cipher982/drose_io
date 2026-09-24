@@ -36,6 +36,7 @@
     sleep: 'lie',
     happy: 'face',
     sit: 'sit',
+    deliver: 'run',
   };
 
   // ============================================================
@@ -107,6 +108,9 @@
 
     // LLM thought cooldown
     lastLLMRequest: 0,
+
+    // Parked beside the chat launcher (chat open, or delivering a letter)
+    parked: false,
   };
 
   // ============================================================
@@ -278,6 +282,7 @@
     createCreatureDOM();
     bindEvents();
     startAnimationLoop();
+    window.PepperSprite = spriteApi;
 
     // Start at right edge
     const bounds = getViewportBounds();
@@ -324,6 +329,12 @@
     `;
 
     container.appendChild(spriteEl);
+
+    // Letter carried in Pepper's mouth when David replies
+    const letter = document.createElement('div');
+    letter.className = 'creature-letter';
+    letter.innerHTML = '<svg width="22" height="15" viewBox="0 0 22 15" aria-hidden="true"><rect x="1" y="1" width="20" height="13" rx="2" fill="#f4f4f5"/><path d="M1.5 1.8 11 8.5l9.5-6.7" stroke="#22c3dd" stroke-width="1.6" fill="none"/></svg>';
+    container.appendChild(letter);
 
     // Thought bubble
     const thought = document.createElement('div');
@@ -386,27 +397,6 @@
     container.addEventListener('click', onCreatureClick);
     container.addEventListener('touchend', onCreatureTap);
     document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // Track idle time (30s of no interaction)
-    let lastInteraction = Date.now();
-    document.addEventListener('mousemove', () => { lastInteraction = Date.now(); }, { passive: true });
-    document.addEventListener('touchmove', () => { lastInteraction = Date.now(); }, { passive: true });
-    document.addEventListener('keydown', () => { lastInteraction = Date.now(); }, { passive: true });
-    document.addEventListener('scroll', () => { lastInteraction = Date.now(); }, { passive: true });
-
-    setInterval(() => {
-      if (Date.now() - lastInteraction > 30000) {
-        requestLLMThought('idle');
-        lastInteraction = Date.now(); // Reset to avoid spam
-      }
-    }, 30000);
-
-    // Exit intent detection (mouse leaving viewport at top)
-    document.addEventListener('mouseout', (e) => {
-      if (e.clientY < 10 && e.relatedTarget === null) {
-        requestLLMThought('leaving');
-      }
-    });
 
     // Send final interaction counts on page exit (use sendBeacon for reliability)
     window.addEventListener('beforeunload', () => {
@@ -492,8 +482,11 @@
     state.interactions.clicks++;
     showThought(getRandomThought());
 
-    // Request LLM thought for click interaction
-    requestLLMThought('click');
+    // Clicking Pepper opens the chat; the chat is where he talks now.
+    if (window.PepperChat) {
+      window.PepperChat.open();
+      return;
+    }
 
     if (state.currentState !== 'flee') {
       setState('happy');
@@ -538,6 +531,11 @@
   }
 
   function updateState() {
+    if (state.parked) {
+      updateParkedState();
+      return;
+    }
+
     const now = performance.now();
     const creatureScreenPos = getCreatureScreenPosition();
     const distToMouse = getDistance(
@@ -595,6 +593,59 @@
   }
 
   // ============================================================
+  // Parking (chat open) and letter delivery - driven by pepper-chat.js
+  // ============================================================
+
+  // Just left of the "talk to pepper" launcher, on the bottom edge.
+  function parkSpot() {
+    return {
+      x: Math.max(8, window.innerWidth - (isMobile ? 16 : 20) - 60 - 12 - FRAME_WIDTH),
+      y: 4,
+    };
+  }
+
+  function updateParkedState() {
+    const spot = parkSpot();
+    state.targetX = spot.x;
+    state.targetY = spot.y;
+    if (!hasArrivedAtTarget()) {
+      if (state.currentState !== 'deliver') setState('deliver');
+      return;
+    }
+    if (state.currentState !== 'sit') {
+      setState('sit');
+      container.classList.remove('carrying');
+      updateFacingDirection(window.innerWidth);
+    }
+  }
+
+  const spriteApi = {
+    sit() {
+      state.parked = true;
+      container.classList.add('chat-open');
+    },
+    resume() {
+      state.parked = false;
+      container.classList.remove('chat-open', 'carrying');
+      setState('idle');
+      scheduleNextWander();
+    },
+    deliverLetter() {
+      // Run in from the left edge with the letter, then sit by the launcher.
+      const spot = parkSpot();
+      state.parked = true;
+      state.x = -FRAME_WIDTH;
+      state.y = spot.y;
+      container.classList.add('carrying');
+      setState('deliver');
+      // Nobody opened the chat: go back to wandering after a while.
+      setTimeout(() => {
+        if (!(window.PepperChat && window.PepperChat.isOpen())) spriteApi.resume();
+      }, 15000);
+    },
+  };
+
+  // ============================================================
   // Movement
   // ============================================================
 
@@ -644,7 +695,7 @@
     }
 
     let speed = CONFIG.wanderSpeed;
-    if (state.currentState === 'flee') speed = CONFIG.fleeSpeed;
+    if (state.currentState === 'flee' || state.currentState === 'deliver') speed = CONFIG.fleeSpeed;
     if (state.currentState === 'curious') speed = CONFIG.curiousSpeed;
 
     const moveAmount = speed * (dt / 1000);
