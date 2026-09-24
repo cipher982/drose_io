@@ -1,22 +1,16 @@
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
-import { handleFeedback } from './feedback';
-import { checkThreadMessages, getThreadMessages, replyToThread, listAllThreads, deleteThreadById, markThreadRead, getInboxHealth } from './api/threads';
-import { streamVisitorThread, streamAdminUpdates } from './api/sse';
-import { connectionManager } from './sse/connection-manager';
-import { subscribeToPush, getVapidPublicKey } from './api/push';
 import { blogIndex, blogPost, blogRss, blogAsset, blogSitemap } from './blog/routes';
 import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
 import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
-import pepperRoutes from './pepper/routes';
-import { startInboundPoller } from './pepper/inbound';
-import { ensureWebhook, tg } from './pepper/telegram';
+import pepper, { continuePage, inboxHealthRoute } from './pepper/web';
+import { liveStats } from './pepper/deliver';
+import { registerWebhook } from './pepper/telegram';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
-import { continueThreadGet, continueThreadPost } from './continue/routes';
-import { homePage, adminPage } from './render/pages';
+import { homePage } from './render/pages';
 import { computeFingerprint, fingerprintFileCount } from './fingerprint';
 import { join } from 'path';
 
@@ -44,7 +38,7 @@ app.use('/*', async (c, next) => {
     c.res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
     return;
   }
-  if (path === '/' || path === '/admin' || path.startsWith('/blog') || path.startsWith('/digests') || path.endsWith('.html')) {
+  if (path === '/' || path.startsWith('/blog') || path.startsWith('/digests') || path.endsWith('.html')) {
     c.res.headers.set('Cache-Control', 'public, max-age=300, must-revalidate');
     return;
   }
@@ -53,41 +47,19 @@ app.use('/*', async (c, next) => {
   }
 });
 
-// API routes
-app.post('/api/feedback', handleFeedback);
-
-// Thread routes
-app.get('/api/threads/:visitorId/check', checkThreadMessages);
-app.get('/api/threads/:visitorId/messages', getThreadMessages);
-app.get('/api/threads/:visitorId/stream', streamVisitorThread);
-
-// Admin routes
-app.post('/api/admin/threads/:visitorId/reply', replyToThread);
-app.post('/api/admin/threads/:visitorId/read', markThreadRead);
-app.get('/api/admin/threads', listAllThreads);
-app.get('/api/admin/inbox/health', getInboxHealth);
-app.delete('/api/admin/threads/:visitorId', deleteThreadById);
-app.get('/api/admin/stream', streamAdminUpdates);
-app.post('/api/admin/push-subscribe', subscribeToPush);
+// Pepper: the visitor chat and David's inbox. See server/pepper/web.ts.
+app.route('/api/pepper', pepper);
+app.get('/m/:token', continuePage);
+app.get('/api/admin/inbox/health', inboxHealthRoute); // Sauron's stale-unread watchdog
+if (Bun.env.PEPPER_TELEGRAM_BOT_TOKEN && Bun.env.PUBLIC_BASE_URL?.startsWith('https://')) {
+  registerWebhook(`${Bun.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/api/pepper/telegram`)
+    .catch(e => console.error('pepper telegram webhook registration failed:', e));
+}
 
 // Creature API
 app.get('/api/creature/state', getCreatureState);
 app.route('/api/creature', creatureVisit);
 app.route('/api/creature', creatureThink);
-
-// Pepper: visitor chat, relay to David, Telegram desk webhook
-app.route('/api/pepper', pepperRoutes);
-startInboundPoller();
-if (tg.token() && Bun.env.PEPPER_TELEGRAM_WEBHOOK_URL) {
-  ensureWebhook(Bun.env.PEPPER_TELEGRAM_WEBHOOK_URL).catch(e => console.error('pepper webhook registration failed:', e));
-}
-
-// Push notification routes
-app.get('/api/push/vapid-public-key', getVapidPublicKey);
-
-// Continue conversation (secret token; no cookie grant)
-app.get('/m/:token', continueThreadGet);
-app.post('/m/:token', continueThreadPost);
 
 // Rendered pages. These must stay ahead of serveStatic so nothing can serve an
 // unrendered template, and the templates live outside public/ so there is
@@ -96,11 +68,6 @@ const HTML_HEADERS = { 'Content-Type': 'text/html; charset=utf-8' } as const;
 
 app.get('/', (c) => c.body(homePage(), 200, HTML_HEADERS));
 app.get('/index.html', (c) => c.body(homePage(), 200, HTML_HEADERS));
-
-// /admin.html is requested by the service worker and by push notification
-// click-through, so both spellings have to render.
-app.get('/admin', (c) => c.body(adminPage(), 200, HTML_HEADERS));
-app.get('/admin.html', (c) => c.body(adminPage(), 200, HTML_HEADERS));
 
 // Analytics dashboard (admin-gated)
 app.get('/api/admin/analytics/summary', handleAnalyticsSummary);
@@ -125,7 +92,7 @@ app.get('/digests/hn/:slug', hnDigestPost);
 app.get('/api/health', (c) => c.json({
   status: 'ok',
   timestamp: Date.now(),
-  connections: connectionManager.getStats(),
+  connections: liveStats(),
 }));
 
 // Deployment identity. scripts/smoke.ts compares this against the local

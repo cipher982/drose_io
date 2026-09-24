@@ -2,9 +2,9 @@
  * Pepper chat - David's visitor-facing agent on drose.io.
  *
  * A fixed launcher plus a typing-first chat panel. Pepper answers from the
- * public site and carries messages to David; David's replies arrive over the
- * visitor's thread SSE stream. Independent of creature.js (which does not run
- * under prefers-reduced-motion); the sprite is only decoration via
+ * public site and carries messages to David; David's replies arrive over
+ * /api/pepper/stream. Independent of creature.js (which does not run under
+ * prefers-reduced-motion); the sprite is only decoration via
  * window.PepperSprite when it exists.
  */
 
@@ -523,18 +523,17 @@
   }
 
   // ============================================================
-  // David's replies (named SSE event 'new-message' on the thread stream)
+  // David's replies arrive as SSE event 'david' with {text, ts}
   // ============================================================
 
   function openStream() {
     if (state.es || typeof EventSource === 'undefined') return;
-    const es = new EventSource('/api/threads/' + encodeURIComponent(getVisitorId()) + '/stream');
+    const es = new EventSource('/api/pepper/stream?visitorId=' + encodeURIComponent(getVisitorId()));
     state.es = es;
-    es.addEventListener('new-message', function (ev) {
-      let payload;
-      try { payload = JSON.parse(ev.data); } catch { return; }
-      const msg = payload && payload.message;
-      if (!msg || msg.from !== 'david' || typeof msg.text !== 'string') return;
+    es.addEventListener('david', function (ev) {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      if (!msg || typeof msg.text !== 'string') return;
       onDavidReply(msg);
     });
   }
@@ -561,6 +560,11 @@
   function init() {
     build();
     getVisitorId();
+    // /m/<token> links from Pepper's emails land on /?pepper=open.
+    if (/[?&]pepper=open\b/.test(location.search)) {
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch { /* ignore */ }
+      open();
+    }
     // A returning visitor with a relayed thread should hear about David's
     // reply before opening the panel. The server says whether a thread exists.
     fetchHistory().then(function (data) {

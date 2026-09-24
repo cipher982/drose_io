@@ -1,27 +1,30 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-// Isolate all storage before any server module loads.
+// Isolate storage and configure every channel before any server module loads.
 const DIR = mkdtempSync(join(tmpdir(), 'pepper-test-'));
-process.env.TEST_MODE = 'true';
-process.env.THREADS_DIR = join(DIR, 'threads');
-process.env.BLOCKED_DIR = join(DIR, 'blocked');
-process.env.PEPPER_DIR = join(DIR, 'pepper');
-process.env.OPENAI_API_KEY = 'test-key';
-process.env.PEPPER_TELEGRAM_BOT_TOKEN = 'TESTTOKEN';
-process.env.PEPPER_TELEGRAM_BOT_USERNAME = 'pepper_test_bot';
-process.env.PEPPER_TELEGRAM_DESK_CHAT_ID = '-100123';
-process.env.PEPPER_TELEGRAM_DAVID_USER_ID = '42';
-process.env.PEPPER_TELEGRAM_WEBHOOK_SECRET = 'hook-secret';
+Object.assign(process.env, {
+  TEST_MODE: 'true',
+  PEPPER_DIR: join(DIR, 'pepper'),
+  OPENAI_API_KEY: 'test-key',
+  PEPPER_TELEGRAM_BOT_TOKEN: 'TESTTOKEN',
+  PEPPER_TELEGRAM_BOT_USERNAME: 'pepper_test_bot',
+  PEPPER_TELEGRAM_DESK_CHAT_ID: '-100123',
+  PEPPER_TELEGRAM_DAVID_USER_ID: '42',
+  PEPPER_WEBHOOK_SECRET: 'hook-secret',
+  PEPPER_SNS_TOPIC_ARN: 'arn:aws:sns:us-east-1:111:pepper-inbound-mail',
+  ADMIN_PASSWORD: 'admin-pass',
+});
 delete process.env.PEPPER_SES_ACCESS_KEY_ID;
 
-const { default: pepper } = await import('../server/pepper/routes');
-const { stripQuoted, parseInbound } = await import('../server/pepper/inbound');
-const { sanitizeReply } = await import('../server/pepper/llm');
-const store = await import('../server/pepper/store');
-const { getMessages } = await import('../server/storage/threads');
+const { default: web, inboxHealthRoute } = await import('../server/pepper/web');
+const { sanitizeReply } = await import('../server/pepper/pepper');
+const { stripQuoted, parseEmail, handleNotification } = await import('../server/pepper/email');
+const { handleUpdate } = await import('../server/pepper/telegram');
+const convo = await import('../server/pepper/conversation');
+const { migrate } = await import('../scripts/migrate-threads-to-pepper');
 
 // ---- fetch double: OpenAI returns the next queued reply; Telegram records calls
 const realFetch = globalThis.fetch;
@@ -38,8 +41,7 @@ beforeAll(() => {
     }
     if (u.includes('api.telegram.org')) {
       const method = u.split('/').pop()!;
-      const body = JSON.parse(init.body);
-      tgCalls.push({ method, body });
+      tgCalls.push({ method, body: JSON.parse(init.body) });
       const result = method === 'createForumTopic' ? { message_thread_id: ++topicCounter } : { message_id: 1 };
       return new Response(JSON.stringify({ ok: true, result }));
     }
@@ -53,7 +55,13 @@ afterAll(() => {
 beforeEach(() => { modelReplies = []; tgCalls = []; });
 
 const post = (path: string, body: any, headers: Record<string, string> = {}) =>
-  pepper.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  web.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+
+async function health() {
+  const { Hono } = await import('hono');
+  const app = new Hono().get('/h', inboxHealthRoute);
+  return (await app.request('/h', { headers: { Authorization: 'Bearer admin-pass' } })).json();
+}
 
 describe('model output is clamped to what the UI renders', () => {
   test('options capped at 3 and short; bad email dropped; empty relay ignored', () => {
@@ -67,109 +75,149 @@ describe('model output is clamped to what the UI renders', () => {
   });
 });
 
-describe('chat → relay → David replies from Telegram', () => {
-  const vid = 'visitor-abc-123456';
+describe('web chat -> relay -> David replies from Telegram', () => {
+  const id = 'visitor-abc-123456';
 
-  test('plain question: no relay, no thread message', async () => {
+  test('plain question: no relay, nothing in the inbox', async () => {
     modelReplies.push({ say: 'mostly agents *wag*', options: ['what is longhouse?'], relay: null, contact_email: null });
-    const res = await post('/chat', { visitorId: vid, text: 'what does david build?', page: '/', via: 'typed' });
+    const res = await post('/chat', { visitorId: id, text: 'what does david build?', page: '/', via: 'typed' });
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json.say).toBe('mostly agents *wag*');
-    expect(json.options).toEqual(['what is longhouse?']);
-    expect(json.relay).toBeNull();
-    expect(getMessages(vid)).toHaveLength(0); // Pepper chat never pages David's inbox
+    expect(json).toMatchObject({ say: 'mostly agents *wag*', options: ['what is longhouse?'], relay: null });
+    expect(tgCalls).toHaveLength(0);
+    expect((await health()).unreadTotal).toBe(0);
   });
 
-  test('relay writes the thread, opens a topic with a briefing, asks for contact', async () => {
+  test('relay opens a desk topic with a briefing, asks for contact, and waits on David', async () => {
     modelReplies.push({
       say: 'carrying this to david *grabs envelope*', options: [],
       relay: { message: 'Is David open to consulting on eval tooling?', summary: 'Consulting on eval tooling' },
       contact_email: null,
     });
-    const res = await post('/chat', { visitorId: vid, text: 'yes please ask him', page: '/', via: 'option' });
-    const json = await res.json();
+    const json = await (await post('/chat', { visitorId: id, text: 'yes please ask him', page: '/', via: 'option' })).json();
     expect(json.relay).toEqual({ status: 'sent' });
     expect(json.askContact).toBe(true);
-    expect(json.telegramLink).toMatch(/^https:\/\/t\.me\/pepper_test_bot\?start=[A-Za-z0-9_-]+$/);
-
-    const thread = getMessages(vid);
-    expect(thread.at(-1)).toMatchObject({ from: 'visitor', text: 'Is David open to consulting on eval tooling?' });
+    expect(json.telegramLink).toBe(`https://t.me/pepper_test_bot?start=${convo.getVisitor(id)!.token}`);
     expect(tgCalls.map(c => c.method)).toEqual(['createForumTopic', 'sendMessage']);
     expect(tgCalls[1].body.text).toContain('Consulting on eval tooling');
-    expect(store.getVisitor(vid)?.topicId).toBe(topicCounter);
+    expect(tgCalls[1].body.text).toContain('Is David open to consulting on eval tooling?');
+
+    const h = await health();
+    expect(h).toMatchObject({ ok: true, unreadTotal: 1, openThreadCount: 1, oldestUnreadVisitorId: id });
+    expect(typeof h.oldestUnreadAgeSec).toBe('number');
   });
 
-  test('contact endpoint stores the email on the thread', async () => {
-    const bad = await post('/contact', { visitorId: vid, email: 'not-an-email' });
-    expect(bad.status).toBe(400);
-    const ok = await post('/contact', { visitorId: vid, email: 'Maya@Evals.dev' });
-    expect(await ok.json()).toEqual({ ok: true, email: 'maya@evals.dev' });
-    const hist = await (await pepper.request(`/history?visitorId=${vid}`)).json();
-    expect(hist.contactEmail).toBe('maya@evals.dev');
-    expect(hist.relayed).toBe(true);
+  test('contact endpoint validates and stores the email', async () => {
+    expect((await post('/contact', { visitorId: id, email: 'not-an-email' })).status).toBe(400);
+    expect(await (await post('/contact', { visitorId: id, email: 'Maya@Evals.dev' })).json()).toEqual({ ok: true, email: 'maya@evals.dev' });
+    const hist = await (await web.request(`/history?visitorId=${id}`)).json();
+    expect(hist).toMatchObject({ contactEmail: 'maya@evals.dev', relayed: true });
+    expect(Array.isArray(hist.messages)).toBe(true);
+    expect(tgCalls.at(-1)!.body.text).toContain('maya@evals.dev'); // David is told in the topic
   });
 
-  test('webhook rejects a wrong secret', async () => {
-    const res = await post('/telegram', { message: {} }, { 'x-telegram-bot-api-secret-token': 'wrong' });
-    expect(res.status).toBe(403);
+  test('Telegram webhook rejects a wrong secret', async () => {
+    expect((await post('/telegram', { message: {} }, { 'x-telegram-bot-api-secret-token': 'wrong' })).status).toBe(403);
   });
 
-  test("David's topic reply lands in the thread and the chat, marked as David", async () => {
-    const { handleTelegramUpdate } = await import('../server/pepper/routes');
-    const topicId = store.getVisitor(vid)!.topicId!;
-    await handleTelegramUpdate({ message: { chat: { id: -100123, type: 'supergroup' }, from: { id: 42 }, message_thread_id: topicId, text: 'Happy to chat, send times.' } });
-    expect(getMessages(vid).at(-1)).toMatchObject({ from: 'david', text: 'Happy to chat, send times.' });
-    expect(store.readChat(vid).at(-1)).toMatchObject({ from: 'david', text: 'Happy to chat, send times.' });
+  test("someone else posting in the desk is ignored", async () => {
+    const before = convo.read(id).length;
+    await handleUpdate({ message: { chat: { id: -100123, type: 'supergroup' }, from: { id: 7 }, message_thread_id: convo.getVisitor(id)!.topicId, text: 'hijack' } });
+    expect(convo.read(id).length).toBe(before);
+  });
+
+  test("David's topic reply lands in the conversation and clears the inbox", async () => {
+    const topicId = convo.getVisitor(id)!.topicId!;
+    await handleUpdate({ message: { chat: { id: -100123, type: 'supergroup' }, from: { id: 42 }, message_thread_id: topicId, text: 'Happy to chat, send times.' } });
+    expect(convo.messages(id).at(-1)).toMatchObject({ from: 'david', text: 'Happy to chat, send times.' });
     expect(tgCalls.at(-1)!.body.message_thread_id).toBe(topicId); // delivery receipt back in the topic
+    expect((await health()).unreadTotal).toBe(0);
   });
 
-  test('someone else posting in the desk is ignored', async () => {
-    const { handleTelegramUpdate } = await import('../server/pepper/routes');
-    const before = getMessages(vid).length;
-    await handleTelegramUpdate({ message: { chat: { id: -100123, type: 'supergroup' }, from: { id: 7 }, message_thread_id: store.getVisitor(vid)!.topicId, text: 'hijack' } });
-    expect(getMessages(vid).length).toBe(before);
-  });
-
-  test('visitor links Telegram via /start and can write back', async () => {
-    const { handleTelegramUpdate } = await import('../server/pepper/routes');
-    const hist = await (await pepper.request(`/history?visitorId=${vid}`)).json();
-    const token = new URL(hist.telegramLink).searchParams.get('start');
-    await handleTelegramUpdate({ message: { chat: { id: 9001, type: 'private' }, from: { id: 9001 }, text: `/start ${token}` } });
-    expect(store.getVisitor(vid)?.telegramChatId).toBe(9001);
-    await handleTelegramUpdate({ message: { chat: { id: 9001, type: 'private' }, from: { id: 9001 }, text: 'Tuesday 2pm works' } });
-    expect(getMessages(vid).at(-1)).toMatchObject({ from: 'visitor', text: 'Tuesday 2pm works' });
+  test('visitor links Telegram via /start and writes back to David', async () => {
+    const token = convo.getVisitor(id)!.token;
+    await handleUpdate({ message: { chat: { id: 9001, type: 'private' }, from: { id: 9001 }, text: `/start ${token}` } });
+    expect(convo.getVisitor(id)?.telegramChatId).toBe(9001);
+    await handleUpdate({ message: { chat: { id: 9001, type: 'private' }, from: { id: 9001 }, text: 'Tuesday 2pm works' } });
+    expect(convo.messages(id).at(-1)).toMatchObject({ from: 'visitor', text: 'Tuesday 2pm works', via: 'telegram' });
+    expect(tgCalls.some(c => c.body.message_thread_id && String(c.body.text).includes('Tuesday 2pm works'))).toBe(true);
+    expect((await health()).unreadTotal).toBe(1);
   });
 });
 
-describe('inbound email', () => {
+describe('inbound email over SNS', () => {
+  const mime = (to: string, extra = '') =>
+    `From: Maya <maya@evals.dev>\r\nTo: ${to}\r\nSubject: Re: Your note to David\r\n${extra}Content-Type: text/plain; charset=utf-8\r\n\r\nWednesday works too.\r\n\r\nOn Wed, Pepper wrote:\r\n> hi\r\n`;
+
   test('quoted history is stripped', () => {
-    expect(stripQuoted('Sounds good!\n\nOn Tue, Sep 24, 2026 at 5:00 PM Pepper <pepper@drose.io> wrote:\n> old')).toBe('Sounds good!');
+    expect(stripQuoted('Sounds good!\n\nOn Tue, Sep 24, 2026 at 5:00 PM Pepper <pepper@agents.drose.io> wrote:\n> old')).toBe('Sounds good!');
     expect(stripQuoted('yes\r\n> quoted')).toBe('yes');
   });
 
-  const mime = (to: string, extra = '') => new TextEncoder().encode(
-    `From: Maya <maya@evals.dev>\r\nTo: ${to}\r\nSubject: Re: Your note to David\r\n${extra}Content-Type: text/plain; charset=utf-8\r\n\r\nTuesday works.\r\n\r\nOn Wed, Pepper wrote:\r\n> hi\r\n`);
-
-  test('reply key comes from the plus address', async () => {
-    const r = await parseInbound(mime('pepper+0123456789abcdef01234567@swarmlet.com'));
-    expect(r.replyKey).toBe('0123456789abcdef01234567');
-    expect(r.text).toBe('Tuesday works.');
+  test('token comes from the plus address; auto-replies are skipped', async () => {
+    const r = await parseEmail(mime('pepper+0123456789abcdef01234567@agents.drose.io'));
+    expect(r).toMatchObject({ token: '0123456789abcdef01234567', text: 'Wednesday works too.' });
+    expect((await parseEmail(mime('pepper@agents.drose.io', 'Auto-Submitted: auto-replied\r\n'))).skip).toBe('automated');
   });
 
-  test('auto-replies are skipped', async () => {
-    const r = await parseInbound(mime('pepper+0123456789abcdef01234567@swarmlet.com', 'Auto-Submitted: auto-replied\r\n'));
-    expect(r.skip).toBe('automated');
+  test('an SNS notification lands in the right conversation', async () => {
+    const id = 'visitor-abc-123456';
+    const token = convo.getVisitor(id)!.token;
+    await handleNotification(JSON.stringify({
+      receipt: { recipients: [`pepper+${token}@agents.drose.io`], spamVerdict: { status: 'PASS' }, virusVerdict: { status: 'PASS' } },
+      content: mime(`pepper+${token}@agents.drose.io`),
+    }));
+    expect(convo.messages(id).at(-1)).toMatchObject({ from: 'visitor', text: 'Wednesday works too.', via: 'email' });
   });
 
-  test('reply keys are lowercase hex so the mail edge cannot mangle them', () => {
-    const v = store.ensureVisitor('visitor-key-check-1');
-    expect(v.replyKey).toMatch(/^[0-9a-f]{24}$/);
-    expect(store.visitorByReplyKey(v.replyKey.toUpperCase())).toBe('visitor-key-check-1');
+  test('spam verdict FAIL is dropped', async () => {
+    const id = 'visitor-abc-123456';
+    const before = convo.read(id).length;
+    await handleNotification(JSON.stringify({
+      receipt: { recipients: [`pepper+${convo.getVisitor(id)!.token}@agents.drose.io`], spamVerdict: { status: 'FAIL' } },
+      content: mime(`pepper+${convo.getVisitor(id)!.token}@agents.drose.io`),
+    }));
+    expect(convo.read(id).length).toBe(before);
+  });
+
+  test('webhook: wrong path secret and wrong TopicArn are refused', async () => {
+    expect((await post('/email/nope', { Type: 'Notification' })).status).toBe(403);
+    const confirm = await post('/email/hook-secret', {
+      Type: 'SubscriptionConfirmation', TopicArn: 'arn:aws:sns:us-east-1:999:evil', SubscribeURL: 'https://sns.us-east-1.amazonaws.com/confirm',
+    });
+    expect(confirm.status).toBe(403);
   });
 });
 
-test('test storage stayed inside the temp dir', () => {
-  expect(existsSync(join(DIR, 'pepper', 'meta.json'))).toBe(true);
-  expect(readFileSync(join(DIR, 'pepper', 'meta.json'), 'utf-8')).toContain('visitor-abc-123456');
+describe('tokens and continue links', () => {
+  test('one lowercase-hex token per visitor, found case-insensitively', () => {
+    const v = convo.ensureVisitor('visitor-key-check-1');
+    expect(v.token).toMatch(/^[0-9a-f]{24}$/);
+    expect(convo.visitorByToken(v.token.toUpperCase())).toBe('visitor-key-check-1');
+  });
+});
+
+test('migration: old threads become conversations; only unread DMs wait on David', () => {
+  const data = join(DIR, 'old');
+  mkdirSync(join(data, 'threads'), { recursive: true });
+  const line = (o: object) => JSON.stringify(o) + '\n';
+  writeFileSync(join(data, 'threads', 'aaa-read-thread.jsonl'),
+    line({ id: 'm1', from: 'visitor', text: 'hi', ts: 1000 }) + line({ id: 'm2', from: 'david', text: 'hey', ts: 2000 }));
+  writeFileSync(join(data, 'threads', 'bbb-unread-thread.jsonl'),
+    line({ id: 'm3', from: 'visitor', text: 'old', ts: 1000 }) + line({ id: 'm4', from: 'visitor', text: 'new', ts: 3000 }));
+  writeFileSync(join(data, 'threads', 'read-state.json'), JSON.stringify({ 'aaa-read-thread': { lastReadMessageId: 'm1' }, 'bbb-unread-thread': { lastReadMessageId: 'm3' } }));
+  writeFileSync(join(data, 'threads', 'thread-meta.json'), JSON.stringify({ byVisitor: { 'bbb-unread-thread': { contactEmail: 'b@x.dev' } } }));
+
+  const dry = migrate(data, false);
+  expect(dry.migrated.sort()).toEqual(['aaa-read-thread', 'bbb-unread-thread']);
+  expect(existsSync(join(data, 'pepper'))).toBe(false);
+
+  const r = migrate(data, true);
+  expect(r.unreadRelays).toBe(1);
+  const conv = (id: string) => readFileSync(join(data, 'pepper', 'conversations', `${id}.jsonl`), 'utf-8').trim().split('\n').map(l => JSON.parse(l));
+  expect(conv('bbb-unread-thread').filter(e => e.kind === 'relay').map(e => e.message)).toEqual(['new']);
+  expect(conv('aaa-read-thread').some(e => e.kind === 'relay')).toBe(false);
+  expect(JSON.parse(readFileSync(join(data, 'pepper', 'visitors.json'), 'utf-8'))['bbb-unread-thread'].email).toBe('b@x.dev');
+
+  expect(migrate(data, true).skipped.sort()).toEqual(['aaa-read-thread', 'bbb-unread-thread']); // idempotent
 });

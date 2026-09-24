@@ -2,7 +2,7 @@
  * Renders the static HTML pages at boot instead of mutating tracked files.
  *
  * Replaces three build scripts (inject-umami, inject-latest-posts, bust-cache)
- * that rewrote templates/index.html, templates/admin.html, server/blog/layout.ts
+ * that rewrote templates/index.html, server/blog/layout.ts
  * and server/digests/hn.ts in place. That made `git status` dirty just from
  * running the dev server and made generated output indistinguishable from hand
  * edits.
@@ -96,15 +96,8 @@ function render(templateName: string, opts: { umami: boolean; latestPosts: boole
  * what a deploy does.
  */
 let homeCache: string | null = null;
-let adminCache: string | null = null;
 
 export function homePage(): string {
   if (homeCache === null) homeCache = render('index.html', { umami: true, latestPosts: true });
   return homeCache;
-}
-
-export function adminPage(): string {
-  // No Umami on admin: the template has never carried an analytics block.
-  if (adminCache === null) adminCache = render('admin.html', { umami: false, latestPosts: false });
-  return adminCache;
 }

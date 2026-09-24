@@ -14,8 +14,7 @@
   },
   "dependencies": {
     "hono": "^4.0.0",
-    "postal-mime": "^3.0.0",
-    "web-push": "^3.6.7"
+    "postal-mime": "^3.0.0"
   },
   "devDependencies": {
     "bun-types": "latest",
