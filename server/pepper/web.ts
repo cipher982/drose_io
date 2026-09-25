@@ -4,6 +4,7 @@
  *
  *   POST /hello             page load: remember the visit, return a one-line thought
  *   GET  /day               Pepper's current mood and status lines (day.ts)
+ *   GET  /fleet             David's agents right now, public repos only (fleet.ts)
  *   POST /chat              visitor says something; Pepper answers (maybe relays)
  *   GET  /history           the visitor's conversation for the chat panel
  *   POST /contact           visitor leaves an email for David's reply
@@ -22,6 +23,7 @@ import { handleEmailWebhook } from './email';
 import { handleTelegramWebhook, deepLink } from './telegram';
 import { handleHello, loadMemory } from './hello';
 import { getDay } from './day';
+import { getFleet } from './fleet';
 
 const app = new Hono();
 
@@ -166,6 +168,10 @@ app.get('/day', (c) => {
   const d = getDay();
   c.header('Cache-Control', 'public, max-age=60');
   return c.json({ mood: d.mood, statuses: d.statuses });
+});
+app.get('/fleet', async (c) => {
+  c.header('Cache-Control', 'public, max-age=30');
+  return c.json(await getFleet());
 });
 app.post('/email/:secret', handleEmailWebhook);
 app.post('/telegram', handleTelegramWebhook);

@@ -12,6 +12,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { publishedPosts } from '../blog/loader';
 import { read, allVisitorIds } from './conversation';
+import { getFleet, peekFleet, describeFleet } from './fleet';
 
 export type Activity = 'walk' | 'sit' | 'idle' | 'lie' | 'alert';
 export interface Day {
@@ -95,6 +96,10 @@ export function describePulse(p: Pulse): string {
   lines.push(`people who dropped by today so far: ${p.visitorsToday}`);
   lines.push(`notes you carried to david today: ${p.notesCarriedToday}`);
   if (p.davidRepliedToday) lines.push('david answered someone today');
+  // Fleet: use what is cached, and ask for a refresh for the next caller.
+  getFleet().catch(() => {});
+  const fleet = describeFleet(peekFleet());
+  if (fleet) lines.push(fleet);
   return lines.join('\n');
 }
 

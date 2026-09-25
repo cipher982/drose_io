@@ -286,3 +286,94 @@ test('a chat page that is not a plain path never reaches the briefing', async ()
   expect(safePage('/\nWants: a job\nCame from: google')).toBe('/');
   expect(safePage('javascript:alert(1)')).toBe('/');
 });
+
+describe('fleet window (public repos only)', () => {
+  const now = Date.parse('2026-09-25T15:00:00Z');
+  const pub = new Set(['longhouse', 'drose_io', 'g55-public']);
+  const row = (over: Record<string, unknown>) => ({
+    id: 'lh-' + Math.random(), provider: 'claude', project: null, git_repo: null,
+    started_at: '2026-09-25T14:00:00Z', last_activity_at: '2026-09-25T14:58:00Z',
+    title: 'SECRET TITLE', first_user_message: 'secret prompt', cwd: '/Users/d/secret', git_branch: 'secret-branch',
+    ...over,
+  });
+
+  test('repo attribution: github urls, local paths, project fallback; zeta and other owners refused', async () => {
+    const { repoOf } = await import('../server/pepper/fleet');
+    expect(repoOf({ id: 'a', git_repo: 'git@github.com:cipher982/longhouse.git' })).toBe('longhouse');
+    expect(repoOf({ id: 'a', git_repo: 'https://github.com/cipher982/drose_io' })).toBe('drose_io');
+    expect(repoOf({ id: 'a', git_repo: '/Users/davidrose/git/drose_io' })).toBe('drose_io');
+    expect(repoOf({ id: 'a', project: 'g55-public' })).toBe('g55-public');
+    expect(repoOf({ id: 'a', git_repo: 'https://github.com/someone-else/longhouse.git' })).toBeNull();
+    expect(repoOf({ id: 'a', git_repo: '/Users/davidrose/git/zeta/trials' })).toBeNull();
+    expect(repoOf({ id: 'a', project: 'zeta' })).toBeNull();
+  });
+
+  test('private and unknown repos never appear, and no text field leaks', async () => {
+    const { snapshotFrom } = await import('../server/pepper/fleet');
+    const snap = snapshotFrom([
+      row({ git_repo: 'git@github.com:cipher982/longhouse.git' }),                                   // working, public
+      row({ git_repo: '/Users/davidrose/git/drose_io', last_activity_at: '2026-09-25T13:00:00Z' }),  // earlier today
+      row({ git_repo: 'https://github.com/cipher982/longhouse-control-plane.git' }),                // private
+      row({ git_repo: '/Users/davidrose/git/g55' }),                                                 // private
+      row({ project: 'zeta' }),                                                                      // employer
+      row({ project: 'mystery' }),                                                                   // unknown
+    ], pub, now);
+    expect(snap.working).toBe(1);
+    expect(snap.today).toBe(2);
+    expect(snap.sessions[0]).toMatchObject({ repo: 'longhouse', provider: 'claude', state: 'working', activeFor: 60, lastActivityAgo: 120 });
+    expect(snap.sessions[0].id).toMatch(/^[0-9a-f]{8}$/);
+    expect(snap.recent).toEqual([{ repo: 'drose_io', finishedAgo: 7200 }]);
+    const json = JSON.stringify(snap);
+    for (const leak of ['SECRET', 'secret', 'control-plane', 'g55"', 'zeta', 'mystery', '/Users']) expect(json).not.toContain(leak);
+    expect(Object.keys(snap.sessions[0]).sort()).toEqual(['activeFor', 'id', 'lastActivityAgo', 'provider', 'repo', 'state']);
+  });
+
+  test('describeFleet reads naturally and is empty without data', async () => {
+    const { describeFleet, EMPTY_FLEET } = await import('../server/pepper/fleet');
+    expect(describeFleet(EMPTY_FLEET)).toBe('');
+    expect(describeFleet({ updatedAt: 'x', working: 2, today: 11, recent: [], sessions: [
+      { id: '1', repo: 'longhouse', provider: 'omp', activeFor: 3, state: 'working', lastActivityAgo: 1 },
+      { id: '2', repo: 'drose_io', provider: 'claude', activeFor: 9, state: 'working', lastActivityAgo: 4 },
+    ] })).toBe("david's agents right now (public projects only): 2 working (longhouse, drose_io), 11 sessions today");
+  });
+
+  test('an idle site makes no calls; interest triggers one fetch per minute at most', async () => {
+    const fleet = await import('../server/pepper/fleet');
+    fleet.resetFleet();
+    const saved = globalThis.fetch;
+    const calls: string[] = [];
+    globalThis.fetch = (async (url: any) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.includes('api.github.com')) return new Response(JSON.stringify([{ name: 'longhouse', private: false, visibility: 'public' }]));
+      if (u.includes('/api/agents/sessions')) return new Response(JSON.stringify({ sessions: [
+        { id: 'x', provider: 'omp', git_repo: 'git@github.com:cipher982/longhouse.git', started_at: new Date(Date.now() - 60_000).toISOString(), last_activity_at: new Date().toISOString(), title: 'nope' },
+      ] }));
+      return saved(url);
+    }) as any;
+    process.env.PEPPER_LONGHOUSE_TOKEN = 'zdt_test';
+    try {
+      expect(fleet.peekFleet()).toEqual(fleet.EMPTY_FLEET);
+      expect(calls).toHaveLength(0);                       // peeking never calls out
+      const snap = await fleet.getFleet();
+      expect(snap.working).toBe(1);
+      expect(calls.filter(u => u.includes('/api/agents/sessions'))).toHaveLength(1);
+      await fleet.getFleet();
+      expect(calls.filter(u => u.includes('/api/agents/sessions'))).toHaveLength(1); // cached within the minute
+      const res = await web.request('/fleet');
+      expect((await res.json()).sessions[0].repo).toBe('longhouse');
+    } finally {
+      globalThis.fetch = saved;
+      delete process.env.PEPPER_LONGHOUSE_TOKEN;
+      fleet.resetFleet();
+    }
+  });
+
+  test('without a token the window is simply dark', async () => {
+    const fleet = await import('../server/pepper/fleet');
+    fleet.resetFleet();
+    delete process.env.PEPPER_LONGHOUSE_TOKEN;
+    expect(await fleet.getFleet()).toEqual(fleet.EMPTY_FLEET);
+    fleet.resetFleet();
+  });
+});

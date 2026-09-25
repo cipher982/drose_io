@@ -239,6 +239,11 @@ and the chat panel that grows out of it. The whole habitat is the button. Under
 - `GET /api/pepper/day` (`server/pepper/day.ts`): his mood and status lines per
   activity, one model call every 20 minutes shared by all visitors. A status
   only ever describes what the sprite is doing in that activity.
+- `GET /api/pepper/fleet` (`server/pepper/fleet.ts`): David's agents right now
+  from Longhouse, filtered to PUBLIC cipher982 repos (GitHub API list); private
+  repos and all Zeta work never leave the module. Counts, repo names, providers
+  and timings only, never titles or text. Polls at most once a minute and only
+  while someone is looking. Needs `PEPPER_LONGHOUSE_TOKEN`.
 - Fixed strings are limited to system states (delivery, contact card, errors).
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
