@@ -130,6 +130,11 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - **Anchor ignore and exclude patterns.** An unanchored `data/` in rsync or
   gitignore matches *every* directory named `data` at any depth. That is the
   bug above.
+- **Only Cloudflare can reach the origin.** clifford's Caddy drops drose.io
+  connections from outside Cloudflare's ranges (`cloudflare_only` snippet, see
+  `~/git/me/domains/mytech/infrastructure/clifford-proxy/production/`), which is
+  what makes `CF-Connecting-IP` trustworthy for Pepper's rate limits. Testing
+  the origin directly with `--resolve` now gets a dropped connection; that's intended.
 - **Cloudflare keeps serving deleted assets.** A removed file can return 200
   from cache for a while. Purge if it matters.
 - The custom analytics dashboard is `/analytics`; `analytics.drose.io` is the
