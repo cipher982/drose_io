@@ -18,6 +18,14 @@ const DAY = 86_400_000;
 const RELAYS_PER_VISITOR_PER_DAY = 5; // write-backs count too
 const RELAYS_GLOBAL_PER_DAY = 40;
 const WRITE_BACKS_PER_VISITOR_PER_DAY = 10; // counts every note, first relay included
+const RECEIPTS_PER_DAY = 20; // outbound mail to addresses nobody has verified
+
+let receipts = { day: '', count: 0 };
+function receiptsLeftToday(): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  if (receipts.day !== today) receipts = { day: today, count: 0 };
+  return receipts.count++ < RECEIPTS_PER_DAY;
+}
 let globalRelays: number[] = [];
 
 export const continueUrl = (token: string) =>
@@ -85,12 +93,18 @@ export async function relayToDavid(opts: { id: string; message: string; summary:
   return status;
 }
 
-/** The visitor left an email: remember it, send a receipt quoting their note, tell David. */
+/**
+ * The visitor left an email: remember it, send a receipt quoting their note, tell David.
+ * The receipt goes out once per visitor, to the first address only: nothing
+ * proves they own it, so a changed address must not become a way to mail their
+ * note to strangers.
+ */
 export async function recordContact(id: string, email: string): Promise<void> {
+  const first = !getVisitor(id)?.email;
   const v = updateVisitor(id, { email });
   append(id, { kind: 'contact', email, ts: Date.now() });
   const lastNote = read(id).filter(e => e.kind === 'relay' && e.status === 'sent').at(-1) as { message: string } | undefined;
-  if (isEmailConfigured() && lastNote) {
+  if (isEmailConfigured() && lastNote && first && receiptsLeftToday()) {
     await sendEmail({ to: email, token: v.token, ...noteReceipt(lastNote.message, continueUrl(v.token)) })
       .catch(e => console.error('pepper receipt email failed:', e));
   }

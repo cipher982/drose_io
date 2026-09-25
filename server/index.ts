@@ -22,6 +22,14 @@ const STARTED_AT = new Date().toISOString();
 // CORS for API endpoints
 app.use('/api/*', cors());
 
+// Cheap browser-side hardening. No CSP yet: templates carry inline scripts.
+app.use('/*', async (c, next) => {
+  await next();
+  c.res.headers.set('X-Content-Type-Options', 'nosniff');
+  c.res.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+});
+
 // Cache-Control: immutable for hashed asset URLs (?v=...), short TTL for HTML.
 // Registered early so it wraps all downstream routes/handlers.
 app.use('/*', async (c, next) => {

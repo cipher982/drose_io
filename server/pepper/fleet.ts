@@ -133,7 +133,8 @@ async function publicRepos(): Promise<Set<string> | null> {
     return names;
   } catch (error) {
     warnOnce('github', `pepper fleet: public repo list unavailable (${error})`);
-    return repos?.names ?? null; // keep the last good list; with none, show nothing
+    // Keep the last good list for a day at most: a repo made private since must drop out.
+    return repos && Date.now() - repos.at < 86_400_000 ? repos.names : null;
   }
 }
 
@@ -170,11 +171,11 @@ async function refresh(): Promise<void> {
     snapshot = EMPTY_FLEET;
     return;
   }
+  fetchedAt = Date.now(); // a failed attempt also waits for the next poll
   try {
     const names = await publicRepos();
     if (!names) { snapshot = EMPTY_FLEET; return; }
     snapshot = snapshotFrom(await longhouseRows(), names);
-    fetchedAt = Date.now();
   } catch (error) {
     warnOnce('longhouse', `pepper fleet: longhouse unavailable (${error})`);
     snapshot = EMPTY_FLEET;

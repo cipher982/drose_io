@@ -9,7 +9,8 @@
  *   anything they send goes to David.
  *
  * One webhook, POST /api/pepper/telegram, authenticated by Telegram's
- * X-Telegram-Bot-Api-Secret-Token header (= PEPPER_WEBHOOK_SECRET).
+ * X-Telegram-Bot-Api-Secret-Token header (= PEPPER_TELEGRAM_WEBHOOK_SECRET, its own
+ * secret: the email webhook's secret sits in a URL, so it must not open this door).
  */
 import type { Context } from 'hono';
 import { getVisitor, updateVisitor, append, visitorByToken, visitorByTopic, visitorByTelegramChat } from './conversation';
@@ -63,7 +64,7 @@ export async function sendToVisitor(chatId: number, text: string): Promise<void>
 }
 
 export async function registerWebhook(url: string): Promise<void> {
-  await call('setWebhook', { url, secret_token: Bun.env.PEPPER_WEBHOOK_SECRET, allowed_updates: ['message'] });
+  await call('setWebhook', { url, secret_token: Bun.env.PEPPER_TELEGRAM_WEBHOOK_SECRET, allowed_updates: ['message'] });
 }
 
 // ---- David's commands in the General topic ----------------------------------------
@@ -146,7 +147,7 @@ export async function handleUpdate(update: any): Promise<void> {
 
 /** POST /api/pepper/telegram */
 export async function handleTelegramWebhook(c: Context) {
-  const secret = Bun.env.PEPPER_WEBHOOK_SECRET;
+  const secret = Bun.env.PEPPER_TELEGRAM_WEBHOOK_SECRET;
   if (!secret || c.req.header('x-telegram-bot-api-secret-token') !== secret) return c.json({ error: 'forbidden' }, 403);
   const update = await c.req.json().catch(() => null);
   // Answer Telegram immediately so a slow SES call cannot trigger its retries.

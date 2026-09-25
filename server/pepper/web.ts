@@ -15,6 +15,7 @@
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { streamSSE } from 'hono/streaming';
 import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 import { append, read, messages, getVisitor, ensureVisitor, visitorByToken, isValidVisitorId, isValidEmail, inboxHealth, safePage } from './conversation';
@@ -28,6 +29,13 @@ import { getFleet } from './fleet';
 import { project, needs, describeWorld, give, suggest, fromLabel, marksBy, ITEMS, COLORS, DECOR, COLORED, type World } from './world';
 
 const app = new Hono();
+
+// Visitor requests are small; an inbound email (SNS, full MIME) can be large.
+const tooBig = (c: Context) => c.json({ error: 'too large' }, 413);
+app.use('*', async (c, next) => {
+  const max = c.req.path.includes('/email/') ? 400 * 1024 : 32 * 1024;
+  return bodyLimit({ maxSize: max, onError: tooBig })(c, next);
+});
 
 // ---- rate limits: per visitor, per IP, and a daily fuse on model calls ------
 
@@ -69,6 +77,9 @@ function giftAllowed(c: Context): boolean {
   gifts.byIp.set(ip, n + 1);
   return true;
 }
+
+const streams = new Map<string, number>();
+let streamsOpen = 0;
 
 const relayed = (id: string) => read(id).some(e => e.kind === 'relay' && e.status !== 'limited');
 
@@ -187,6 +198,7 @@ app.get('/history', (c) => {
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   const v = getVisitor(id);
   const wasRelayed = relayed(id);
+  c.header('Cache-Control', 'no-store'); // one visitor's conversation; never cache it anywhere
   return c.json({
     messages: messages(id).map(({ from, text, ts }) => ({ from, text, ts })),
     contactEmail: v?.email || null,
@@ -201,7 +213,7 @@ app.post('/contact', async (c) => {
   const email = String(body?.email || '').trim().toLowerCase();
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   if (!isValidEmail(email)) return c.json({ error: "that doesn't look like an email address" }, 400);
-  if (limited(`contact:${id}`, 5)) return c.json({ error: 'too many tries, wait a few minutes' }, 429);
+  if (limited(`contact:${id}`, 5) || limited(`contact-ip:${clientIp(c)}`, 10)) return c.json({ error: 'too many tries, wait a few minutes' }, 429);
   await recordContact(id, email);
   return c.json({ ok: true, email });
 });
@@ -209,6 +221,16 @@ app.post('/contact', async (c) => {
 app.get('/stream', (c) => {
   const id = c.req.query('visitorId') || '';
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
+  // A few live connections per IP, and a ceiling overall.
+  const ip = clientIp(c);
+  if ((streams.get(ip) || 0) >= 6 || streamsOpen >= 300) return c.json({ error: 'too many connections' }, 429);
+  streams.set(ip, (streams.get(ip) || 0) + 1);
+  streamsOpen++;
+  const release = () => {
+    streamsOpen--;
+    const n = (streams.get(ip) || 1) - 1;
+    n ? streams.set(ip, n) : streams.delete(ip);
+  };
   c.header('X-Accel-Buffering', 'no');
   c.header('Cache-Control', 'no-cache');
   return streamSSE(c, async (stream) => {
@@ -219,6 +241,7 @@ app.get('/stream', (c) => {
     await new Promise<void>(resolve => c.req.raw.signal.addEventListener('abort', () => resolve()));
     clearInterval(keepAlive);
     disconnect();
+    release();
   });
 });
 

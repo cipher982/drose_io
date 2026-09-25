@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 
-const adminPassword = Bun.env.ADMIN_PASSWORD || 'changeme';
+// No password configured means no admin access, never a default.
+const adminPassword = Bun.env.ADMIN_PASSWORD || '';
 
 export function extractAuthPassword(c: Context): string | null {
   const header = c.req.header('authorization');
@@ -8,17 +9,11 @@ export function extractAuthPassword(c: Context): string | null {
     return header.substring('Bearer '.length);
   }
 
-  // Support password via query param for SSE/EventSource usage
-  const queryPassword = c.req.query('token') || c.req.query('auth');
-  if (queryPassword) {
-    return queryPassword;
-  }
-
   return null;
 }
 
 export function isValidAdminPassword(password: string | null): boolean {
-  if (!password) {
+  if (!password || !adminPassword) {
     return false;
   }
 

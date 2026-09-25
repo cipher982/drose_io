@@ -16,6 +16,7 @@ Object.assign(process.env, {
   PEPPER_TELEGRAM_DESK_CHAT_ID: '-100123',
   PEPPER_TELEGRAM_DAVID_USER_ID: '42',
   PEPPER_WEBHOOK_SECRET: 'hook-secret',
+  PEPPER_TELEGRAM_WEBHOOK_SECRET: 'tg-secret',
   PEPPER_SNS_TOPIC_ARN: 'arn:aws:sns:us-east-1:111:pepper-inbound-mail',
   ADMIN_PASSWORD: 'admin-pass',
 });
@@ -124,8 +125,10 @@ describe('web chat -> relay -> David replies from Telegram', () => {
     expect(tgCalls.at(-1)!.body.text).toContain('maya@evals.dev'); // David is told in the topic
   });
 
-  test('Telegram webhook rejects a wrong secret', async () => {
+  test('Telegram webhook rejects a wrong secret, including the email one', async () => {
     expect((await post('/telegram', { message: {} }, { 'x-telegram-bot-api-secret-token': 'wrong' })).status).toBe(403);
+    expect((await post('/telegram', { message: {} }, { 'x-telegram-bot-api-secret-token': 'hook-secret' })).status).toBe(403);
+    expect((await post('/telegram', { message: {} }, { 'x-telegram-bot-api-secret-token': 'tg-secret' })).status).toBe(200);
   });
 
   test("someone else posting in the desk is ignored", async () => {
@@ -208,6 +211,26 @@ describe('inbound email over SNS', () => {
       Type: 'SubscriptionConfirmation', TopicArn: 'arn:aws:sns:us-east-1:999:evil', SubscribeURL: 'https://sns.us-east-1.amazonaws.com/confirm',
     });
     expect(confirm.status).toBe(403);
+  });
+});
+
+describe('hardening', () => {
+  test('oversized bodies are refused before anything reads them', async () => {
+    const body = JSON.stringify({ visitorId: 'big-body-visitor-01', text: 'x'.repeat(40_000) });
+    const res = await web.request('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(body.length) }, body });
+    expect(res.status).toBe(413);
+  });
+
+  test('admin auth takes only a bearer header', async () => {
+    const { Hono } = await import('hono');
+    const app = new Hono().get('/h', inboxHealthRoute);
+    expect((await app.request('/h?token=admin-pass')).status).toBe(401);
+    expect((await app.request('/h', { headers: { Authorization: 'Bearer admin-pass' } })).status).toBe(200);
+  });
+
+  test('a conversation is never cacheable', async () => {
+    const res = await web.request('/history?visitorId=cache-check-visitor');
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 });
 

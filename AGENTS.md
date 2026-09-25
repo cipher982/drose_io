@@ -207,6 +207,8 @@ Channels:
   drose.io's MX stays with Google). Inbound: SES receipt rule → SNS →
   `POST /api/pepper/email/<PEPPER_WEBHOOK_SECRET>`. The webhook also checks
   the TopicArn and AWS's signature on every message (`verifySns`).
+  That secret lives in a URL, so it opens nothing else: Telegram has its own
+  (`PEPPER_TELEGRAM_WEBHOOK_SECRET`).
 - **Telegram**: the bot's webhook is `POST /api/pepper/telegram`, registered at
   boot from `PUBLIC_BASE_URL`. David's private group "Pepper's Desk" has one
   topic per visitor; replying in a topic answers that visitor.
@@ -215,7 +217,7 @@ Channels:
 
 Env (Infisical `ops-infra/prod`): `OPENAI_API_KEY`, `PEPPER_SES_ACCESS_KEY_ID`,
 `PEPPER_SES_SECRET_ACCESS_KEY`, `PEPPER_WEBHOOK_SECRET`, `PEPPER_SNS_TOPIC_ARN`,
-`PEPPER_TELEGRAM_BOT_TOKEN`, `PEPPER_TELEGRAM_BOT_USERNAME`,
+`PEPPER_TELEGRAM_WEBHOOK_SECRET`, `PEPPER_TELEGRAM_BOT_TOKEN`, `PEPPER_TELEGRAM_BOT_USERNAME`,
 `PEPPER_TELEGRAM_DESK_CHAT_ID`, `PEPPER_TELEGRAM_DAVID_USER_ID`,
 `PUBLIC_BASE_URL`; optional `PEPPER_MODEL`, `PEPPER_MAIL_FROM`.
 
