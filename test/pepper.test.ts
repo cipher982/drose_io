@@ -482,52 +482,60 @@ describe('fleet window (public repos only)', () => {
   const now = Date.parse('2026-09-25T15:00:00Z');
   const pub = new Set(['longhouse', 'drose_io', 'g55-public']);
   const row = (over: Record<string, unknown>) => ({
-    id: 'lh-' + Math.random(), provider: 'claude', project: null, git_repo: null,
-    started_at: '2026-09-25T14:00:00Z', last_activity_at: '2026-09-25T14:58:00Z',
-    title: 'SECRET TITLE', first_user_message: 'secret prompt', cwd: '/Users/d/secret', git_branch: 'secret-branch',
+    session_id: 'lh-' + Math.random(), provider: 'claude', project: null, git_repo: null, cwd: null,
+    started_at: '2026-09-25T14:00:00Z', last_event_at: '2026-09-25T14:58:00Z', has_live_presence: true, presence_state: 'running',
+    summary_title: 'SECRET TITLE', git_branch: 'secret-branch',
     ...over,
   });
 
-  test('repo attribution: only cipher982 github remotes; paths, project names, zeta and other owners refused', async () => {
+  test('repo attribution: github remotes, then ~/git/<name> checkouts; zerg is longhouse; zeta and other hosts refused', async () => {
     const { repoOf } = await import('../server/pepper/fleet');
-    expect(repoOf({ id: 'a', git_repo: 'git@github.com:cipher982/longhouse.git' })).toBe('longhouse');
-    expect(repoOf({ id: 'a', git_repo: 'https://github.com/cipher982/drose_io' })).toBe('drose_io');
-    expect(repoOf({ id: 'a', git_repo: '/Users/davidrose/git/drose_io' })).toBeNull();   // a folder name proves nothing
-    expect(repoOf({ id: 'a', project: 'zerg' })).toBeNull();
-    expect(repoOf({ id: 'a', git_repo: 'https://github.com/someone-else/longhouse.git' })).toBeNull();
-    expect(repoOf({ id: 'a', git_repo: '/Users/davidrose/git/zeta/trials' })).toBeNull();
-    expect(repoOf({ id: 'a', project: 'zeta' })).toBeNull();
+    expect(repoOf({ git_repo: 'git@github.com:cipher982/longhouse.git' })).toBe('longhouse');
+    expect(repoOf({ git_repo: 'https://github.com/cipher982/drose_io' })).toBe('drose_io');
+    expect(repoOf({ git_repo: '/Users/davidrose/git/drose_io' })).toBe('drose_io');
+    expect(repoOf({ git_repo: null, cwd: '/Users/davidrose/git/zerg' })).toBe('longhouse');
+    expect(repoOf({ git_repo: null, cwd: '/Users/davidrose/git/zerg/control-plane/src' })).toBe('longhouse');
+    // A remote wins: the private control plane stays private even inside ~/git/zerg.
+    expect(repoOf({ git_repo: 'https://github.com/cipher982/longhouse-control-plane', cwd: '/Users/davidrose/git/zerg' })).toBe('longhouse-control-plane');
+    expect(repoOf({ git_repo: 'https://github.com/someone-else/longhouse.git' })).toBeNull();
+    expect(repoOf({ git_repo: 'https://gitlab.com/x/drose_io.git' })).toBeNull();
+    expect(repoOf({ git_repo: '/Users/davidrose/git/zeta/trials' })).toBeNull();
+    expect(repoOf({ cwd: '/Users/davidrose/git/_wt/drose_io-x' })).toBeNull();
+    expect(repoOf({ cwd: '/Users/davidrose' })).toBeNull();
+    expect(repoOf({ project: 'zeta' })).toBeNull();
   });
 
-  test('private and unknown repos never appear, and no text field leaks', async () => {
+  test('live presence decides working and waiting; unnamed work never appears; no text leaks', async () => {
     const { snapshotFrom } = await import('../server/pepper/fleet');
     const snap = snapshotFrom([
-      row({ git_repo: 'git@github.com:cipher982/longhouse.git' }),                                   // working, public
-      row({ git_repo: 'git@github.com:cipher982/drose_io.git', last_activity_at: '2026-09-25T13:00:00Z' }),  // earlier today
-      row({ git_repo: '/Users/davidrose/git/drose_io' }),                                            // path only: unprovable
-      row({ git_repo: 'https://github.com/cipher982/longhouse-control-plane.git' }),                // private
-      row({ git_repo: '/Users/davidrose/git/g55' }),                                                 // private
-      row({ project: 'zeta' }),                                                                      // employer
-      row({ project: 'mystery' }),                                                                   // unknown
+      row({ git_repo: 'git@github.com:cipher982/longhouse.git' }),                                    // live, running
+      row({ cwd: '/Users/davidrose/git/zerg', presence_state: 'idle' }),                             // live, waiting (longhouse)
+      row({ git_repo: 'git@github.com:cipher982/drose_io.git', has_live_presence: false, presence_state: null, last_event_at: '2026-09-25T13:00:00Z' }), // done earlier
+      row({ git_repo: 'https://github.com/cipher982/longhouse-control-plane.git', cwd: '/Users/davidrose/git/zerg' }), // private, running
+      row({ git_repo: '/Users/davidrose/git/g55' }),                                                  // private folder, running
+      row({ project: 'zeta' }),                                                                       // employer
     ], pub, now);
     expect(snap.working).toBe(1);
-    expect(snap.today).toBe(2);
+    expect(snap.waiting).toBe(1);
+    expect(snap.today).toBe(3);
+    expect(snap.otherWorking).toBe(2);
     expect(snap.sessions[0]).toMatchObject({ repo: 'longhouse', provider: 'claude', state: 'working', activeFor: 60, lastActivityAgo: 120 });
+    expect(snap.sessions[1]).toMatchObject({ repo: 'longhouse', state: 'waiting' });
     expect(snap.sessions[0].id).toMatch(/^[0-9a-f]{8}$/);
     expect(snap.recent).toEqual([{ repo: 'drose_io', finishedAgo: 7200 }]);
     const json = JSON.stringify(snap);
-    for (const leak of ['SECRET', 'secret', 'control-plane', 'g55"', 'zeta', 'mystery', '/Users']) expect(json).not.toContain(leak);
+    for (const leak of ['SECRET', 'secret', 'control-plane', 'g55', 'zeta', '/Users']) expect(json).not.toContain(leak);
     expect(Object.keys(snap.sessions[0]).sort()).toEqual(['activeFor', 'id', 'lastActivityAgo', 'provider', 'repo', 'state']);
   });
 
   test('chat sees the fleet per public repo, with links and no guesses', async () => {
     const { fleetForChat, EMPTY_FLEET } = await import('../server/pepper/fleet');
-    const text = fleetForChat({ updatedAt: 'x', working: 2, today: 3, recent: [{ repo: 'drose_io', finishedAgo: 600 }], otherWorking: 3, otherToday: 7,
+    const text = fleetForChat({ updatedAt: 'x', working: 1, waiting: 1, today: 3, recent: [{ repo: 'drose_io', finishedAgo: 600 }], otherWorking: 3, otherToday: 7,
       commits: [{ repo: 'longhouse', message: 'fix supervisor staleness', ago: 1200, url: 'https://github.com/cipher982/longhouse/commit/abc' }], sessions: [
       { id: 'a', repo: 'longhouse', provider: 'claude', activeFor: 45, state: 'working', lastActivityAgo: 5 },
-      { id: 'b', repo: 'longhouse', provider: 'codex', activeFor: 130, state: 'working', lastActivityAgo: 9 },
+      { id: 'b', repo: 'longhouse', provider: 'codex', activeFor: 130, state: 'waiting', lastActivityAgo: 9 },
     ] });
-    expect(text).toContain('- longhouse (https://github.com/cipher982/longhouse): 2 claude, codex agents working, the longest for 2 h');
+    expect(text).toContain('- longhouse (https://github.com/cipher982/longhouse): 2 claude, codex sessions (1 working, 1 open and waiting on david), open for up to 2 h');
     expect(text).toContain('finished earlier today: drose_io');
     expect(text).toContain("other projects you can't see into (private ones, or sessions not linked to a public repo; a count only): 3 agents working now, 7 sessions today");
     expect(text).toContain('longhouse: "fix supervisor staleness" (20 min ago) https://github.com/cipher982/longhouse/commit/abc');
@@ -542,10 +550,10 @@ describe('fleet window (public repos only)', () => {
     const { snapshotFrom } = await import('../server/pepper/fleet');
     const snap = snapshotFrom([
       row({ git_repo: 'git@github.com:cipher982/g55.git' }),                         // private, working
-      row({ git_repo: null, cwd: '/Users/davidrose/git/me' }),                        // no remote, working
+      row({ git_repo: null, cwd: '/Users/davidrose' }),                               // home dir, working
       row({ git_repo: null, cwd: '/Users/davidrose/git/zeta/trials', project: 'trials' }), // employer: dropped
       row({ git_repo: 'https://gitlab.zeta.tech/x/y.git' }),                          // employer: dropped
-      row({ git_repo: '/Users/d/secret', last_activity_at: '2026-09-25T10:00:00Z' }), // private, earlier today
+      row({ git_repo: '/Users/d/secret', has_live_presence: false, last_event_at: '2026-09-25T10:00:00Z' }), // private, earlier today
     ], pub, now);
     expect(snap.otherWorking).toBe(2);
     expect(snap.otherToday).toBe(3);
@@ -566,10 +574,10 @@ describe('fleet window (public repos only)', () => {
   test('describeFleet reads naturally and is empty without data', async () => {
     const { describeFleet, EMPTY_FLEET } = await import('../server/pepper/fleet');
     expect(describeFleet(EMPTY_FLEET)).toBe('');
-    expect(describeFleet({ updatedAt: 'x', working: 2, today: 11, recent: [], sessions: [
+    expect(describeFleet({ updatedAt: 'x', working: 2, waiting: 0, today: 11, recent: [], otherWorking: 0, otherToday: 0, commits: [], sessions: [
       { id: '1', repo: 'longhouse', provider: 'omp', activeFor: 3, state: 'working', lastActivityAgo: 1 },
       { id: '2', repo: 'drose_io', provider: 'claude', activeFor: 9, state: 'working', lastActivityAgo: 4 },
-    ] })).toBe("david's agents right now (public projects only): 2 working (longhouse, drose_io), 11 sessions today");
+    ] })).toBe("david's agents right now (public projects only): 2 working, 0 waiting (longhouse, drose_io), 11 sessions today");
   });
 
   test('an idle site makes no calls; interest triggers one fetch per minute at most', async () => {
@@ -582,7 +590,7 @@ describe('fleet window (public repos only)', () => {
       calls.push(u);
       if (u.includes('api.github.com')) return new Response(JSON.stringify([{ name: 'longhouse', private: false, visibility: 'public' }]));
       if (u.includes('/api/agents/sessions')) return new Response(JSON.stringify({ sessions: [
-        { id: 'x', provider: 'omp', git_repo: 'git@github.com:cipher982/longhouse.git', started_at: new Date(Date.now() - 60_000).toISOString(), last_activity_at: new Date().toISOString(), title: 'nope' },
+        { session_id: 'x', provider: 'omp', git_repo: 'git@github.com:cipher982/longhouse.git', started_at: new Date(Date.now() - 60_000).toISOString(), last_event_at: new Date().toISOString(), has_live_presence: true, presence_state: 'running', summary_title: 'nope' },
       ] }));
       return saved(url);
     }) as any;

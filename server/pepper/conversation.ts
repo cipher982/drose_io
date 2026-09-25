@@ -146,8 +146,9 @@ export function relayCount(id: string, sinceMs = 0): number {
  */
 export function unansweredRelays(id: string): number[] {
   const entries = read(id);
-  const lastDavid = entries.filter(e => e.kind === 'message' && e.from === 'david').at(-1)?.ts ?? 0;
-  return entries.filter(e => e.kind === 'relay' && e.status !== 'limited' && e.ts > lastDavid).map(e => e.ts);
+  // Order in the log, not timestamps: a write-back can land in the same millisecond as his reply.
+  const lastDavid = entries.findLastIndex(e => e.kind === 'message' && e.from === 'david');
+  return entries.filter((e, i) => i > lastDavid && e.kind === 'relay' && e.status !== 'limited').map(e => e.ts);
 }
 
 export function allVisitorIds(): string[] {

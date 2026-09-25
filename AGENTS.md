@@ -258,10 +258,12 @@ and the chat panel that grows out of it. The whole habitat is the button. Under
   activity, one model call every 20 minutes shared by all visitors. A status
   only ever describes what the sprite is doing in that activity.
 - `GET /api/pepper/fleet` (`server/pepper/fleet.ts`): David's agents right now
-  from Longhouse, filtered to PUBLIC cipher982 repos (GitHub API list). Only a
-  session with a cipher982 GitHub remote counts: a folder or project name can be
-  a private repo with a public repo's name, so those fail closed. Private repos
-  and all Zeta work never leave the module. Everything not provably public is
+  from Longhouse's wall endpoint, which has live presence: live and running is
+  working, live and idle is waiting on David. Named only when the repo is a
+  PUBLIC cipher982 repo (GitHub API list): a GitHub remote wins, else the
+  checkout folder `~/git/<name>`; `~/git/zerg` (Longhouse plus its private
+  control plane) is named "longhouse" for the product, and a private remote
+  inside it stays private. Zeta work never leaves the module. Everything not provably public is
   one count, "other projects" (never "private": many are public-repo sessions
   that report no remote); Zeta is not even counted. It also carries the last
   day's commits on public repos from GitHub (first lines and links, what anyone

@@ -708,6 +708,7 @@
     const repos = working.map(function (s) { return s.repo; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
     const parts = [];
     if (working.length) parts.push(working.length + ' on ' + repos.join(', '));
+    if (f && f.waiting) parts.push(f.waiting + ' waiting on him');
     if (priv) parts.push(priv + ' on other projects');
     fleetEl.title = parts.length ? "david's agents working: " + parts.join(', ') : "david's agents are quiet right now";
   }

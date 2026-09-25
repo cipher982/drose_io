@@ -1,8 +1,10 @@
 /**
  * Pepper's window onto David's agent fleet, public repos only.
  *
- * Reads recent sessions from Longhouse (GET /api/agents/sessions, X-Agents-Token)
- * and keeps only sessions whose repo is a PUBLIC cipher982/* repo on GitHub.
+ * Reads the last day's sessions from Longhouse's wall (GET /api/agents/sessions/wall,
+ * X-Agents-Token), which carries live presence: a session is working when it is
+ * live and running, and open when it is live but waiting. Only sessions on a
+ * PUBLIC cipher982/* repo on GitHub are named.
  * Everything else is reduced to two counts (working now, sessions today) with no
  * names: "other projects", which is private repos AND sessions that simply don't
  * report a GitHub remote, so it must never be called "private". Zeta work is
@@ -29,7 +31,7 @@ export interface FleetSession {
   repo: string;                // public repo name
   provider: string;
   activeFor: number;           // minutes since the session started
-  state: 'working' | 'idle';
+  state: 'working' | 'waiting'; // live and running, or live and waiting on David
   lastActivityAgo: number;     // seconds
 }
 
@@ -42,7 +44,8 @@ export interface PublicCommit {
 
 export interface FleetSnapshot {
   updatedAt: string | null;
-  working: number;
+  working: number;             // public-repo sessions running right now
+  waiting: number;             // public-repo sessions open, waiting on David
   today: number;
   sessions: FleetSession[];
   recent: { repo: string; finishedAgo: number }[];
@@ -51,9 +54,8 @@ export interface FleetSnapshot {
   commits: PublicCommit[];     // last 24h on public repos, newest first
 }
 
-export const EMPTY_FLEET: FleetSnapshot = { updatedAt: null, working: 0, today: 0, sessions: [], recent: [], otherWorking: 0, otherToday: 0, commits: [] };
+export const EMPTY_FLEET: FleetSnapshot = { updatedAt: null, working: 0, waiting: 0, today: 0, sessions: [], recent: [], otherWorking: 0, otherToday: 0, commits: [] };
 
-const WORKING_WINDOW_MS = 5 * 60_000;
 const POLL_MS = 60_000;
 const INTEREST_MS = 10 * 60_000;
 const REPOS_TTL_MS = 6 * 3_600_000;
@@ -61,28 +63,39 @@ const OWNER = 'cipher982';
 
 // ---- which repo a session belongs to -----------------------------------------
 
-/** Longhouse row fields this module reads. Anything else in the row is ignored. */
+/** Longhouse wall row fields this module reads. Anything else in the row is ignored. */
 export interface SessionRow {
-  id: string;
+  session_id: string;
   provider?: string | null;
   project?: string | null;
-  git_repo?: string | null;
-  cwd?: string | null;         // only to recognise Zeta work; never leaves this module
+  git_repo?: string | null;    // a GitHub remote, a local path, or null
+  cwd?: string | null;
   started_at?: string | null;
-  last_activity_at?: string | null;
+  last_event_at?: string | null;
+  has_live_presence?: boolean | null;
+  presence_state?: string | null; // 'running' | 'idle' | null
 }
 
+// David's checkouts live at ~/git/<name>. A folder name only counts when it is
+// the repo itself: ~/git/zerg is the parent of Longhouse and its private control
+// plane, so it is named for the product, Longhouse, never for what's inside.
+const CHECKOUT = /^\/Users\/[^/]+\/git\/([^/]+)(?:\/|$)/;
+const FOLDER_IS: Record<string, string> = { zerg: 'longhouse' };
+
 /**
- * The cipher982 repo a session belongs to, or null when that cannot be proven.
- * Only a GitHub remote counts: a local folder or project name can be a private
- * repo that shares a public repo's name (~/git/zerg is longhouse), so those
- * fail closed. Zeta work is refused outright, whatever its name.
+ * Which cipher982 repo a session is on, as a name to check against the public
+ * list, or null. A GitHub remote wins (so a private remote stays private even
+ * inside ~/git/zerg); otherwise the checkout folder. Zeta is refused outright.
  */
-export function repoOf(row: SessionRow): string | null {
+export function repoOf(row: Pick<SessionRow, 'git_repo' | 'cwd' | 'project'>): string | null {
   const raw = (row.git_repo || '').trim();
   if (/(^|[/\\])zeta([/\\]|$)/i.test(raw) || /^zeta$/i.test((row.project || '').trim())) return null;
   const gh = raw.match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i);
-  return gh && gh[1].toLowerCase() === OWNER ? gh[2].toLowerCase() : null;
+  if (gh) return gh[1].toLowerCase() === OWNER ? gh[2].toLowerCase() : null;
+  if (/:\/\/|^git@/.test(raw)) return null; // some other host
+  const folder = (raw || row.cwd || '').match(CHECKOUT)?.[1]?.toLowerCase();
+  if (!folder || folder.startsWith('_') || folder === 'zeta') return null;
+  return FOLDER_IS[folder] || folder;
 }
 
 /** Employer work: left out entirely, not even counted. */
@@ -95,7 +108,7 @@ function shortId(id: string): string {
   return createHash('sha256').update(`pepper-fleet:${id}`).digest('hex').slice(0, 8);
 }
 
-/** Pure: Longhouse rows + the public repo set -> the public-safe snapshot. */
+/** Pure: Longhouse wall rows + the public repo set -> the public-safe snapshot. */
 export function snapshotFrom(rows: SessionRow[], publicRepos: Set<string>, now = Date.now()): FleetSnapshot {
   const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
   const sessions: FleetSession[] = [];
@@ -104,31 +117,34 @@ export function snapshotFrom(rows: SessionRow[], publicRepos: Set<string>, now =
 
   for (const row of rows) {
     if (isZeta(row)) continue;
-    const repo = repoOf(row);
-    const last = Date.parse(row.last_activity_at || '');
+    const last = Date.parse(row.last_event_at || '');
     if (!Number.isFinite(last)) continue;
+    const live = !!row.has_live_presence;
+    const running = live && row.presence_state === 'running';
+    const repo = repoOf(row);
     if (!repo || !publicRepos.has(repo)) {
-      if (now - last <= WORKING_WINDOW_MS) otherWorking++;
+      if (running) otherWorking++;
       if (last >= midnight.getTime()) otherToday++;
       continue;
     }
-    const started = Date.parse(row.started_at || '') || last;
     if (last >= midnight.getTime()) today++;
     const ago = Math.max(0, now - last);
-    if (ago <= WORKING_WINDOW_MS) {
+    if (live) {
+      const started = Date.parse(row.started_at || '') || last;
       sessions.push({
-        id: shortId(row.id),
+        id: shortId(row.session_id),
         repo,
         provider: String(row.provider || 'agent').slice(0, 20),
         activeFor: Math.max(0, Math.round((now - started) / 60_000)),
-        state: 'working',
+        state: running ? 'working' : 'waiting',
         lastActivityAgo: Math.round(ago / 1000),
       });
     } else if (last >= midnight.getTime() && recent.length < 5) {
       recent.push({ repo, finishedAgo: Math.round(ago / 1000) });
     }
   }
-  return { updatedAt: new Date(now).toISOString(), working: sessions.length, today, sessions, recent, otherWorking, otherToday, commits: [] };
+  const working = sessions.filter(x => x.state === 'working').length;
+  return { updatedAt: new Date(now).toISOString(), working, waiting: sessions.length - working, today, sessions, recent, otherWorking, otherToday, commits: [] };
 }
 
 const span = (min: number) => min < 90 ? `${min} min` : min < 48 * 60 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} days`;
@@ -140,10 +156,13 @@ export function fleetForChat(s: FleetSnapshot): string {
   for (const x of s.sessions) byRepo.set(x.repo, [...(byRepo.get(x.repo) || []), x]);
   const lines = [...byRepo].map(([repo, list]) => {
     const who = [...new Set(list.map(x => x.provider))].join(', ');
+    const working = list.filter(x => x.state === 'working').length;
+    const waiting = list.length - working;
     const longest = Math.max(...list.map(x => x.activeFor));
-    return `- ${repo} (https://github.com/${OWNER}/${repo}): ${list.length} ${who} agent${list.length === 1 ? '' : 's'} working, the longest for ${span(longest)}`;
+    const what = [working && `${working} working`, waiting && `${waiting} open and waiting on david`].filter(Boolean).join(', ');
+    return `- ${repo} (https://github.com/${OWNER}/${repo}): ${list.length} ${who} session${list.length === 1 ? '' : 's'} (${what}), open for up to ${span(longest)}`;
   });
-  if (!lines.length) lines.push('- none working this minute');
+  if (!lines.length) lines.push('- no sessions open on public repos right now');
   const done = [...new Set(s.recent.map(r => r.repo))];
   if (done.length) lines.push(`- finished earlier today: ${done.join(', ')}`);
   lines.push(`- ${s.today} session${s.today === 1 ? '' : 's'} on public repos today`);
@@ -166,9 +185,9 @@ function agoText(sec: number): string {
 export function describeFleet(s: FleetSnapshot): string {
   if (!s.updatedAt) return '';
   const repos = [...new Set(s.sessions.map(x => x.repo))];
-  const now = s.working
-    ? `${s.working} working (${repos.join(', ')})`
-    : 'none working this minute';
+  const now = s.sessions.length
+    ? `${s.working} working, ${s.waiting} waiting (${repos.join(', ')})`
+    : 'none open on public repos';
   const priv = s.otherWorking ? `, plus ${s.otherWorking} on other projects` : '';
   return `david's agents right now (public projects only): ${now}${priv}, ${s.today} session${s.today === 1 ? '' : 's'} today`;
 }
@@ -263,7 +282,7 @@ function warnOnce(key: string, message: string) {
 
 async function longhouseRows(): Promise<SessionRow[]> {
   const base = (Bun.env.PEPPER_LONGHOUSE_URL || 'https://david010.longhouse.ai').replace(/\/$/, '');
-  const url = `${base}/api/agents/sessions?limit=100&days_back=1`;
+  const url = `${base}/api/agents/sessions/wall?days=1&limit=200`;
   const res = await fetch(url, {
     headers: { 'X-Agents-Token': Bun.env.PEPPER_LONGHOUSE_TOKEN!, Accept: 'application/json' },
     signal: AbortSignal.timeout(10_000),
