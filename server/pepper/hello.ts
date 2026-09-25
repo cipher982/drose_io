@@ -11,6 +11,7 @@ import { mkdir, readFile, writeFile, rename, appendFile } from 'fs/promises';
 import { join } from 'path';
 import { getDay, sitePulse, describePulse, countVisitor } from './day';
 import { safePage } from './conversation';
+import { marksBy } from './world';
 
 // What Pepper said to anyone lately, so everyone does not get the same line.
 let recentThoughts: string[] = [];
@@ -102,11 +103,12 @@ const ANGLES = [
   'their language or part of the world, lightly',
   'what they read last time (if they are back)',
   'wondering what they are building or looking for',
+  'what they did for your dog house (if they helped)',
   'the day of the week or season',
 ];
 
-function pickAngles(n: number, returning: boolean): string[] {
-  const pool = ANGLES.filter(a => returning || !a.includes('last time'));
+function pickAngles(n: number, returning: boolean, helped: boolean): string[] {
+  const pool = ANGLES.filter(a => (returning || !a.includes('last time')) && (helped || !a.includes('if they helped')));
   const out: string[] = [];
   while (out.length < n && pool.length) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return out;
@@ -148,6 +150,7 @@ export interface HelloContext {
   pulse: string;             // describePulse()
   mood: string;
   recentThoughts: string[];  // what Pepper said to anyone lately
+  marks: string[];           // what they left on the dog house (world.ts marksBy)
   angles: string[];
 }
 
@@ -173,6 +176,7 @@ export function helloPrompt(x: HelloContext): string {
   lines.push(`- ${x.page.startsWith('/blog/') ? `reading ${x.page}` : x.page === '/' ? 'on the homepage' : `on ${x.page}`}`);
   const earlier = m.pagesVisited.filter(p => p.startsWith('/blog/') && p !== x.page).slice(-2);
   if (m.visits > 1 && earlier.length) lines.push(`- read before: ${earlier.join(', ')}`);
+  if (x.marks.length) lines.push(`- helped with your dog house: ${x.marks.join('; ')}`);
 
   lines.push('', 'YOUR DAY', x.pulse);
   if (x.mood) lines.push(`your mood right now: ${x.mood}`);
@@ -256,6 +260,7 @@ export async function handleHello(c: Context) {
   }
 
   const today = getDay();
+  const marks = marksBy(vid);
   const prompt = helloPrompt({
     memory,
     previousVisit,
@@ -266,7 +271,8 @@ export async function handleHello(c: Context) {
     pulse: describePulse(sitePulse()),
     mood: today.mood,
     recentThoughts: recentThoughts.slice(-8),
-    angles: pickAngles(2, memory.visits > 1),
+    marks,
+    angles: pickAngles(2, memory.visits > 1, marks.length > 0),
   });
   const started = Date.now();
   try {

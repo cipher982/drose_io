@@ -98,6 +98,11 @@ YOUR DOG HOUSE (your own project; the current state comes in the SITUATION)
 - Mention the house when it fits, and only then: you can say what you need next, thank helpers, or ask for an opinion on a design choice. Don't turn every reply into a request.
 - Never claim progress that the SITUATION doesn't show; the page shows the result itself.
 
+MEMORY
+- You remember people the way a dog does: you recognize them, you don't recite a file. What you remember is the THIS VISITOR block and the older turns in the history ([server: ... later] marks how much time passed).
+- Let it show only when it fits, at most once in a conversation, and lightly: a returning visitor might get "oh, it's you", and when they ask about the house, what their gift became is the natural thing to mention. Most replies don't use it at all.
+- Never list what you know about them, and never bring up their device, location, or what they read. If they don't seem to remember, let it go.
+
 OPTIONS
 - "options" are optional tap-to-send replies written in the visitor's voice. Use them only when there are a few obvious answers: yes/no confirmations, "which do you mean" forks, or 2-3 natural next questions after an answer. At most 3, each under 30 characters. Most turns use [].
 
@@ -114,16 +119,28 @@ const LABEL = { visitor: 'VISITOR', pepper: 'PEPPER', david: 'DAVID' } as const;
 
 /** The conversation as the model sees it: Pepper's turns as his own JSON, the rest as labeled user turns. */
 function historyForModel(entries: Entry[], limit = 30): { role: 'user' | 'assistant'; content: string }[] {
-  return entries.slice(-limit).flatMap(e => {
-    if (e.kind === 'message' && e.from === 'pepper') {
-      return [{ role: 'assistant' as const, content: JSON.stringify({ say: e.text, options: e.options || [], relay: null, contact_email: null, world: null }) }];
-    }
-    if (e.kind === 'message') return [{ role: 'user' as const, content: `${LABEL[e.from]}: ${e.text}` }];
-    if (e.kind === 'relay') return [{ role: 'user' as const, content: `[server: note to david ${e.status}: "${e.message}"]` }];
-    if (e.kind === 'contact') return [{ role: 'user' as const, content: '[server: visitor left an email for replies]' }];
-    if (e.kind === 'world') return [{ role: 'user' as const, content: `[server: dog house: ${e.text}]` }];
-    return [];
+  const recent = entries.slice(-limit);
+  return recent.flatMap((e, i) => {
+    const gap = i > 0 ? e.ts - recent[i - 1].ts : 0;
+    return gap > 6 * 3_600_000 ? [{ role: 'user' as const, content: `[server: ${later(gap)} later]` }, ...turn(e)] : turn(e);
   });
+}
+
+function later(ms: number): string {
+  const hours = Math.round(ms / 3_600_000);
+  const days = Math.round(ms / 86_400_000);
+  return hours < 24 ? `${hours} hours` : days < 14 ? `${days} day${days === 1 ? '' : 's'}` : days < 60 ? `${Math.round(days / 7)} weeks` : 'months';
+}
+
+function turn(e: Entry): { role: 'user' | 'assistant'; content: string }[] {
+  if (e.kind === 'message' && e.from === 'pepper') {
+    return [{ role: 'assistant' as const, content: JSON.stringify({ say: e.text, options: e.options || [], relay: null, contact_email: null, world: null }) }];
+  }
+  if (e.kind === 'message') return [{ role: 'user' as const, content: `${LABEL[e.from]}: ${e.text}` }];
+  if (e.kind === 'relay') return [{ role: 'user' as const, content: `[server: note to david ${e.status}: "${e.message}"]` }];
+  if (e.kind === 'contact') return [{ role: 'user' as const, content: '[server: visitor left an email for replies]' }];
+  if (e.kind === 'world') return [{ role: 'user' as const, content: `[server: dog house: ${e.text}]` }];
+  return [];
 }
 
 const SCHEMA = {

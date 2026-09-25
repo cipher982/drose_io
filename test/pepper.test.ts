@@ -32,6 +32,7 @@ const { migrate } = await import('../scripts/migrate-threads-to-pepper');
 const realFetch = globalThis.fetch;
 let modelReplies: any[] = [];
 let dayReplies: any[] = [];
+let modelBodies: any[] = [];
 let tgCalls: { method: string; body: any }[] = [];
 let topicCounter = 500;
 
@@ -40,6 +41,7 @@ beforeAll(() => {
     const u = String(url);
     if (u.includes('api.openai.com')) {
       const isDay = String(init?.body || '').includes('pepper_day');
+      if (!isDay) modelBodies.push(JSON.parse(init.body));
       const next = isDay
         ? (dayReplies.shift() ?? { mood: '', walk: [], sit: [], idle: [], lie: [], alert: [] })
         : (modelReplies.shift() ?? { say: 'woof', options: [], relay: null, contact_email: null });
@@ -58,7 +60,7 @@ afterAll(() => {
   globalThis.fetch = realFetch;
   rmSync(DIR, { recursive: true, force: true });
 });
-beforeEach(() => { modelReplies = []; tgCalls = []; });
+beforeEach(() => { modelReplies = []; tgCalls = []; modelBodies = []; });
 
 const post = (path: string, body: any, headers: Record<string, string> = {}) =>
   web.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
@@ -256,10 +258,11 @@ describe('hello: the arrival thought', () => {
       page: '/blog/x', hour: 2, weekday: 'Saturday',
       traits: { browser: { name: 'Firefox' }, battery: { level: 12, charging: false } },
       pulse: "today's HN brief: nuclear is back", mood: 'sleepy but proud', recentThoughts: ['ooh a mac *sniff*'],
+      marks: ['your plank is part of the floor'],
       angles: ["today's HN brief", 'your current mood'],
     });
     for (const want of ['Firefox', 'battery 12%', 'came from github.com', 'deep night, Saturday', 'last here 9 days ago',
-      'read before: /blog/old-post', 'nuclear is back', 'sleepy but proud', '- back again! *wag*', '- ooh a mac *sniff*', "ANGLES for this one: today's HN brief + your current mood"]) {
+      'read before: /blog/old-post', 'nuclear is back', 'sleepy but proud', '- back again! *wag*', '- ooh a mac *sniff*', 'helped with your dog house: your plank is part of the floor', "ANGLES for this one: today's HN brief + your current mood"]) {
       expect(p).toContain(want);
     }
   });
@@ -350,6 +353,49 @@ describe('the dog house', () => {
     const json = await res.json();
     expect(json.world.text).toContain('visitor gave shingle');
     expect(json.world.state.recent.some((r: any) => r.text === 'someone in tokyo brought a shingle')).toBe(true);
+  });
+});
+
+describe('pepper remembers, quietly', () => {
+  test('a visitor sees their own mark on the house, and only theirs', async () => {
+    const world = await import('../server/pepper/world');
+    world.give('marker-visitor-01', 'a visitor', 'lantern');
+    world.give('marker-visitor-01', 'a visitor', 'plank');
+    const marks = world.marksBy('marker-visitor-01');
+    expect(marks[0]).toMatch(/^your plank (is part of the|became the|framed the|is in his pile)/);
+    expect(marks).toContain('your lantern is on the house');
+    const mine = await (await web.request('/world?visitorId=marker-visitor-01')).json();
+    expect(mine.yours).toEqual(marks);
+    const other = await (await web.request('/world?visitorId=marker-visitor-02')).json();
+    expect(other.yours).toEqual([]);
+    expect((await (await web.request('/world')).json()).yours).toEqual([]);
+    expect(JSON.stringify(other)).not.toContain('placed');
+  });
+
+  test('a gift traces to the part it became', async () => {
+    const world = await import('../server/pepper/world');
+    const fresh = [
+      { id: 'a', ts: 1, kind: 'give', by: 'v1', from: 'x', item: 'plank' },
+      { id: 'b', ts: 2, kind: 'give', by: 'v2', from: 'x', item: 'plank' },
+      { id: 'c', ts: 3, kind: 'build', part: 'floor', used: 'plank' },
+      { id: 'd', ts: 4, kind: 'idea', by: 'v2', from: 'x', target: 'roof_style', value: 'dome' },
+    ] as any[];
+    expect(world.marksBy('v1', fresh)).toEqual(['your plank is part of the floor']);
+    expect(world.marksBy('v2', fresh)).toEqual(['you voted for a dome roof', 'your plank is in his pile, waiting its turn']);
+  });
+
+  test('chat knows how long it has been and what they left, without being asked', async () => {
+    const id = 'returning-visitor-01';
+    convo.append(id, { kind: 'message', from: 'visitor', text: 'hi pepper', ts: Date.now() - 3 * 86_400_000 });
+    convo.append(id, { kind: 'message', from: 'pepper', text: 'hi!', ts: Date.now() - 3 * 86_400_000 + 1000 });
+    (await import('../server/pepper/world')).give(id, 'a visitor', 'bone');
+    modelReplies.push({ say: 'oh, it is you *wag*', options: [], relay: null, contact_email: null, world: null });
+    await post('/chat', { visitorId: id, text: 'hello again', page: '/' });
+    const msgs = modelBodies[0].messages.map((m: any) => m.content);
+    expect(msgs[1]).toContain('THIS VISITOR');
+    expect(msgs[1]).toContain('your bone is on the house');
+    expect(msgs).toContain('[server: 3 days later]');
+    expect(msgs[0]).toContain('MEMORY');
   });
 });
 

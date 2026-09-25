@@ -25,7 +25,7 @@ import { handleTelegramWebhook, deepLink } from './telegram';
 import { handleHello, loadMemory } from './hello';
 import { getDay } from './day';
 import { getFleet } from './fleet';
-import { project, needs, describeWorld, give, suggest, fromLabel, ITEMS, COLORS, DECOR, COLORED, type World } from './world';
+import { project, needs, describeWorld, give, suggest, fromLabel, marksBy, ITEMS, COLORS, DECOR, COLORED, type World } from './world';
 
 const app = new Hono();
 
@@ -57,7 +57,20 @@ const clientIp = (c: Context) =>
 
 const relayed = (id: string) => read(id).some(e => e.kind === 'relay' && e.status !== 'limited');
 
-function situation(id: string, page: string): string {
+const DAYS = (ms: number) => Math.floor(ms / 86_400_000);
+
+/** What Pepper remembers about this visitor: how well he knows them, and their marks on his house. */
+async function remembered(id: string): Promise<string[]> {
+  const m = await loadMemory(id).catch(() => null);
+  const visits = m?.visits || 0;
+  const since = m ? DAYS(Date.now() - Date.parse(m.lastVisit)) : 0;
+  const lines = [visits <= 1 ? '- this looks like their first visit' : visits > 10 ? '- a regular; you know them well' : `- they've been by before${since >= 1 ? `, last ${since === 1 ? 'yesterday' : `${since} days ago`}` : ''}`];
+  const marks = marksBy(id);
+  if (marks.length) lines.push(`- on your dog house: ${marks.join('; ')}`);
+  return lines;
+}
+
+async function situation(id: string, page: string): Promise<string> {
   const v = getVisitor(id);
   return [
     'SITUATION (from the server, not the visitor):',
@@ -66,6 +79,9 @@ function situation(id: string, page: string): string {
     `- notes already carried to david: ${read(id).filter(e => e.kind === 'relay' && e.status === 'sent').length}`,
     `- visitor email on file: ${v?.email ? 'yes' : 'no'}`,
     `- visitor linked telegram: ${v?.telegramChatId ? 'yes' : 'no'}`,
+    '',
+    'THIS VISITOR (see MEMORY):',
+    ...(await remembered(id)),
     '',
     'DOG HOUSE RIGHT NOW:',
     describeWorld(),
@@ -98,7 +114,7 @@ app.post('/chat', async (c) => {
 
   let reply;
   try {
-    reply = await askPepper(read(id), situation(id, page));
+    reply = await askPepper(read(id), await situation(id, page));
   } catch (error) {
     console.error('pepper chat failed:', error);
     return fail(502, 'i lost my train of thought. say that again? *tilt*');
@@ -147,7 +163,7 @@ app.post('/chat', async (c) => {
     askContact: relayStatus === 'sent' && !email,
     telegramLink: relayStatus === 'sent' ? deepLink(ensureVisitor(id).token) : null,
     contactEmail: email,
-    world: worldResult ? { ...worldResult, state: publicWorld() } : null,
+    world: worldResult ? { ...worldResult, state: publicWorld(id) } : null,
   });
 });
 
@@ -199,14 +215,15 @@ app.get('/day', (c) => {
 });
 // ---- the dog house --------------------------------------------------------------
 
-function publicWorld(w: World = project()) {
+function publicWorld(visitorId?: string, w: World = project()) {
   const { version, paused, parts, complete, completedAt, wallMaterial, wallColor, roofColor, doorColor, roofStyle, pile, decor, wishlist, ideas, helpers, recent, lastBuild } = w;
-  return { version, paused, parts, complete, completedAt, wallMaterial, wallColor, roofColor, doorColor, roofStyle, pile, decor, wishlist, ideas, helpers, recent, lastBuild, needs: needs(w) };
+  return { version, paused, parts, complete, completedAt, wallMaterial, wallColor, roofColor, doorColor, roofStyle, pile, decor, wishlist, ideas, helpers, recent, lastBuild, needs: needs(w), yours: visitorId ? marksBy(visitorId) : [] };
 }
 
 app.get('/world', (c) => {
   c.header('Cache-Control', 'no-cache');
-  return c.json({ ...publicWorld(), catalog: { items: ITEMS, colors: COLORS, decor: DECOR, colored: COLORED } });
+  const id = c.req.query('visitorId') || '';
+  return c.json({ ...publicWorld(isValidVisitorId(id) ? id : undefined), catalog: { items: ITEMS, colors: COLORS, decor: DECOR, colored: COLORED } });
 });
 
 app.post('/world/give', async (c) => {
@@ -215,10 +232,10 @@ app.post('/world/give', async (c) => {
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   if (limited(`ip:${clientIp(c)}`, 60)) return c.json({ error: 'rate limited' }, 429);
   const r = give(id, fromLabel(body?.timezone), body?.item, body?.color);
-  if (!r.ok) return c.json({ ok: false, reason: r.reason, state: publicWorld() }, r.reason === 'invalid' ? 400 : 200);
+  if (!r.ok) return c.json({ ok: false, reason: r.reason, state: publicWorld(id) }, r.reason === 'invalid' ? 400 : 200);
   const text = `visitor gave ${(r.event as any).color ? (r.event as any).color + ' ' : ''}${(r.event as any).item}${r.built ? ' and pepper used it right away' : ''}`;
   append(id, { kind: 'world', text, ts: Date.now() });
-  return c.json({ ok: true, built: !!r.built, state: publicWorld() });
+  return c.json({ ok: true, built: !!r.built, state: publicWorld(id) });
 });
 
 app.get('/fleet', async (c) => {

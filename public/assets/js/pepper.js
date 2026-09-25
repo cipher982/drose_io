@@ -670,7 +670,7 @@
   }
 
   function fetchWorld() {
-    return fetch('/api/pepper/world')
+    return fetch('/api/pepper/world?visitorId=' + encodeURIComponent(visitorId()))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(applyWorld)
       .catch(function () { /* the house can wait */ });
@@ -729,6 +729,7 @@
     bar.appendChild(el('i'));
     projectEl.appendChild(bar);
     projectEl.appendChild(el('div', 'pc-proj-needs'));
+    projectEl.appendChild(el('div', 'pc-proj-yours'));
     paletteEl = el('div', 'pc-palette');
     paletteEl.hidden = true;
     projectEl.appendChild(paletteEl);
@@ -749,6 +750,10 @@
       : w.needs && w.needs.length
         ? 'needs ' + w.needs.map(function (n) { return n.count + ' ' + ITEM_LABEL[n.item] + (n.count > 1 && n.item !== 'paint' ? 's' : ''); }).join(', ')
         : w.complete ? 'finished! bring him something to decorate it' : 'has what he needs, working on it';
+    // This visitor's own mark on the house, the newest one.
+    const yours = projectEl.querySelector('.pc-proj-yours');
+    yours.textContent = w.yours && w.yours.length ? w.yours[0] : '';
+    yours.hidden = !yours.textContent;
 
     if (paletteEl.hidden) return;
     paletteEl.textContent = '';

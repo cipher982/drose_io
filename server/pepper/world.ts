@@ -100,15 +100,21 @@ export interface World {
   recent: { text: string; ts: number }[];
   lastBuild: { id: string; part: Part; ts: number } | null;
   lastEventTs: number;
+  placed: Record<string, Part>;          // give/forage id -> the part it went into (not public)
+  shown: string[];                       // decor gift ids on display (not public)
 }
 
 function topIdea(ideas: World['ideas'], target: IdeaTarget): string | null {
   return ideas.filter(i => i.target === target).sort((a, b) => b.votes - a.votes)[0]?.value ?? null;
 }
 
-export function project(all: WorldEvent[] = events()): World {
+function liveEvents(all: WorldEvent[]): WorldEvent[] {
   const undone = new Set(all.filter(e => e.kind === 'undo').map(e => (e as any).ref));
-  const live = all.filter(e => e.kind !== 'undo' && !undone.has(e.id));
+  return all.filter(e => e.kind !== 'undo' && !undone.has(e.id));
+}
+
+export function project(all: WorldEvent[] = events()): World {
+  const live = liveEvents(all);
 
   const w: World = {
     version: live.length,
@@ -126,19 +132,27 @@ export function project(all: WorldEvent[] = events()): World {
     recent: [],
     lastBuild: null,
     lastEventTs: live.at(-1)?.ts ?? 0,
+    placed: {},
+    shown: [],
   };
   const helpers = new Set<string>();
   const paintColors: Color[] = [];
+  // Materials are used oldest first, so each build step traces back to one gift.
+  const queue: Partial<Record<Item, string[]>> = {};
 
   for (const e of live) {
     if (e.kind === 'pause') w.paused = true;
     if (e.kind === 'resume') w.paused = false;
     if (e.kind === 'give' || e.kind === 'forage') {
       if ((DECOR as readonly string[]).includes(e.item)) {
-        if (w.decor.filter(d => d.item === e.item).length < DECOR_MAX) w.decor.push({ item: e.item, color: e.color });
+        if (w.decor.filter(d => d.item === e.item).length < DECOR_MAX) {
+          w.decor.push({ item: e.item, color: e.color });
+          w.shown.push(e.id);
+        }
         w.wishlist = w.wishlist.filter(x => x !== e.item);
       } else {
         w.pile[e.item] = (w.pile[e.item] || 0) + 1;
+        (queue[e.item] ||= []).push(e.id);
         if (e.item === 'paint' && e.color) paintColors.push(e.color);
       }
       if (e.kind === 'give') {
@@ -162,6 +176,8 @@ export function project(all: WorldEvent[] = events()): World {
       const part = w.parts[e.part];
       part.done = Math.min(part.of, part.done + 1);
       w.pile[e.used] = Math.max(0, (w.pile[e.used] || 0) - 1);
+      const source = queue[e.used]?.shift();
+      if (source) w.placed[source] = e.part;
       if (e.part === 'walls' && !w.wallMaterial) w.wallMaterial = e.used === 'brick' ? 'brick' : 'wood';
       if (e.part === 'roof' && part.done === 1) w.roofStyle = (topIdea(w.ideas, 'roof_style') as RoofStyle) || (e.used === 'plank' ? 'flat' : 'gable');
       if (e.part === 'roof' && part.done === part.of) w.roofColor = (topIdea(w.ideas, 'roof_color') as Color) || null;
@@ -342,6 +358,53 @@ export function describeWorld(w: World = project()): string {
   lines.push(`${w.helpers} visitor${w.helpers === 1 ? '' : 's'} have helped`);
   if (w.paused) lines.push('david paused the building for now');
   return lines.join('\n');
+}
+
+const PLACED: Record<Part, string> = {
+  floor: 'is part of the floor',
+  walls: 'is part of the walls',
+  roof: 'is part of the roof',
+  door: 'became the door',
+  window: 'framed the window',
+  paint: 'went on the walls',
+};
+
+/**
+ * What one visitor left on the house, newest first, as short phrases for them
+ * (the chat panel, and Pepper's memory of them). Only their own marks.
+ */
+export function marksBy(by: string, all: WorldEvent[] = events()): string[] {
+  const w = project(all);
+  const out: string[] = [];
+  const mine = liveEvents(all).filter(e => (e.kind === 'give' || e.kind === 'idea') && e.by === by).reverse();
+  for (const e of mine) {
+    if (e.kind === 'give') {
+      const thing = `your ${e.color ? e.color + ' ' : ''}${e.item === 'lights' ? 'string lights' : e.item}`;
+      if ((DECOR as readonly string[]).includes(e.item)) {
+        if (w.shown.includes(e.id)) out.push(`${thing} ${e.item === 'lights' ? 'are' : 'is'} on the house`);
+      } else if (w.placed[e.id]) {
+        out.push(`${thing} ${PLACED[w.placed[e.id]]}`);
+      } else {
+        out.push(`${thing} is in his pile, waiting its turn`);
+      }
+    } else if (e.kind === 'idea') {
+      if (e.target === 'wish') {
+        out.push(w.decor.some(d => d.item === e.value) ? `you wished for ${article(e.value as Item)}, and one showed up` : `you wished for ${article(e.value as Item)}`);
+        continue;
+      }
+      const applied = e.target === 'wall_color' ? w.wallColor === e.value && w.parts.paint.done > 0
+        : e.target === 'roof_color' ? w.roofColor === e.value
+          : e.target === 'door_color' ? w.doorColor === e.value
+            : w.roofStyle === e.value && w.parts.roof.done > 0;
+      const decided = e.target === 'wall_color' ? w.parts.paint.done > 0
+        : e.target === 'roof_color' ? w.parts.roof.done >= w.parts.roof.of
+          : e.target === 'door_color' ? w.parts.door.done > 0
+            : w.parts.roof.done > 0;
+      if (applied) out.push(`you picked ${ideaPhrase(e.target, e.value)}, and that's what he built`);
+      else if (!decided) out.push(`you voted for ${ideaPhrase(e.target, e.value)}`);
+    }
+  }
+  return [...new Set(out)].slice(0, 3);
 }
 
 /** Coarse, visitor-safe "from" label: a city from their IANA timezone, never more. */
