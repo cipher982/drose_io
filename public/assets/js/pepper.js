@@ -7,7 +7,7 @@
  *          whole home is the button that opens the chat.
  *   chat   a typing-first panel that grows out of the home. Pepper answers from
  *          the public site and carries messages to David (server/pepper).
- *   voice  a short thought bubble on page load (/api/creature/think).
+ *   voice  a short thought bubble on page load (/api/pepper/hello).
  *
  * David's replies arrive over /api/pepper/stream as SSE event 'david'.
  * Under prefers-reduced-motion Pepper sits still; everything else works.
@@ -50,9 +50,10 @@
 
   const GREETING = "hi! i'm pepper, david's dog. ask me about his work, or tell me something and i'll carry it to him *tilt*";
   const FALLBACK = '*whimper* something went wrong on my end. try again in a moment?';
-  const MAX_LEN = 2000;
+  const MAX_LEN = 1000;
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TAP = window.matchMedia('(pointer: coarse)').matches ? 'tap' : 'click';
   const ua = navigator.userAgent || '';
   const IN_APP = /FBAN|FBAV|Instagram|LinkedInApp|Twitter|Line\/|MicroMessenger/i.test(ua) ||
     (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari/.test(ua));
@@ -180,6 +181,7 @@
     lastPoke: 0,
     width: 0,             // habitat inner width
     scale: 0.62,
+    line: null,           // today's status line for the current mode
   };
 
   function spriteFrame(anim, frame) {
@@ -204,9 +206,18 @@
 
   function maxX() { return Math.max(0, pet.width - FRAME_W * pet.scale); }
 
+  // Pepper's day (/api/pepper/day): status lines per activity, written by the
+  // model a few times an hour. STATUS above is the fallback.
+  let dayLines = null;
+  function lineFor(mode) {
+    const list = dayLines && dayLines[mode];
+    return list && list.length ? list[Math.floor(Math.random() * list.length)] : STATUS[mode];
+  }
+
   function setMode(mode) {
     if (pet.mode === mode) return;
     pet.mode = mode;
+    pet.line = lineFor(mode);
     pet.frame = 0;
     pet.frameAt = performance.now();
     root.dataset.mode = mode;
@@ -216,7 +227,7 @@
 
   function updateStatus() {
     const key = pet.busy || (home.matches(':hover') && !chat.open ? 'happy' : pet.mode);
-    statusEl.textContent = STATUS[key] || '';
+    statusEl.textContent = (key === pet.mode && pet.line) || STATUS[key] || '';
   }
 
   function render() {
@@ -479,42 +490,31 @@
       language: ctx.browser && ctx.browser.language,
       languages: ctx.browser && ctx.browser.languages,
       screen: ctx.device ? { width: ctx.device.screenWidth, height: ctx.device.screenHeight, pixelRatio: ctx.device.pixelRatio } : null,
-      device: ctx.device ? { type: ctx.device.touchPoints > 0 ? 'mobile' : 'desktop' } : null,
+      device: { type: window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 820 ? 'mobile' : 'desktop' },
       browser: ctx.browser ? { name: browserName(ctx.browser.userAgent) } : null,
       connection: ctx.network ? { effectiveType: ctx.network.effectiveType, downlink: ctx.network.downlink, rtt: ctx.network.rtt } : null,
       battery: ctx.battery,
     };
   }
 
-  async function arrivalThought() {
+  // One call on arrival: the server remembers the visit and may answer with a thought.
+  async function hello() {
     try {
-      const res = await fetch('/api/creature/think', {
+      const res = await fetch('/api/pepper/hello', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vid: visitorId(),
-          trigger: 'page_load',
-          context: { currentPage: location.pathname, timeOnPage: Math.floor(performance.now() / 1000), hour: new Date().getHours() },
-          visitor: await visitorTraits(),
+          visitorId: visitorId(),
+          page: location.pathname,
+          referrer: document.referrer || null,
+          hour: new Date().getHours(),
+          weekday: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          traits: await visitorTraits(),
         }),
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data && data.thought && !chat.unread) say(data.thought);
+      const data = res.ok ? await res.json() : null;
+      if (data && data.thought && !chat.unread && !chat.open) say(data.thought);
     } catch { /* a quiet dog is fine */ }
-  }
-
-  function recordVisit() {
-    fetch('/api/creature/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vid: visitorId(), event: 'start', referrer: document.referrer || null, page: location.pathname }),
-      keepalive: true,
-    }).catch(function () { /* not critical */ });
-    window.addEventListener('pagehide', function () {
-      const body = JSON.stringify({ vid: visitorId(), event: 'end', timeOnPage: Math.floor(performance.now() / 1000) });
-      if (navigator.sendBeacon) navigator.sendBeacon('/api/creature/visit', new Blob([body], { type: 'application/json' }));
-    });
   }
 
   // ============================================================
@@ -857,7 +857,7 @@
       if (data.telegramLink) chat.telegramLink = data.telegramLink;
       if (data.askContact && !chat.contactEmail) addContactCard();
       addChips(data.options);
-    } else if (status === 429 && data && data.say) {
+    } else if (data && typeof data.say === 'string' && data.say) {
       addPepper(data.say);
     } else {
       addPepper(FALLBACK);
@@ -875,14 +875,29 @@
       try { msg = JSON.parse(ev.data); } catch { return; }
       if (msg && typeof msg.text === 'string') onDavidReply(msg);
     });
+    // Every (re)connect: a reply may have landed while no stream was listening.
+    es.addEventListener('open', catchUp);
+  }
+
+  async function catchUp() {
+    let data = null;
+    try {
+      const res = await fetch('/api/pepper/history?visitorId=' + encodeURIComponent(visitorId()));
+      data = res.ok ? await res.json() : null;
+    } catch { return; }
+    const msgs = data && Array.isArray(data.messages) ? data.messages : [];
+    msgs.forEach(function (m) {
+      if (m && m.from === 'david' && typeof m.text === 'string' && (!chat.lastDavidTs || m.ts > chat.lastDavidTs)) onDavidReply(m);
+    });
   }
 
   function onDavidReply(msg) {
+    if (msg.ts && (!chat.lastDavidTs || msg.ts > chat.lastDavidTs)) chat.lastDavidTs = msg.ts;
     if (!chat.loaded) {
       chat.historyPromise = null; // refetch on open so history includes it
       setUnread(true);
       arriveWithLetter();
-      say('*ears perk* david wrote back! click me', 9000);
+      say('*ears perk* david wrote back! ' + TAP + ' me', 9000);
       return;
     }
     if (chat.open) {
@@ -901,7 +916,7 @@
       addDavid(msg.text, msg.ts);
       setUnread(true);
       arriveWithLetter();
-      say('*ears perk* david wrote back! click me', 9000);
+      say('*ears perk* david wrote back! ' + TAP + ' me', 9000);
     }
   }
 
@@ -942,7 +957,15 @@
       window.addEventListener('pointermove', onPointerMove, { passive: true });
     }
 
-    recordVisit();
+    fetch('/api/pepper/day')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.statuses) return;
+        dayLines = d.statuses;
+        pet.line = lineFor(pet.mode);
+        updateStatus();
+      })
+      .catch(function () { /* fixed lines are fine */ });
 
     // /m/<token> links from Pepper's emails land on /?pepper=open.
     if (/[?&]pepper=open\b/.test(location.search)) {
@@ -956,6 +979,7 @@
       if (data && data.relayed) {
         chat.relayed = true;
         const msgs = Array.isArray(data.messages) ? data.messages : [];
+        msgs.forEach(function (m) { if (m && m.from === 'david' && m.ts > (chat.lastDavidTs || 0)) chat.lastDavidTs = m.ts; });
         const last = msgs[msgs.length - 1];
         if (last && last.from === 'david') {
           let seen = null;
@@ -970,10 +994,11 @@
         pet.carrying = true;
         updateStatus();
         render();
-        setTimeout(function () { say('*wag* david wrote back while you were gone. click me', 9000); }, 1200);
-      } else if (!chat.open) {
-        setTimeout(arrivalThought, 1400);
+        setTimeout(function () { say('*wag* david wrote back while you were gone. ' + TAP + ' me', 9000); }, 1200);
       }
+      // Always say hello to the server (it remembers the visit); the bubble
+      // only shows when Pepper is not already holding a letter.
+      setTimeout(hello, 1400);
     });
   }
 

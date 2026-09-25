@@ -15,8 +15,9 @@ import { isEmailConfigured, sendEmail, noteReceipt, davidReplyEmail } from './em
 import { isTelegramConfigured, topicFor, postToDesk, sendToVisitor } from './telegram';
 
 const DAY = 86_400_000;
-const RELAYS_PER_VISITOR_PER_DAY = 3;
+const RELAYS_PER_VISITOR_PER_DAY = 5; // write-backs count too
 const RELAYS_GLOBAL_PER_DAY = 40;
+const WRITE_BACKS_PER_VISITOR_PER_DAY = 10; // counts every note, first relay included
 let globalRelays: number[] = [];
 
 export const continueUrl = (token: string) =>
@@ -59,19 +60,21 @@ export async function relayToDavid(opts: { id: string; message: string; summary:
 
   const chatTurns = messages(id).filter(m => m.from === 'visitor').length;
   const lines = ['🐾 Someone is asking for you.'];
-  if (summary) lines.push(`Wants: ${summary}`);
+  if (summary) lines.push(`Wants: ${summary.replace(/\s+/g, ' ')}`);
   if (v.referrer) lines.push(`Came from: ${v.referrer}`);
   lines.push(`Page: ${page}`, `Chat so far: ${chatTurns} message${chatTurns === 1 ? '' : 's'} with Pepper`);
   lines.push('', `“${message}”`, '', 'Reply in this topic and Pepper delivers it.');
   const briefing = lines.join('\n');
 
-  let status: RelayStatus = 'sent';
+  // 'sent' means David's phone got it. Without the desk it is still saved and
+  // Sauron's stale-unread watchdog will surface it, but it was not delivered.
+  let status: RelayStatus = 'failed';
   if (isTelegramConfigured()) {
     try {
       await postToDesk(await topicFor(id, summary), briefing);
+      status = 'sent';
     } catch (error) {
       console.error('pepper relay to desk failed:', error);
-      status = 'failed';
     }
   } else {
     console.warn('pepper relay saved, but the Telegram desk is not configured');
@@ -86,7 +89,7 @@ export async function relayToDavid(opts: { id: string; message: string; summary:
 export async function recordContact(id: string, email: string): Promise<void> {
   const v = updateVisitor(id, { email });
   append(id, { kind: 'contact', email, ts: Date.now() });
-  const lastNote = read(id).filter(e => e.kind === 'relay' && e.status !== 'limited').at(-1) as { message: string } | undefined;
+  const lastNote = read(id).filter(e => e.kind === 'relay' && e.status === 'sent').at(-1) as { message: string } | undefined;
   if (isEmailConfigured() && lastNote) {
     await sendEmail({ to: email, token: v.token, ...noteReceipt(lastNote.message, continueUrl(v.token)) })
       .catch(e => console.error('pepper receipt email failed:', e));
@@ -98,18 +101,27 @@ export async function recordContact(id: string, email: string): Promise<void> {
 }
 
 /** The visitor wrote back by email or Telegram: straight to David, no model involved. */
-export async function visitorWroteBack(id: string, text: string, via: 'email' | 'telegram'): Promise<void> {
-  append(id, { kind: 'message', from: 'visitor', text, ts: Date.now(), via });
-  let status: RelayStatus = 'sent';
+export async function visitorWroteBack(id: string, text: string, via: 'email' | 'telegram'): Promise<RelayStatus> {
+  const now = Date.now();
+  append(id, { kind: 'message', from: 'visitor', text, ts: now, via });
+  globalRelays = globalRelays.filter(t => now - t < DAY);
+  if (Bun.env.TEST_MODE !== 'true'
+    && (relayCount(id, now - DAY) >= WRITE_BACKS_PER_VISITOR_PER_DAY || globalRelays.length >= RELAYS_GLOBAL_PER_DAY)) {
+    append(id, { kind: 'relay', summary: `wrote back by ${via}`, message: text, status: 'limited', ts: now });
+    return 'limited';
+  }
+  globalRelays.push(now);
+  let status: RelayStatus = 'failed';
   if (isTelegramConfigured()) {
     try {
       await postToDesk(await topicFor(id, getVisitor(id)?.summary || ''), `(${via}) ${text}`);
+      status = 'sent';
     } catch (error) {
       console.error('pepper write-back to desk failed:', error);
-      status = 'failed';
     }
   }
   append(id, { kind: 'relay', summary: `wrote back by ${via}`, message: text, status, ts: Date.now() });
+  return status;
 }
 
 // ---- David -> visitor -------------------------------------------------------

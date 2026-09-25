@@ -111,8 +111,11 @@ export async function handleUpdate(update: any): Promise<void> {
     return;
   }
   if (!text) return;
-  await visitorWroteBack(id, text.slice(0, 4000), 'telegram');
-  await sendToVisitor(chatId, 'carried it to david *wag*');
+  const status = await visitorWroteBack(id, text.slice(0, 4000), 'telegram');
+  await sendToVisitor(chatId,
+    status === 'sent' ? 'carried it to david *wag*'
+      : status === 'limited' ? "that's a lot of notes for one day. david will see the ones i already carried *tilt*"
+        : "my paws slipped, but it's saved. david will still see it *tilt*");
 }
 
 /** POST /api/pepper/telegram */

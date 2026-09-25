@@ -2,6 +2,8 @@
  * Every HTTP route Pepper has. Mounted at /api/pepper in server/index.ts,
  * plus two root-level handlers exported below (/m/:token, inbox health).
  *
+ *   POST /hello             page load: remember the visit, return a one-line thought
+ *   GET  /day               Pepper's current mood and status lines (day.ts)
  *   POST /chat              visitor says something; Pepper answers (maybe relays)
  *   GET  /history           the visitor's conversation for the chat panel
  *   POST /contact           visitor leaves an email for David's reply
@@ -12,13 +14,14 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { loadVisitor } from '../lib/visitor-memory';
 import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
-import { append, read, messages, getVisitor, ensureVisitor, visitorByToken, isValidVisitorId, isValidEmail, inboxHealth } from './conversation';
+import { append, read, messages, getVisitor, ensureVisitor, visitorByToken, isValidVisitorId, isValidEmail, inboxHealth, safePage } from './conversation';
 import { askPepper, isModelConfigured } from './pepper';
 import { relayToDavid, recordContact, connectLive } from './deliver';
 import { handleEmailWebhook } from './email';
 import { handleTelegramWebhook, deepLink } from './telegram';
+import { handleHello, loadMemory } from './hello';
+import { getDay } from './day';
 
 const app = new Hono();
 
@@ -68,31 +71,35 @@ app.post('/chat', async (c) => {
   const body = await c.req.json().catch(() => null);
   const id = String(body?.visitorId || '');
   const text = String(body?.text || '').trim();
-  const page = String(body?.page || '/').slice(0, 200);
+  const page = safePage(body?.page);
   const via = body?.via === 'option' ? 'option' : 'web';
 
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
-  if (!text || text.length > 1000) return c.json({ error: 'text must be 1-1000 characters' }, 400);
+  if (!text || text.length > 1000) return c.json({ error: 'text must be 1-1000 characters', say: "that's a lot for a small dog. can you keep it under 1000 characters? *tilt*" }, 400);
   if (limited(`v:${id}`, 20) || limited(`ip:${clientIp(c)}`, 60)) {
     return c.json({ error: 'rate limited', say: "whoa, slow down! my paws can't type that fast *pant*" }, 429);
   }
 
   append(id, { kind: 'message', from: 'visitor', text, ts: Date.now(), via });
-  if (!isModelConfigured() || !modelBudgetLeft()) {
-    return c.json({ error: 'unavailable', say: "my nose isn't working right now. try again in a bit? *yawn*" }, 503);
-  }
+  // Failures still answer in Pepper's voice, and the answer is kept so a
+  // reload shows the same conversation the visitor saw.
+  const fail = (status: 502 | 503, say: string) => {
+    append(id, { kind: 'message', from: 'pepper', text: say, ts: Date.now() });
+    return c.json({ error: status === 503 ? 'unavailable' : 'model failed', say }, status);
+  };
+  if (!isModelConfigured() || !modelBudgetLeft()) return fail(503, "my nose isn't working right now. try again in a bit? *yawn*");
 
   let reply;
   try {
     reply = await askPepper(read(id), situation(id, page));
   } catch (error) {
     console.error('pepper chat failed:', error);
-    return c.json({ error: 'model failed', say: 'i lost my train of thought. say that again? *tilt*' }, 502);
+    return fail(502, 'i lost my train of thought. say that again? *tilt*');
   }
 
   let relayStatus = null;
   if (reply.relay) {
-    const memory = await loadVisitor(id).catch(() => null);
+    const memory = await loadMemory(id).catch(() => null);
     relayStatus = await relayToDavid({ id, ...reply.relay, page, referrer: memory?.referrers?.at(-1) });
     if (relayStatus === 'limited') {
       reply.say = "i've already carried a few notes to david today and i don't want to bury him. try again tomorrow? *tilt*";
@@ -154,6 +161,12 @@ app.get('/stream', (c) => {
   });
 });
 
+app.post('/hello', handleHello);
+app.get('/day', (c) => {
+  const d = getDay();
+  c.header('Cache-Control', 'public, max-age=60');
+  return c.json({ mood: d.mood, statuses: d.statuses });
+});
 app.post('/email/:secret', handleEmailWebhook);
 app.post('/telegram', handleTelegramWebhook);
 

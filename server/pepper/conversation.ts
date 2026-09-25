@@ -44,6 +44,12 @@ export function isValidVisitorId(id: string): boolean {
   return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(id);
 }
 
+/** A same-site path and nothing else: it ends up in David's briefing and the prompt. */
+export function safePage(raw: unknown): string {
+  const p = String(raw || '/').slice(0, 200);
+  return /^\/[A-Za-z0-9\-._~/%]*$/.test(p) ? p : '/';
+}
+
 export function isValidEmail(email: string): boolean {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -143,11 +149,19 @@ export function unansweredRelays(id: string): number[] {
   return entries.filter(e => e.kind === 'relay' && e.status !== 'limited' && e.ts > lastDavid).map(e => e.ts);
 }
 
-/** Shape is load-bearing: Sauron's stale-unread watchdog reads it. */
-export function inboxHealth() {
-  const ids = existsSync(CONVERSATIONS)
+export function allVisitorIds(): string[] {
+  return existsSync(CONVERSATIONS)
     ? readdirSync(CONVERSATIONS).filter(f => f.endsWith('.jsonl')).map(f => f.slice(0, -6))
     : [];
+}
+
+/**
+ * Shape is load-bearing: Sauron's stale-unread watchdog reads unreadTotal and
+ * oldestUnreadAgeSec. openThreadCount is every conversation that ever reached
+ * David, answered or not.
+ */
+export function inboxHealth() {
+  const ids = allVisitorIds();
   let unreadTotal = 0;
   let threads = 0;
   let oldest: { id: string; since: number } | null = null;

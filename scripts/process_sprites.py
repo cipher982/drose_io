@@ -246,9 +246,9 @@ def process_sprites():
         json.dump(metadata, f, indent=2)
     print(f"Saved: {FINAL_JSON}")
 
-    # Print JS config for creature.js
+    # Print JS config for public/assets/js/pepper.js (ANIM)
     print("\n" + "=" * 50)
-    print("Copy this to creature.js SPRITES config:\n")
+    print("Copy this to the ANIM table in public/assets/js/pepper.js:\n")
     for anim_name, _, height, frame_count in all_rows:
         y = metadata[anim_name]["y"]
         print(f"    {anim_name}: {{ y: {y}, h: {height}, frames: {frame_count}, speed: 400 }},")

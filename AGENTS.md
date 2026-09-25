@@ -230,9 +230,16 @@ Rarely edited, so kept brief. Read the files before changing any of them.
 habitat fixed bottom-right where the sprite lives (wanders a little, sits, naps,
 watches the cursor, runs off with a relayed note and back with David's letter),
 and the chat panel that grows out of it. The whole habitat is the button. Under
-`prefers-reduced-motion` he sits still. The one-line thought on arrival comes
-from `server/api/creature-think.ts` (logs in `data/pepper-logs/`);
-`server/api/creature-visit.ts` records referrer and visit counts for it.
+`prefers-reduced-motion` he sits still. What he says is written by the model from live signals, never canned:
+- `POST /api/pepper/hello` (`server/pepper/hello.ts`): the arrival thought. It
+  gets the visitor's setup, local time, referrer, what they read before, what
+  Pepper already said to them and to everyone lately, the site pulse, his mood,
+  and two random angles. It also remembers the visit in `data/visitors/`;
+  thoughts are logged to `data/pepper-logs/`.
+- `GET /api/pepper/day` (`server/pepper/day.ts`): his mood and status lines per
+  activity, one model call every 20 minutes shared by all visitors. A status
+  only ever describes what the sprite is doing in that activity.
+- Fixed strings are limited to system states (delivery, contact card, errors).
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at

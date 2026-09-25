@@ -153,12 +153,13 @@ export async function handleEmailWebhook(c: Context) {
 
   const sns = await c.req.json().catch(() => null) as any;
   if (!sns?.Type) return c.json({ error: 'not an SNS message' }, 400);
-  if (sns.TopicArn !== Bun.env.PEPPER_SNS_TOPIC_ARN) return c.json({ error: 'unexpected topic' }, 403);
+  const topic = Bun.env.PEPPER_SNS_TOPIC_ARN;
+  if (!topic || sns.TopicArn !== topic) return c.json({ error: 'unexpected topic' }, 403);
 
   if (sns.Type === 'SubscriptionConfirmation') {
     const url = new URL(sns.SubscribeURL);
-    if (url.protocol !== 'https:' || !url.hostname.endsWith('.amazonaws.com')) return c.json({ error: 'bad SubscribeURL' }, 400);
-    await fetch(url);
+    if (url.protocol !== 'https:' || !/^sns\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname)) return c.json({ error: 'bad SubscribeURL' }, 400);
+    await fetch(url, { redirect: 'error' });
     console.log('📬 Pepper email: SNS subscription confirmed');
     return c.json({ ok: true });
   }

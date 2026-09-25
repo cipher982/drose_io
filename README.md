@@ -55,7 +55,7 @@ server/
   fingerprint.ts        deployment identity
   blog/                 loader, layout, RSS, sitemap, assets
   pepper/               Pepper: conversation store, model, channels, routes
-  api/                  analytics, creature-think/visit (Pepper's arrival quip)
+  api/                  analytics
 templates/              index.html (rendered, not served raw)
 public/                 CSS, JS, images, static XML
 content/blog/<slug>/    meta.json + index.html + assets/
@@ -80,6 +80,7 @@ and citation rules.
 
 Public:
 
+- `POST /api/pepper/hello` — arrival thought (and visit memory); `GET /api/pepper/day` — his mood and status lines
 - `POST /api/pepper/chat`, `GET /api/pepper/history`, `POST /api/pepper/contact`
 - `GET /api/pepper/stream` — David's replies, live (SSE)
 - `GET /m/:token` — continue a conversation from an email link

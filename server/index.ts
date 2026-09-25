@@ -3,8 +3,6 @@ import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
 import { blogIndex, blogPost, blogRss, blogAsset, blogSitemap } from './blog/routes';
 import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
-import creatureVisit from './api/creature-visit';
-import creatureThink from './api/creature-think';
 import pepper, { continuePage, inboxHealthRoute } from './pepper/web';
 import { liveStats } from './pepper/deliver';
 import { registerWebhook } from './pepper/telegram';
@@ -54,10 +52,6 @@ if (Bun.env.PEPPER_TELEGRAM_BOT_TOKEN && Bun.env.PUBLIC_BASE_URL?.startsWith('ht
   registerWebhook(`${Bun.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/api/pepper/telegram`)
     .catch(e => console.error('pepper telegram webhook registration failed:', e));
 }
-
-// Creature API
-app.route('/api/creature', creatureVisit);
-app.route('/api/creature', creatureThink);
 
 // Rendered pages. These must stay ahead of serveStatic so nothing can serve an
 // unrendered template, and the templates live outside public/ so there is
