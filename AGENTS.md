@@ -184,6 +184,13 @@ Visitors chat with him; he answers from public site content only, never speaks
 for David, and carries messages to David when asked. David answers from
 Telegram. There is no admin page.
 
+Pepper faces the world only. Two neighbours share the name and are not this:
+- **Pepper Place** — `drose.io/pepper/` is a separate photo-album app (repo
+  `pepper-place`, container `pepper`), routed by Caddy before this site.
+- **The Longhouse bot** (`@Longhouse_drose_bot`, repo `~/git/zerg/supervisor`)
+  is David's private bot for his own agent sessions. Kept separate on purpose
+  (2026-09-25): an agent that reads strangers' messages must not steer his work.
+
 ```
  web chat (/api/pepper/chat)  ─┐                              ┌─► live page (SSE /api/pepper/stream)
  email  pepper@agents.drose.io ─┼─► data/pepper/conversations ─┼─► email (SES)
@@ -224,7 +231,8 @@ Env (Infisical `ops-infra/prod`): `OPENAI_API_KEY`, `PEPPER_SES_ACCESS_KEY_ID`,
 `PEPPER_SES_SECRET_ACCESS_KEY`, `PEPPER_WEBHOOK_SECRET`, `PEPPER_SNS_TOPIC_ARN`,
 `PEPPER_TELEGRAM_WEBHOOK_SECRET`, `PEPPER_TELEGRAM_BOT_TOKEN`, `PEPPER_TELEGRAM_BOT_USERNAME`,
 `PEPPER_TELEGRAM_DESK_CHAT_ID`, `PEPPER_TELEGRAM_DAVID_USER_ID`,
-`PUBLIC_BASE_URL`; optional `PEPPER_MODEL`, `PEPPER_MAIL_FROM`.
+`PUBLIC_BASE_URL`; optional `PEPPER_MODEL`, `PEPPER_MAIL_FROM`,
+`PEPPER_LONGHOUSE_TOKEN` (the fleet window; dark without it).
 
 `data/` is a bind mount on clifford, not in the image, and excluded from
 deploys. It holds real visitor conversations: never "clean it up".

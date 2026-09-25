@@ -83,6 +83,8 @@ Public:
 - `POST /api/pepper/hello` — arrival thought (and visit memory); `GET /api/pepper/day` — his mood and status lines
 - `POST /api/pepper/chat`, `GET /api/pepper/history`, `POST /api/pepper/contact`
 - `GET /api/pepper/stream` — David's replies, live (SSE)
+- `GET /api/pepper/world`, `POST /api/pepper/world/give` — the dog house he builds with visitors
+- `GET /api/pepper/fleet` — David's agents working right now, public repos only
 - `GET /m/:token` — continue a conversation from an email link
 - `GET /api/health` — liveness
 - `GET /api/version` — deployment fingerprint
