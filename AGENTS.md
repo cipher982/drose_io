@@ -253,7 +253,11 @@ or the "help him" palette in the panel). It is an append-only log in
 catalog of items, colors and roof styles is accepted, so no visitor text is ever
 shown to anyone else. A builder tick in the server works a step every 20-60
 minutes, and when nobody has brought anything for a day he forages what he needs.
-`public/assets/js/pepper.js` draws it as pixel art next to him. David controls it
+`public/assets/js/pepper.js` draws it as pixel art next to him. Each gift traces to
+the part it became (`marksBy`), so a returning visitor sees their own mark in
+the panel, and Pepper's chat and hello remember it along with how long it's been
+since they talked. The prompt keeps that memory light: at most once, never a
+recital of what he knows. David controls it
 from the General topic of Pepper's Desk: `/world`, `/undo <id>`, `/pause`,
 `/resume`, `/give <item> [color]`.
 
