@@ -55,7 +55,7 @@ server/
   fingerprint.ts        deployment identity
   blog/                 loader, layout, RSS, sitemap, assets
   pepper/               Pepper: conversation store, model, channels, routes
-  api/                  analytics, creature (the sprite)
+  api/                  analytics, creature-think/visit (Pepper's arrival quip)
 templates/              index.html (rendered, not served raw)
 public/                 CSS, JS, images, static XML
 content/blog/<slug>/    meta.json + index.html + assets/

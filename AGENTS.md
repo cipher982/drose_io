@@ -161,10 +161,9 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - `server/fingerprint.ts` — deployment identity, shared by server and smoke.
 - `scripts/smoke.ts` — post-deploy verification.
 - `server/blog/*` — blog loading, layout, RSS, assets.
-- `server/pepper/` — Pepper, the visitor agent (see "Pepper" below), and
-  `public/assets/js/pepper-chat.js`, its chat panel.
-- Pepper sprite: `public/assets/js/creature.js`, `public/assets/css/creature.css`,
-  `server/api/creature.ts`.
+- `server/pepper/` — Pepper, the visitor agent (see "Pepper" below).
+- `public/assets/js/pepper.js` + `public/assets/css/pepper.css` — Pepper on the
+  page: his home in the corner, the sprite that lives in it, and the chat.
 
 ## Style
 
@@ -227,10 +226,13 @@ deploys. It holds real visitor conversations: never "clean it up".
 
 Rarely edited, so kept brief. Read the files before changing any of them.
 
-**Pepper's sprite.** `public/assets/js/creature.js` wanders the homepage and
-exposes `window.PepperSprite` for the chat. Its page-load quip is
-`server/api/creature-think.ts` (logs in `data/pepper-logs/`);
-`server/api/creature.ts` state is still stub data.
+**Pepper's home.** `public/assets/js/pepper.js` is one component: a glass
+habitat fixed bottom-right where the sprite lives (wanders a little, sits, naps,
+watches the cursor, runs off with a relayed note and back with David's letter),
+and the chat panel that grows out of it. The whole habitat is the button. Under
+`prefers-reduced-motion` he sits still. The one-line thought on arrival comes
+from `server/api/creature-think.ts` (logs in `data/pepper-logs/`);
+`server/api/creature-visit.ts` records referrer and visit counts for it.
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at

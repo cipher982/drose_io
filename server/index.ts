@@ -3,7 +3,6 @@ import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
 import { blogIndex, blogPost, blogRss, blogAsset, blogSitemap } from './blog/routes';
 import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
-import { getCreatureState } from './api/creature';
 import creatureVisit from './api/creature-visit';
 import creatureThink from './api/creature-think';
 import pepper, { continuePage, inboxHealthRoute } from './pepper/web';
@@ -57,7 +56,6 @@ if (Bun.env.PEPPER_TELEGRAM_BOT_TOKEN && Bun.env.PUBLIC_BASE_URL?.startsWith('ht
 }
 
 // Creature API
-app.get('/api/creature/state', getCreatureState);
 app.route('/api/creature', creatureVisit);
 app.route('/api/creature', creatureThink);
 
