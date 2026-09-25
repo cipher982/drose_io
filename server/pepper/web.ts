@@ -25,7 +25,7 @@ import { handleEmailWebhook } from './email';
 import { handleTelegramWebhook, deepLink } from './telegram';
 import { handleHello, loadMemory } from './hello';
 import { getDay } from './day';
-import { getFleet } from './fleet';
+import { getFleet, fleetForChat } from './fleet';
 import { project, needs, describeWorld, give, suggest, fromLabel, marksBy, ITEMS, COLORS, DECOR, COLORED, type World } from './world';
 
 const app = new Hono();
@@ -108,6 +108,9 @@ async function situation(id: string, page: string): Promise<string> {
     '',
     'THIS VISITOR (see MEMORY):',
     ...(await remembered(id)),
+    '',
+    "DAVID'S AGENTS RIGHT NOW (public repos only, from Longhouse; see DAVID'S AGENTS):",
+    fleetForChat(await getFleet().catch(() => ({ updatedAt: null } as any))),
     '',
     'DOG HOUSE RIGHT NOW:',
     describeWorld(),

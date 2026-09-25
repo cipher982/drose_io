@@ -520,6 +520,21 @@ describe('fleet window (public repos only)', () => {
     expect(Object.keys(snap.sessions[0]).sort()).toEqual(['activeFor', 'id', 'lastActivityAgo', 'provider', 'repo', 'state']);
   });
 
+  test('chat sees the fleet per public repo, with links and no guesses', async () => {
+    const { fleetForChat, EMPTY_FLEET } = await import('../server/pepper/fleet');
+    const text = fleetForChat({ updatedAt: 'x', working: 2, today: 3, recent: [{ repo: 'drose_io', finishedAgo: 600 }], sessions: [
+      { id: 'a', repo: 'longhouse', provider: 'claude', activeFor: 45, state: 'working', lastActivityAgo: 5 },
+      { id: 'b', repo: 'longhouse', provider: 'codex', activeFor: 130, state: 'working', lastActivityAgo: 9 },
+    ] });
+    expect(text).toContain('- longhouse (https://github.com/cipher982/longhouse): 2 claude, codex agents working, the longest for 2 h');
+    expect(text).toContain('finished earlier today: drose_io');
+    expect(fleetForChat(EMPTY_FLEET)).toContain('no view of it right now');
+    modelReplies.push({ say: 'two agents are on longhouse', options: [], relay: null, contact_email: null, world: null });
+    await post('/chat', { visitorId: 'fleet-asker-000001', text: 'what is david working on right now?', page: '/' });
+    expect(modelBodies[0].messages[1].content).toContain("DAVID'S AGENTS RIGHT NOW");
+    expect(modelBodies[0].messages[0].content).toContain('Never guess what the agents are doing');
+  });
+
   test('describeFleet reads naturally and is empty without data', async () => {
     const { describeFleet, EMPTY_FLEET } = await import('../server/pepper/fleet');
     expect(describeFleet(EMPTY_FLEET)).toBe('');

@@ -102,6 +102,25 @@ export function snapshotFrom(rows: SessionRow[], publicRepos: Set<string>, now =
 }
 
 /** One line for prompts: "david's agents right now: 2 working (longhouse, drose_io), 11 sessions today". */
+const span = (min: number) => min < 90 ? `${min} min` : min < 48 * 60 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} days`;
+
+/** The fleet for Pepper's chat: per public repo, who is on it and for how long, with its public link. */
+export function fleetForChat(s: FleetSnapshot): string {
+  if (!s.updatedAt) return 'no view of it right now (the feed is off or unreachable)';
+  const byRepo = new Map<string, FleetSession[]>();
+  for (const x of s.sessions) byRepo.set(x.repo, [...(byRepo.get(x.repo) || []), x]);
+  const lines = [...byRepo].map(([repo, list]) => {
+    const who = [...new Set(list.map(x => x.provider))].join(', ');
+    const longest = Math.max(...list.map(x => x.activeFor));
+    return `- ${repo} (https://github.com/${OWNER}/${repo}): ${list.length} ${who} agent${list.length === 1 ? '' : 's'} working, the longest for ${span(longest)}`;
+  });
+  if (!lines.length) lines.push('- none working this minute');
+  const done = [...new Set(s.recent.map(r => r.repo))];
+  if (done.length) lines.push(`- finished earlier today: ${done.join(', ')}`);
+  lines.push(`- ${s.today} session${s.today === 1 ? '' : 's'} on public repos today`);
+  return lines.join('\n');
+}
+
 export function describeFleet(s: FleetSnapshot): string {
   if (!s.updatedAt) return '';
   const repos = [...new Set(s.sessions.map(x => x.repo))];

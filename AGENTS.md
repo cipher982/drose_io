@@ -263,7 +263,8 @@ and the chat panel that grows out of it. The whole habitat is the button. Under
   a private repo with a public repo's name, so those fail closed. Private repos
   and all Zeta work never leave the module. Counts, repo names, providers
   and timings only, never titles or text. Polls at most once a minute and only
-  while someone is looking. Needs `PEPPER_LONGHOUSE_TOKEN` (device token
+  while someone is looking. The chat gets it too (`fleetForChat`), so "what is
+  David working on?" is answered from it. Needs `PEPPER_LONGHOUSE_TOKEN` (device token
   `drose-web-pepper`; device tokens are account-wide, so revoke it from
   Longhouse's Devices page if it ever leaks).
 - Fixed strings are limited to system states (delivery, contact card, errors).
