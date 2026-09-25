@@ -13,6 +13,7 @@ import { join } from 'path';
 import { publishedPosts } from '../blog/loader';
 import { read, allVisitorIds } from './conversation';
 import { getFleet, peekFleet, describeFleet } from './fleet';
+import { project, needs } from './world';
 
 export type Activity = 'walk' | 'sit' | 'idle' | 'lie' | 'alert';
 export interface Day {
@@ -100,6 +101,13 @@ export function describePulse(p: Pulse): string {
   getFleet().catch(() => {});
   const fleet = describeFleet(peekFleet());
   if (fleet) lines.push(fleet);
+  const w = project();
+  const done = Object.values(w.parts).reduce((n, x) => n + x.done, 0);
+  const of = Object.values(w.parts).reduce((n, x) => n + x.of, 0);
+  const need = needs(w)[0];
+  lines.push(w.complete
+    ? `your dog house is finished (built with ${w.helpers} visitors); you're decorating it`
+    : `your dog house: ${done}/${of} steps done${need ? `, waiting on ${need.count} ${need.item}` : ''}`);
   return lines.join('\n');
 }
 
@@ -110,7 +118,7 @@ const DAY_SYSTEM = `You are writing the inner life of Pepper, a small black-and-
 Given the time and what's happening on the site, write his current mood and a few status lines for each activity. Each status is lowercase, 2-5 words, at most 26 characters, no punctuation at the end, no emoji. Make them specific and alive: react to the newest post, today's HN brief, how busy it is, the time of day. Keep them gentle and funny, never mean.
 
 A status must describe what the sprite is visibly doing in that activity:
-- walk: taking a few steps around his little home (sniffing, pacing, patrolling, investigating)
+- walk: taking a few steps around his little home and the dog house he's building (sniffing, pacing, inspecting)
 - sit: sitting still (guarding, pondering, waiting, listening)
 - idle: standing around (hanging out, looking around, stretching)
 - lie: lying down asleep (napping, dozing, dreaming about...)

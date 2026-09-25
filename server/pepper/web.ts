@@ -5,6 +5,7 @@
  *   POST /hello             page load: remember the visit, return a one-line thought
  *   GET  /day               Pepper's current mood and status lines (day.ts)
  *   GET  /fleet             David's agents right now, public repos only (fleet.ts)
+ *   GET  /world             the dog house (world.ts); POST /world/give hands him an item
  *   POST /chat              visitor says something; Pepper answers (maybe relays)
  *   GET  /history           the visitor's conversation for the chat panel
  *   POST /contact           visitor leaves an email for David's reply
@@ -24,6 +25,7 @@ import { handleTelegramWebhook, deepLink } from './telegram';
 import { handleHello, loadMemory } from './hello';
 import { getDay } from './day';
 import { getFleet } from './fleet';
+import { project, needs, describeWorld, give, suggest, fromLabel, ITEMS, COLORS, DECOR, COLORED, type World } from './world';
 
 const app = new Hono();
 
@@ -64,6 +66,9 @@ function situation(id: string, page: string): string {
     `- notes already carried to david: ${read(id).filter(e => e.kind === 'relay' && e.status === 'sent').length}`,
     `- visitor email on file: ${v?.email ? 'yes' : 'no'}`,
     `- visitor linked telegram: ${v?.telegramChatId ? 'yes' : 'no'}`,
+    '',
+    'DOG HOUSE RIGHT NOW:',
+    describeWorld(),
   ].join('\n');
 }
 
@@ -108,6 +113,28 @@ app.post('/chat', async (c) => {
       reply.options = [];
     }
   }
+  // The dog house: rules and limits are in world.ts; the model only proposed.
+  let worldResult: { text: string; built: boolean } | null = null;
+  if (reply.world) {
+    const from = fromLabel(body?.timezone);
+    const r = reply.world.action === 'give'
+      ? give(id, from, reply.world.item, reply.world.color)
+      : suggest(id, from, reply.world.target, reply.world.value);
+    if (r.ok) {
+      const built = 'built' in r && !!r.built;
+      const what = reply.world.action === 'give'
+        ? `visitor gave ${reply.world.color ? reply.world.color + ' ' : ''}${reply.world.item}${built ? ' and pepper used it right away' : ''}`
+        : `visitor suggested ${reply.world.target.replace('_', ' ')}: ${reply.world.value}`;
+      append(id, { kind: 'world', text: what, ts: Date.now() });
+      worldResult = { text: what, built };
+    } else {
+      reply.say = r.reason === 'limited'
+        ? "that's so kind, but you've already helped a lot today. come back tomorrow? *wag*"
+        : r.reason === 'full' ? "i've got plenty of those already! maybe something else? *tilt*"
+          : "hmm, i can't use that one. i can use planks, bricks, shingles, paint, or little decorations *tilt*";
+    }
+  }
+
   // After the relay, so the receipt email can quote the note just carried.
   if (reply.contact_email) await recordContact(id, reply.contact_email);
 
@@ -120,6 +147,7 @@ app.post('/chat', async (c) => {
     askContact: relayStatus === 'sent' && !email,
     telegramLink: relayStatus === 'sent' ? deepLink(ensureVisitor(id).token) : null,
     contactEmail: email,
+    world: worldResult ? { ...worldResult, state: publicWorld() } : null,
   });
 });
 
@@ -169,6 +197,30 @@ app.get('/day', (c) => {
   c.header('Cache-Control', 'public, max-age=60');
   return c.json({ mood: d.mood, statuses: d.statuses });
 });
+// ---- the dog house --------------------------------------------------------------
+
+function publicWorld(w: World = project()) {
+  const { version, paused, parts, complete, completedAt, wallMaterial, wallColor, roofColor, doorColor, roofStyle, pile, decor, wishlist, ideas, helpers, recent, lastBuild } = w;
+  return { version, paused, parts, complete, completedAt, wallMaterial, wallColor, roofColor, doorColor, roofStyle, pile, decor, wishlist, ideas, helpers, recent, lastBuild, needs: needs(w) };
+}
+
+app.get('/world', (c) => {
+  c.header('Cache-Control', 'no-cache');
+  return c.json({ ...publicWorld(), catalog: { items: ITEMS, colors: COLORS, decor: DECOR, colored: COLORED } });
+});
+
+app.post('/world/give', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const id = String(body?.visitorId || '');
+  if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
+  if (limited(`ip:${clientIp(c)}`, 60)) return c.json({ error: 'rate limited' }, 429);
+  const r = give(id, fromLabel(body?.timezone), body?.item, body?.color);
+  if (!r.ok) return c.json({ ok: false, reason: r.reason, state: publicWorld() }, r.reason === 'invalid' ? 400 : 200);
+  const text = `visitor gave ${(r.event as any).color ? (r.event as any).color + ' ' : ''}${(r.event as any).item}${r.built ? ' and pepper used it right away' : ''}`;
+  append(id, { kind: 'world', text, ts: Date.now() });
+  return c.json({ ok: true, built: !!r.built, state: publicWorld() });
+});
+
 app.get('/fleet', async (c) => {
   c.header('Cache-Control', 'public, max-age=30');
   return c.json(await getFleet());

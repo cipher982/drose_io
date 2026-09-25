@@ -6,6 +6,7 @@ import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './dig
 import pepper, { continuePage, inboxHealthRoute } from './pepper/web';
 import { liveStats } from './pepper/deliver';
 import { registerWebhook } from './pepper/telegram';
+import { startBuilder } from './pepper/world';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
 import { homePage } from './render/pages';
 import { computeFingerprint, fingerprintFileCount } from './fingerprint';
@@ -48,6 +49,7 @@ app.use('/*', async (c, next) => {
 app.route('/api/pepper', pepper);
 app.get('/m/:token', continuePage);
 app.get('/api/admin/inbox/health', inboxHealthRoute); // Sauron's stale-unread watchdog
+startBuilder(); // Pepper works on his dog house through the day
 if (Bun.env.PEPPER_TELEGRAM_BOT_TOKEN && Bun.env.PUBLIC_BASE_URL?.startsWith('https://')) {
   registerWebhook(`${Bun.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/api/pepper/telegram`)
     .catch(e => console.error('pepper telegram webhook registration failed:', e));

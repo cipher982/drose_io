@@ -194,7 +194,7 @@
   }
 
   function measure() {
-    pet.scale = window.matchMedia('(max-width: 520px)').matches ? 0.54 : 0.62;
+    pet.scale = window.matchMedia('(max-width: 520px)').matches ? 0.5 : 0.56;
     pet.width = stage.clientWidth;
     const maxX = Math.max(0, pet.width - FRAME_W * pet.scale);
     if (!pet.away) {
@@ -227,7 +227,7 @@
 
   function updateStatus() {
     const key = pet.busy || (home.matches(':hover') && !chat.open ? 'happy' : pet.mode);
-    statusEl.textContent = (key === pet.mode && pet.line) || STATUS[key] || '';
+    statusEl.textContent = key === 'working' ? workStatus() : (key === pet.mode && pet.line) || STATUS[key] || '';
   }
 
   function render() {
@@ -310,6 +310,8 @@
     if (document.hidden) { lastTick = now; return; }
     const dt = Math.min(0.05, (now - (lastTick || now)) / 1000);
     lastTick = now;
+
+    if (worldState && now - (tick.houseAt || 0) > 120) { tick.houseAt = now; drawHouse(now); }
 
     const a = ANIM[pet.mode];
     if (a.n > 1 && now - pet.frameAt >= a.ms) {
@@ -416,6 +418,18 @@
     stage = el('span', 'ph-stage');
     stage.setAttribute('aria-hidden', 'true');
     stage.appendChild(el('span', 'ph-floor'));
+    houseCanvas = el('canvas', 'ph-house');
+    houseCanvas.width = GRID_W;
+    houseCanvas.height = GRID_H;
+    houseCanvas.style.width = GRID_W * PX + 'px';
+    houseCanvas.style.height = GRID_H * PX + 'px';
+    houseCtx = houseCanvas.getContext('2d');
+    stage.appendChild(houseCanvas);
+    sparksEl = el('span', 'ph-sparks');
+    stage.appendChild(sparksEl);
+    fleetEl = el('span', 'ph-fleet');
+    fleetEl.appendChild(el('span', 'ph-leds'));
+    home.appendChild(fleetEl);
     shadowEl = el('span', 'ph-shadow');
     stage.appendChild(shadowEl);
     petEl = el('span', 'ph-pet');
@@ -441,6 +455,368 @@
       if (pet.mode === 'happy') setMode('sit');
       updateStatus();
     });
+  }
+
+  // ============================================================
+  // The dog house he is building (server/pepper/world.ts is the source of truth)
+  // ============================================================
+
+  // Drawn as real pixel art: a 60x36 grid painted at 2x on a canvas.
+  const GRID_W = 60, GRID_H = 36, PX = 2;
+  const HEX = {
+    red: '#e0524d', orange: '#ef8a3c', yellow: '#f2cf4a', green: '#58b368', teal: '#2fb5a8', blue: '#4a8fe0',
+    indigo: '#6366f1', purple: '#9b6be0', pink: '#ee7fb3', white: '#e9e8f0', black: '#2b2b35', brown: '#8a5a34',
+  };
+  const C = {
+    wood: '#b07a45', woodDark: '#7f5230', woodLight: '#caa06a', brick: '#a9533d', mortar: '#6d3326',
+    shingle: '#575c7d', glass: '#8fd3ff', dark: '#14141e', pole: '#8e94ab', leaf: '#3f8f4f', ground: 'rgba(0,0,0,0.35)',
+  };
+  const WORK = {
+    floor: 'laying floor planks', walls: 'building the walls', roof: 'shingling the roof',
+    door: 'hanging the door', window: 'cutting a window', paint: 'painting the walls',
+  };
+  const HOUSE_DOOR_X = 20 * PX; // where he stands to work, in stage px
+
+  let houseCanvas, houseCtx, sparksEl, fleetEl, worldState = null, seenBuild = null;
+
+  function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = function (v) { return Math.max(0, Math.min(255, Math.round(v * f))); };
+    return 'rgb(' + ch(n >> 16) + ',' + ch((n >> 8) & 255) + ',' + ch(n & 255) + ')';
+  }
+
+  function drawHouse(t) {
+    const w = worldState;
+    const g = houseCtx;
+    if (!g) return;
+    g.clearRect(0, 0, GRID_W, GRID_H);
+    const r = function (x, y, ww, hh, c) { g.fillStyle = c; g.fillRect(x, y, ww, hh); };
+    if (!w) return;
+    const P = w.parts;
+    const frac = function (k) { return P[k] ? P[k].done / P[k].of : 0; };
+
+    // Ground shadow under the plot
+    r(2, 35, 36, 1, C.ground);
+
+    // Nothing built yet: stake out the plot
+    if (frac('floor') === 0) {
+      for (let x = 3; x < 37; x += 2) r(x, 34, 1, 1, 'rgba(165,180,252,0.5)');
+      r(35, 27, 1, 8, C.woodDark); r(32, 26, 7, 4, C.woodLight); r(33, 27, 5, 1, C.woodDark);
+    }
+
+    // Floor
+    const fw = Math.round(34 * frac('floor'));
+    if (fw) {
+      r(3, 32, fw, 3, C.woodDark);
+      r(3, 32, fw, 1, C.woodLight);
+      for (let x = 8; x < 3 + fw; x += 6) r(x, 33, 1, 2, shade(C.wood, 0.7));
+    }
+
+    // Walls rise bottom-up
+    const wf = frac('walls');
+    const wh = Math.round(18 * wf);
+    if (wh) {
+      const top = 32 - wh;
+      const painted = w.parts.paint && w.parts.paint.done > 0 && w.wallColor;
+      const base = painted ? HEX[w.wallColor] : w.wallMaterial === 'brick' ? C.brick : C.wood;
+      r(6, top, 28, wh, base);
+      if (w.wallMaterial === 'brick' && !painted) {
+        for (let y = 31; y >= top; y -= 3) {
+          r(6, y, 28, 1, C.mortar);
+          const off = ((31 - y) / 3) % 2 ? 3 : 0;
+          for (let x = 6 + off; x < 34; x += 6) r(x, Math.max(top, y - 2), 1, Math.min(2, y - top), C.mortar);
+        }
+      } else {
+        for (let y = 31; y >= top; y -= 3) r(6, y, 28, 1, shade(base, 0.82));
+      }
+      r(6, top, 1, wh, shade(base, 0.7));
+      r(33, top, 1, wh, shade(base, 0.7));
+    }
+
+    // Scaffolding while the shell is going up
+    const shellBusy = (wf > 0 && wf < 1) || (wf === 1 && frac('roof') < 1);
+    if (shellBusy) {
+      const top = wf < 1 ? 32 - wh - 3 : 10;
+      r(4, top, 1, 34 - top, C.pole); r(35, top, 1, 34 - top, C.pole);
+      for (let y = top + 2; y < 32; y += 5) { r(4, y, 3, 1, C.pole); r(33, y, 3, 1, C.pole); }
+    }
+
+    // Door and window
+    if (P.door && P.door.done) {
+      const frame = w.doorColor ? HEX[w.doorColor] : C.woodDark;
+      r(16, 22, 8, 10, frame);
+      r(17, 23, 6, 9, C.dark);
+      r(17, 22, 6, 1, frame);
+      const blanket = w.decor.find(function (d) { return d.item === 'blanket'; });
+      if (blanket) r(17, 30, 6, 2, HEX[blanket.color || 'blue']);
+    }
+    if (P.window && P.window.done) {
+      const glow = w.decor.some(function (d) { return d.item === 'lantern'; });
+      r(26, 18, 5, 5, C.woodDark);
+      r(27, 19, 3, 3, glow ? '#ffe7a3' : C.glass);
+      r(28, 19, 1, 3, C.woodDark); r(27, 20, 3, 1, C.woodDark);
+    }
+
+    // Roof, course by course
+    const rf = frac('roof');
+    if (rf > 0) {
+      const color = w.roofColor ? HEX[w.roofColor] : C.shingle;
+      if (w.roofStyle === 'flat') {
+        const rows = Math.max(1, Math.round(4 * rf));
+        for (let k = 0; k < rows; k++) r(2, 14 - k, 36, 1, k % 2 ? shade(color, 0.85) : color);
+      } else {
+        const rows = Math.max(1, Math.round(11 * rf));
+        for (let k = 0; k < rows; k++) {
+          const hw = w.roofStyle === 'dome'
+            ? Math.round(Math.sqrt(Math.max(0, 16 * 16 - (k * 1.45) * (k * 1.45))) * 1.12)
+            : 18 - Math.round(k * 1.65);
+          if (hw <= 0) break;
+          r(20 - hw, 14 - k, hw * 2, 1, k % 2 ? shade(color, 0.85) : color);
+        }
+      }
+    }
+
+    // Decorations
+    const has = function (item) { return w.decor.filter(function (d) { return d.item === item; }); };
+    const roofDone = rf === 1;
+    has('flag').slice(0, 1).forEach(function (d) {
+      const baseY = roofDone ? (w.roofStyle === 'flat' ? 10 : 3) : 26;
+      const x = roofDone ? 20 : 41;
+      r(x, baseY - 5, 1, roofDone ? 6 : 9, C.pole);
+      const c = HEX[d.color || 'red'];
+      r(x + 1, baseY - 5, 4, 1, c); r(x + 1, baseY - 4, 3, 1, c); r(x + 1, baseY - 3, 2, 1, c);
+    });
+    if (has('lights').length && wf === 1) {
+      const colors = [HEX.yellow, HEX.pink, HEX.teal];
+      for (let i = 0, x = 4; x < 36; x += 3, i++) {
+        const on = reduced || Math.floor(t / 500 + i) % 3 !== 0;
+        r(x, 15 + (i % 2), 1, 1, on ? colors[i % 3] : 'rgba(255,255,255,0.15)');
+      }
+    }
+    if (has('lantern').length) {
+      g.globalAlpha = reduced ? 0.18 : 0.12 + 0.06 * Math.sin(t / 300);
+      r(11, 21, 5, 5, '#ffd66b');
+      r(12, 20, 3, 7, '#ffd66b');
+      g.globalAlpha = 1;
+      r(13, 20, 1, 2, C.dark); r(12, 22, 3, 3, '#ffd66b');
+    }
+    if (has('bell').length && P.door && P.door.done) { r(25, 21, 2, 2, '#e2b54a'); r(25, 23, 2, 1, '#b8892c'); }
+    has('flower').forEach(function (d, i) {
+      const x = [1, 38, 44][i];
+      r(x, 31, 1, 4, C.leaf); r(x - 1, 29, 3, 2, HEX[d.color || 'pink']); r(x, 30, 1, 1, HEX.yellow);
+    });
+    has('ball').slice(0, 1).forEach(function (d) { const c = HEX[d.color || 'red']; r(40, 32, 3, 3, c); r(40, 32, 1, 1, shade(c, 1.3)); });
+    if (has('bone').length) { r(22, 35, 4, 1, '#f1efe6'); r(21, 34, 1, 1, '#f1efe6'); r(26, 34, 1, 1, '#f1efe6'); }
+    if (has('bowl').length) { r(36, 33, 5, 2, '#6b7280'); r(37, 32, 3, 1, '#4a8fe0'); }
+    if (has('cactus').length) { r(47, 28, 2, 7, '#4c9a5a'); r(45, 30, 1, 2, '#4c9a5a'); r(46, 31, 1, 1, '#4c9a5a'); r(49, 29, 1, 2, '#4c9a5a'); }
+    if (has('mushroom').length) { r(0, 32, 4, 2, '#d9534f'); r(1, 32, 1, 1, '#fff'); r(1, 34, 2, 1, '#f1efe6'); }
+    if (has('sign').length) { r(51, 30, 1, 5, C.woodDark); r(48, 26, 7, 4, C.woodLight); r(49, 27, 5, 1, C.woodDark); r(49, 28, 3, 1, C.woodDark); }
+
+    // His pile of materials, stacked
+    let y = 34;
+    const pile = w.pile || {};
+    const stack = function (n, h, draw) { for (let i = 0; i < Math.min(n || 0, 4); i++) { draw(y - h + 1); y -= h; } };
+    stack(pile.plank, 1, function (yy) { r(53, yy, 7, 1, C.wood); r(53, yy, 1, 1, C.woodDark); });
+    stack(pile.brick, 2, function (yy) { r(54, yy, 5, 2, C.brick); r(54, yy + 1, 5, 1, C.mortar); });
+    stack(pile.shingle, 1, function (yy) { r(54, yy, 5, 1, C.shingle); });
+    if (pile.paint) { r(55, y - 3, 3, 3, '#cfd3e0'); r(55, y - 3, 3, 1, HEX.white); y -= 4; }
+  }
+
+  function workStatus() {
+    return worldState && worldState.lastBuild ? WORK[worldState.lastBuild.part] : 'building';
+  }
+
+  // He walks over, faces the house, and gets to work for a few seconds.
+  function workOnHouse() {
+    if (pet.busy && pet.busy !== 'listening') return;
+    const was = pet.busy;
+    pet.busy = 'working';
+    updateStatus();
+    const done = function () {
+      if (pet.busy === 'working') pet.busy = was === 'listening' && chat.open ? 'listening' : null;
+      updateStatus();
+    };
+    if (reduced) { setTimeout(done, 3000); return; }
+    walkTo(HOUSE_DOOR_X + 26, false);
+    let n = 0;
+    const hammer = setInterval(function () {
+      if (pet.mode === 'walk') return;
+      pet.facing = -1;
+      setMode(n % 2 ? 'sit' : 'alert');
+      spark();
+      if (++n > 7) { clearInterval(hammer); setMode('sit'); done(); }
+    }, 450);
+  }
+
+  function spark() {
+    if (!sparksEl) return;
+    const s = el('i', null, n2('tok', 'tap', '✦'));
+    s.style.left = (22 + Math.random() * 40) + 'px';
+    sparksEl.appendChild(s);
+    setTimeout(function () { s.remove(); }, 900);
+  }
+  function n2() { return arguments[Math.floor(Math.random() * arguments.length)]; }
+
+  function applyWorld(state) {
+    if (!state) return;
+    const first = worldState === null;
+    if (state.catalog) worldCatalog = state.catalog;
+    worldState = state;
+    const id = state.lastBuild && state.lastBuild.id;
+    if (!first && id && id !== seenBuild) workOnHouse();
+    seenBuild = id || null;
+    if (reduced) drawHouse(0);
+    renderProject();
+  }
+
+  function fetchWorld() {
+    return fetch('/api/pepper/world')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(applyWorld)
+      .catch(function () { /* the house can wait */ });
+  }
+
+  // David's agents, on a little screen on the wall (public repos only).
+  function renderFleet(f) {
+    if (!fleetEl) return;
+    // No feed at all (not configured, or Longhouse unreachable): no screen, rather than a broken one.
+    fleetEl.hidden = !f || !f.updatedAt;
+    const lights = fleetEl.querySelector('.ph-leds');
+    lights.textContent = '';
+    const working = f && f.sessions ? f.sessions.filter(function (s) { return s.state === 'working'; }) : [];
+    for (let i = 0; i < Math.min(working.length, 6); i++) {
+      const led = el('i');
+      led.style.animationDelay = (i * 0.37) % 1.6 + 's';
+      lights.appendChild(led);
+    }
+    fleetEl.classList.toggle('on', working.length > 0);
+    const repos = working.map(function (s) { return s.repo; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+    fleetEl.title = working.length
+      ? "david's agents: " + working.length + ' working (' + repos.join(', ') + ')'
+      : "david's agents are quiet right now";
+  }
+
+  function fetchFleet() {
+    return fetch('/api/pepper/fleet')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(renderFleet)
+      .catch(function () { renderFleet(null); });
+  }
+
+  // ---- the project strip in the chat panel ----
+
+  let projectEl = null, paletteEl = null, pickedItem = null;
+  const ITEM_LABEL = { plank: 'plank', brick: 'brick', shingle: 'shingle', paint: 'paint', flag: 'flag', lantern: 'lantern', flower: 'flower', ball: 'ball', bone: 'bone', blanket: 'blanket', bowl: 'bowl', lights: 'string lights', bell: 'bell', cactus: 'cactus', mushroom: 'mushroom', sign: 'sign' };
+
+  function buildProject() {
+    projectEl = el('div', 'pc-project');
+    projectEl.hidden = true;
+    const top = el('div', 'pc-proj-top');
+    top.appendChild(el('span', 'pc-proj-title', 'building a dog house'));
+    top.appendChild(el('span', 'pc-proj-count'));
+    const help = el('button', 'pc-proj-help', 'help him');
+    help.type = 'button';
+    help.setAttribute('aria-expanded', 'false');
+    help.addEventListener('click', function () {
+      paletteEl.hidden = !paletteEl.hidden;
+      help.setAttribute('aria-expanded', String(!paletteEl.hidden));
+      pickedItem = null;
+      renderProject();
+    });
+    top.appendChild(help);
+    projectEl.appendChild(top);
+    const bar = el('div', 'pc-proj-bar');
+    bar.appendChild(el('i'));
+    projectEl.appendChild(bar);
+    projectEl.appendChild(el('div', 'pc-proj-needs'));
+    paletteEl = el('div', 'pc-palette');
+    paletteEl.hidden = true;
+    projectEl.appendChild(paletteEl);
+    return projectEl;
+  }
+
+  function renderProject() {
+    if (!projectEl || !worldState) return;
+    const w = worldState;
+    projectEl.hidden = false;
+    let done = 0, of = 0;
+    Object.keys(w.parts).forEach(function (k) { done += w.parts[k].done; of += w.parts[k].of; });
+    projectEl.querySelector('.pc-proj-title').textContent = w.complete ? 'decorating his dog house' : 'building a dog house';
+    projectEl.querySelector('.pc-proj-count').textContent = w.complete ? w.helpers + ' helpers' : done + '/' + of;
+    projectEl.querySelector('.pc-proj-bar i').style.width = Math.round(100 * done / Math.max(1, of)) + '%';
+    const needsEl = projectEl.querySelector('.pc-proj-needs');
+    needsEl.textContent = w.paused ? 'on a break for now'
+      : w.needs && w.needs.length
+        ? 'needs ' + w.needs.map(function (n) { return n.count + ' ' + ITEM_LABEL[n.item] + (n.count > 1 && n.item !== 'paint' ? 's' : ''); }).join(', ')
+        : w.complete ? 'finished! bring him something to decorate it' : 'has what he needs, working on it';
+
+    if (paletteEl.hidden) return;
+    paletteEl.textContent = '';
+    const needed = (w.needs || []).map(function (n) { return n.item; });
+    const catalog = worldCatalog.items || Object.keys(ITEM_LABEL);
+    if (pickedItem) {
+      paletteEl.appendChild(el('div', 'pc-pal-label', 'what color ' + ITEM_LABEL[pickedItem] + '?'));
+      const row = el('div', 'pc-swatches');
+      Object.keys(HEX).forEach(function (c) {
+        const b = el('button', 'pc-swatch');
+        b.type = 'button';
+        b.style.background = HEX[c];
+        b.setAttribute('aria-label', c);
+        b.addEventListener('click', function () { giveItem(pickedItem, c); });
+        row.appendChild(b);
+      });
+      paletteEl.appendChild(row);
+      return;
+    }
+    paletteEl.appendChild(el('div', 'pc-pal-label', 'hand him something'));
+    const grid = el('div', 'pc-items');
+    catalog.forEach(function (item) {
+      const b = el('button', 'pc-item' + (needed.indexOf(item) >= 0 ? ' needed' : ''), ITEM_LABEL[item] || item);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        const colored = (worldCatalog.colored || []).indexOf(item) >= 0;
+        if (colored) { pickedItem = item; renderProject(); } else giveItem(item, null);
+      });
+      grid.appendChild(b);
+    });
+    paletteEl.appendChild(grid);
+  }
+
+  let worldCatalog = { colored: ['paint', 'flag', 'flower', 'ball', 'blanket'] };
+  let tz = null;
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* fine */ }
+
+  const THANKS = {
+    plank: '*grabs the plank* perfect, thank you!',
+    brick: '*nudges the brick into place* thank you!',
+    shingle: '*carries the shingle up* the roof thanks you',
+    paint: '*sniffs the paint can* ooh. thank you!',
+  };
+
+  async function giveItem(item, color) {
+    pickedItem = null;
+    paletteEl.hidden = true;
+    projectEl.querySelector('.pc-proj-help').setAttribute('aria-expanded', 'false');
+    let data = null;
+    try {
+      const res = await fetch('/api/pepper/world/give', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId: visitorId(), item: item, color: color, timezone: tz }),
+      });
+      data = await res.json();
+    } catch { /* offline */ }
+    if (data && data.ok) {
+      addPepper(THANKS[item] || '*wag* for my house? i love it. thank you!');
+      applyWorld(data.state);
+    } else if (data && data.reason === 'limited') {
+      addPepper("you've already helped a lot today. come back tomorrow? *wag*");
+    } else if (data && data.reason === 'full') {
+      addPepper("i already have plenty of those! maybe something else? *tilt*");
+      applyWorld(data.state);
+    } else {
+      addPepper(FALLBACK);
+    }
   }
 
   // ============================================================
@@ -705,6 +1081,7 @@
     });
 
     panel.appendChild(head);
+    panel.appendChild(buildProject());
     panel.appendChild(log);
     panel.appendChild(form);
     panel.addEventListener('keydown', function (e) {
@@ -829,7 +1206,7 @@
       const res = await fetch('/api/pepper/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId: visitorId(), text: text, page: location.pathname, via: via }),
+        body: JSON.stringify({ visitorId: visitorId(), text: text, page: location.pathname, via: via, timezone: tz }),
       });
       status = res.status;
       try { data = await res.json(); } catch { data = null; }
@@ -856,6 +1233,7 @@
       if ('contactEmail' in data) chat.contactEmail = data.contactEmail || chat.contactEmail;
       if (data.telegramLink) chat.telegramLink = data.telegramLink;
       if (data.askContact && !chat.contactEmail) addContactCard();
+      if (data.world && data.world.state) applyWorld(data.world.state);
       addChips(data.options);
     } else if (data && typeof data.say === 'string' && data.say) {
       addPepper(data.say);
@@ -956,6 +1334,10 @@
       requestAnimationFrame(tick);
       window.addEventListener('pointermove', onPointerMove, { passive: true });
     }
+
+    fetchWorld();
+    fetchFleet();
+    setInterval(function () { if (!document.hidden) { fetchWorld(); fetchFleet(); } }, 60000);
 
     fetch('/api/pepper/day')
       .then(function (r) { return r.ok ? r.json() : null; })

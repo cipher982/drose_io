@@ -287,6 +287,72 @@ test('a chat page that is not a plain path never reaches the briefing', async ()
   expect(safePage('javascript:alert(1)')).toBe('/');
 });
 
+describe('the dog house', () => {
+  test('building follows the plan, uses the pile, and needs what is missing', async () => {
+    const world = await import('../server/pepper/world');
+    let w = world.project();
+    expect(world.needs(w)).toEqual([{ item: 'plank', count: 2, for: 'floor' }]);
+
+    const r = world.give('builder-visitor-01', 'someone in lisbon', 'plank');
+    expect(r.ok && r.built?.kind).toBe('build'); // handed over the thing he needed: he uses it
+    w = world.project();
+    expect(w.parts.floor.done).toBe(1);
+    expect(w.recent.at(-2)?.text).toBe('someone in lisbon brought a plank');
+
+    expect(world.give('builder-visitor-01', 'x', 'spaceship').ok).toBe(false); // not in the catalog
+    world.give('builder-visitor-02', 'someone in tokyo', 'plank');
+    world.give('builder-visitor-02', 'someone in tokyo', 'brick');
+    while (world.buildOnce()) { /* use everything he can */ }
+    w = world.project();
+    expect(w.parts.floor.done).toBe(2);
+    expect(w.wallMaterial).toBe('brick');            // first wall material decides
+    expect(world.needs(w)).toEqual([{ item: 'brick', count: 2, for: 'walls' }]);
+  });
+
+  test('ideas vote, and the winner is used when he paints', async () => {
+    const world = await import('../server/pepper/world');
+    world.suggest('idea-a-000001', 'a visitor', 'wall_color', 'teal');
+    world.suggest('idea-b-000001', 'a visitor', 'wall_color', 'teal');
+    world.suggest('idea-c-000001', 'a visitor', 'wall_color', 'pink');
+    expect(world.suggest('idea-c-000001', 'a visitor', 'wall_color', 'plaid').ok).toBe(false);
+    for (const i of ['brick', 'brick', 'paint']) world.give('supplier-00001', 'a visitor', i, 'red');
+    while (world.buildOnce()) { /* */ }
+    const w = world.project();
+    expect(w.parts.walls.done).toBe(3);
+    expect(w.parts.paint.done).toBe(1);
+    expect(w.wallColor).toBe('teal');                // votes beat the paint's own color
+  });
+
+  test('david can undo anything and pause the work', async () => {
+    const world = await import('../server/pepper/world');
+    const r = world.give('decor-visitor-1', 'a visitor', 'flag', 'blue');
+    expect(r.ok).toBe(true);
+    expect(world.project().decor.some(d => d.item === 'flag')).toBe(true);
+    if (r.ok) world.undo(r.event.id);
+    expect(world.project().decor.some(d => d.item === 'flag')).toBe(false);
+    world.setPaused(true);
+    world.give('decor-visitor-1', 'a visitor', 'shingle');
+    expect(world.buildOnce()).toBeNull();
+    world.setPaused(false);
+    expect(world.buildOnce()?.kind).toBe('build');
+  });
+
+  test('from-labels are a city at most', async () => {
+    const { fromLabel } = await import('../server/pepper/world');
+    expect(fromLabel('Europe/Berlin')).toBe('someone in berlin');
+    expect(fromLabel('America/Los_Angeles')).toBe('someone in los angeles');
+    expect(fromLabel('<script>')).toBe('a visitor');
+  });
+
+  test('chat can hand him an item through the model', async () => {
+    modelReplies.push({ say: 'ooh a shingle! *wag*', options: [], relay: null, contact_email: null, world: { action: 'give', item: 'shingle', color: null } });
+    const res = await web.request('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visitorId: 'chat-builder-0001', text: 'here, have a roof tile', page: '/', timezone: 'Asia/Tokyo' }) });
+    const json = await res.json();
+    expect(json.world.text).toContain('visitor gave shingle');
+    expect(json.world.state.recent.some((r: any) => r.text === 'someone in tokyo brought a shingle')).toBe(true);
+  });
+});
+
 describe('fleet window (public repos only)', () => {
   const now = Date.parse('2026-09-25T15:00:00Z');
   const pub = new Set(['longhouse', 'drose_io', 'g55-public']);

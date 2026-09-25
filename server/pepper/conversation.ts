@@ -26,7 +26,8 @@ export type Entry =
   | { kind: 'message'; from: From; text: string; ts: number; via?: Via; options?: string[] }
   | { kind: 'relay'; summary: string; message: string; status: RelayStatus; ts: number }
   | { kind: 'contact'; email: string; ts: number }
-  | { kind: 'telegram-linked'; ts: number };
+  | { kind: 'telegram-linked'; ts: number }
+  | { kind: 'world'; text: string; ts: number };      // what this visitor did for the dog house
 
 export interface Visitor {
   /** 24 lowercase hex. The /m/ link, the Telegram start= payload, and pepper+<token>@ all use it. */

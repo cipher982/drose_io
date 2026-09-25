@@ -246,6 +246,17 @@ and the chat panel that grows out of it. The whole habitat is the button. Under
   while someone is looking. Needs `PEPPER_LONGHOUSE_TOKEN`.
 - Fixed strings are limited to system states (delivery, contact card, errors).
 
+**Pepper's dog house.** `server/pepper/world.ts` is his long-running project: a
+dog house built over days from items and design ideas visitors give him (in chat,
+or the "help him" palette in the panel). It is an append-only log in
+`data/pepper/world/log.jsonl`; the world is a replay of it. Only a closed
+catalog of items, colors and roof styles is accepted, so no visitor text is ever
+shown to anyone else. A builder tick in the server works a step every 20-60
+minutes, and when nobody has brought anything for a day he forages what he needs.
+`public/assets/js/pepper.js` draws it as pixel art next to him. David controls it
+from the General topic of Pepper's Desk: `/world`, `/undo <id>`, `/pause`,
+`/resume`, `/give <item> [color]`.
+
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at
 `ANALYTICS_COLLECTOR_URL`. It logs into Umami with admin credentials from env

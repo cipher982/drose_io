@@ -14,6 +14,7 @@
 import type { Context } from 'hono';
 import { getVisitor, updateVisitor, append, visitorByToken, visitorByTopic, visitorByTelegramChat } from './conversation';
 import { deliverDavidReply, visitorWroteBack } from './deliver';
+import * as world from './world';
 
 const cfg = {
   token: () => Bun.env.PEPPER_TELEGRAM_BOT_TOKEN || '',
@@ -65,6 +66,30 @@ export async function registerWebhook(url: string): Promise<void> {
   await call('setWebhook', { url, secret_token: Bun.env.PEPPER_WEBHOOK_SECRET, allowed_updates: ['message'] });
 }
 
+// ---- David's commands in the General topic ----------------------------------------
+
+async function sendDesk(text: string): Promise<void> {
+  await call('sendMessage', { chat_id: cfg.desk(), text: text.slice(0, 4000), link_preview_options: { is_disabled: true } });
+}
+
+async function deskCommand(text: string): Promise<void> {
+  const [cmd, ...args] = text.trim().split(/\s+/);
+  if (cmd === '/world') {
+    const w = world.project();
+    const log = world.events().filter(e => e.kind !== 'undo').slice(-8)
+      .map(e => `${e.id} ${e.kind} ${'item' in e ? e.item : 'part' in e ? e.part : 'target' in e ? `${e.target}=${e.value}` : ''}`.trim());
+    await sendDesk(`${world.describeWorld(w)}\n\nrecent events:\n${log.join('\n')}\n\n/undo <id> · /pause · /resume · /give <item> [color]`);
+  } else if (cmd === '/undo' && args[0]) {
+    await sendDesk(world.undo(args[0]) ? `undone: ${args[0]}` : `no event ${args[0]}`);
+  } else if (cmd === '/pause' || cmd === '/resume') {
+    world.setPaused(cmd === '/pause');
+    await sendDesk(cmd === '/pause' ? 'pepper put his tools down.' : 'pepper is back to work.');
+  } else if (cmd === '/give' && args[0]) {
+    const r = world.give('david', 'david', args[0], args[1]);
+    await sendDesk(r.ok ? `gave ${args.join(' ')}${r.built ? ' (he used it right away)' : ''}` : `couldn't: ${r.reason}`);
+  }
+}
+
 // ---- inbound ----------------------------------------------------------------
 
 export async function handleUpdate(update: any): Promise<void> {
@@ -74,7 +99,8 @@ export async function handleUpdate(update: any): Promise<void> {
 
   // David, in his desk. Only his messages, only inside a visitor's topic.
   if (msg.chat.id === cfg.desk()) {
-    if (msg.from?.id !== cfg.david() || !text || !msg.message_thread_id) return;
+    if (msg.from?.id !== cfg.david() || !text) return;
+    if (!msg.message_thread_id) { await deskCommand(text); return; }
     const id = visitorByTopic(msg.message_thread_id);
     if (!id) return;
     const r = await deliverDavidReply(id, text);

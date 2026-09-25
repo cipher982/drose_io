@@ -10,13 +10,20 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { publishedPosts } from '../blog/loader';
 import type { Entry } from './conversation';
+import { ITEMS, COLORS, ROOF_STYLES, IDEA_TARGETS, DECOR, isItem, isColor, type Item, type Color, type IdeaTarget } from './world';
 
 export interface PepperReply {
   say: string;
   options: string[];
   relay: { message: string; summary: string } | null;
   contact_email: string | null;
+  world: WorldAction | null;
 }
+
+/** Something the visitor did for the dog house, mapped onto the closed catalog. */
+export type WorldAction =
+  | { action: 'give'; item: Item; color: Color | null }
+  | { action: 'idea'; target: IdeaTarget; value: string };
 
 // ---- knowledge --------------------------------------------------------------
 
@@ -82,6 +89,15 @@ CARRYING MESSAGES (relay)
 CONTACT
 - If the visitor gives an email address meant for David to reply to, put it in "contact_email". Otherwise null.
 
+YOUR DOG HOUSE (your own project; the current state comes in the SITUATION)
+- You are building a dog house next to your home, a little at a time, with help from visitors. It is real and it persists: what visitors bring shows up for everyone.
+- Visitors can help two ways, and only from this catalog:
+  - give you an item: ${ITEMS.join(', ')} (paint, flag, flower, ball and blanket can have a color: ${COLORS.join(', ')})
+  - share a design idea: wall_color, roof_color or door_color (a color), roof_style (${ROOF_STYLES.join(', ')}), or wish (a decoration they want you to get: ${DECOR.join(', ')})
+- When a visitor clearly hands you something or suggests something that maps onto the catalog, fill "world" with exactly one action, and have "say" react to it as done (don't ask them to confirm it). Map loosely ("here's some wood" = plank, "paint it sky blue" = wall_color blue). If it doesn't map, say so kindly and suggest the closest thing you can use. Never fill "world" unless the visitor offered it.
+- Mention the house when it fits, and only then: you can say what you need next, thank helpers, or ask for an opinion on a design choice. Don't turn every reply into a request.
+- Never claim progress that the SITUATION doesn't show; the page shows the result itself.
+
 OPTIONS
 - "options" are optional tap-to-send replies written in the visitor's voice. Use them only when there are a few obvious answers: yes/no confirmations, "which do you mean" forks, or 2-3 natural next questions after an answer. At most 3, each under 30 characters. Most turns use [].
 
@@ -92,7 +108,7 @@ SAFETY
 PUBLIC SITE KNOWLEDGE
 ${siteKnowledge()}
 
-Respond with JSON only: {"say": string, "options": string[], "relay": null | {"message": string, "summary": string}, "contact_email": string | null}`;
+Respond with JSON only: {"say": string, "options": string[], "relay": null | {"message": string, "summary": string}, "contact_email": string | null, "world": null | {"action": "give", "item": string, "color": string | null} | {"action": "idea", "target": string, "value": string}}`;
 
 const LABEL = { visitor: 'VISITOR', pepper: 'PEPPER', david: 'DAVID' } as const;
 
@@ -100,11 +116,12 @@ const LABEL = { visitor: 'VISITOR', pepper: 'PEPPER', david: 'DAVID' } as const;
 function historyForModel(entries: Entry[], limit = 30): { role: 'user' | 'assistant'; content: string }[] {
   return entries.slice(-limit).flatMap(e => {
     if (e.kind === 'message' && e.from === 'pepper') {
-      return [{ role: 'assistant' as const, content: JSON.stringify({ say: e.text, options: e.options || [], relay: null, contact_email: null }) }];
+      return [{ role: 'assistant' as const, content: JSON.stringify({ say: e.text, options: e.options || [], relay: null, contact_email: null, world: null }) }];
     }
     if (e.kind === 'message') return [{ role: 'user' as const, content: `${LABEL[e.from]}: ${e.text}` }];
     if (e.kind === 'relay') return [{ role: 'user' as const, content: `[server: note to david ${e.status}: "${e.message}"]` }];
     if (e.kind === 'contact') return [{ role: 'user' as const, content: '[server: visitor left an email for replies]' }];
+    if (e.kind === 'world') return [{ role: 'user' as const, content: `[server: dog house: ${e.text}]` }];
     return [];
   });
 }
@@ -115,7 +132,7 @@ const SCHEMA = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['say', 'options', 'relay', 'contact_email'],
+    required: ['say', 'options', 'relay', 'contact_email', 'world'],
     properties: {
       say: { type: 'string' },
       options: { type: 'array', items: { type: 'string' } },
@@ -131,6 +148,23 @@ const SCHEMA = {
         ],
       },
       contact_email: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+      world: {
+        anyOf: [
+          { type: 'null' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['action', 'item', 'color'],
+            properties: { action: { type: 'string', enum: ['give'] }, item: { type: 'string', enum: [...ITEMS] }, color: { anyOf: [{ type: 'string', enum: [...COLORS] }, { type: 'null' }] } },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['action', 'target', 'value'],
+            properties: { action: { type: 'string', enum: ['idea'] }, target: { type: 'string', enum: [...IDEA_TARGETS] }, value: { type: 'string' } },
+          },
+        ],
+      },
     },
   },
 } as const;
@@ -152,7 +186,16 @@ export function sanitizeReply(raw: any): PepperReply {
     ? { message: r.message.trim().slice(0, 2000), summary: String(r.summary || '').trim().slice(0, 140) }
     : null;
   const email = typeof raw?.contact_email === 'string' ? raw.contact_email.trim().toLowerCase() : '';
-  return { say, options, relay, contact_email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null };
+  return { say, options, relay, contact_email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null, world: sanitizeWorld(raw?.world) };
+}
+
+function sanitizeWorld(w: any): WorldAction | null {
+  if (!w || typeof w !== 'object') return null;
+  if (w.action === 'give' && isItem(w.item)) return { action: 'give', item: w.item, color: isColor(w.color) ? w.color : null };
+  if (w.action === 'idea' && (IDEA_TARGETS as readonly string[]).includes(w.target) && typeof w.value === 'string') {
+    return { action: 'idea', target: w.target, value: w.value.toLowerCase() };
+  }
+  return null;
 }
 
 export async function askPepper(entries: Entry[], situation: string): Promise<PepperReply> {

@@ -16,8 +16,8 @@
   --pp-ok: #4ade80;
   --pp-sans: var(--font-system, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   --pp-mono: var(--font-monospace, 'JetBrains Mono', Menlo, monospace);
-  --pp-home-w: 264px;
-  --pp-home-h: 104px;
+  --pp-home-w: 312px;
+  --pp-home-h: 128px;
   --pp-open-w: 384px;
   --pp-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
@@ -131,11 +131,74 @@
 /* The little world he walks in */
 .ph-stage {
   position: absolute;
-  left: 14px;
+  left: 12px;
   right: 14px;
   bottom: 9px;
-  height: 64px;
+  height: 78px;
 }
+.ph-house {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.ph-sparks { position: absolute; left: 0; bottom: 40px; width: 90px; height: 30px; pointer-events: none; }
+.ph-sparks i {
+  position: absolute;
+  bottom: 0;
+  font: 600 9px var(--pp-mono);
+  font-style: normal;
+  color: #fde68a;
+  animation: pp-spark 0.9s ease-out forwards;
+}
+@keyframes pp-spark {
+  from { opacity: 1; transform: translateY(0) scale(0.9); }
+  to { opacity: 0; transform: translateY(-18px) scale(1.1); }
+}
+
+/* A tiny screen on the wall: David's agents at work (public repos only) */
+.ph-fleet {
+  position: absolute;
+  top: 38px;
+  right: 16px;
+  width: 38px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(165, 180, 252, 0.28);
+  background: linear-gradient(180deg, #0b0b16, #11111f);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+.ph-fleet::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 1px;
+  height: 4px;
+  background: rgba(165, 180, 252, 0.28);
+}
+.ph-leds { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; max-width: 30px; }
+.ph-leds i {
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: #4ade80;
+  box-shadow: 0 0 5px rgba(74, 222, 128, 0.8);
+  animation: pp-led 1.6s steps(2) infinite;
+}
+.ph-fleet:not(.on) .ph-leds::before {
+  content: '';
+  width: 14px;
+  height: 1px;
+  background: rgba(165, 180, 252, 0.25);
+}
+@keyframes pp-led { 50% { opacity: 0.35; } }
+.pepper-home:hover .ph-fleet { border-color: rgba(165, 180, 252, 0.5); }
+.ph-fleet[hidden] { display: none; }
 .ph-floor {
   position: absolute;
   left: -14px;
@@ -453,12 +516,65 @@
 .pc-send:focus-visible { outline: 2px solid var(--pp-accent); outline-offset: 2px; }
 .pc-send[disabled] { opacity: 0.5; cursor: default; }
 
+/* ---------- Pepper's project, in the chat panel ---------- */
+
+.pc-project {
+  display: grid;
+  gap: 7px;
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--pp-line);
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.06), transparent);
+}
+.pc-project[hidden] { display: none; }
+.pc-proj-top { display: flex; align-items: center; gap: 8px; }
+.pc-proj-title { font-size: 12.5px; font-weight: 600; }
+.pc-proj-count { font: 11px var(--pp-mono); color: var(--pp-text-3); }
+.pc-proj-help {
+  margin-left: auto;
+  font: 500 12px var(--pp-sans);
+  color: #c7d2fe;
+  background: var(--pp-accent-soft);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.pc-proj-help:hover, .pc-proj-help[aria-expanded='true'] { border-color: var(--pp-accent); color: #fff; }
+.pc-proj-help:focus-visible { outline: 2px solid var(--pp-accent); outline-offset: 2px; }
+.pc-proj-bar { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.pc-proj-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--pp-accent), #a5b4fc); transition: width 0.6s var(--pp-ease); }
+.pc-proj-needs { font: 11.5px var(--pp-mono); color: var(--pp-text-2); }
+.pc-palette { display: grid; gap: 7px; padding-top: 2px; animation: pp-pop 0.2s ease-out; }
+.pc-palette[hidden] { display: none; }
+.pc-pal-label { font-size: 11.5px; color: var(--pp-text-3); }
+.pc-items { display: flex; flex-wrap: wrap; gap: 5px; }
+.pc-item {
+  font: 12px var(--pp-sans);
+  color: var(--pp-text-2);
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-line);
+  border-radius: 8px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+.pc-item:hover, .pc-item:focus-visible { color: var(--pp-text); border-color: var(--pp-accent); outline: none; }
+.pc-item.needed { color: var(--pp-text); border-color: rgba(74, 222, 128, 0.55); background: rgba(74, 222, 128, 0.08); }
+.pc-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+.pc-swatch:hover, .pc-swatch:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
 /* ---------- Phones ---------- */
 
 @media (max-width: 520px) {
   .pepper {
-    --pp-home-w: 200px;
-    --pp-home-h: 88px;
+    --pp-home-w: 236px;
+    --pp-home-h: 112px;
     --pp-open-w: calc(100vw - 24px);
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -466,7 +582,8 @@
   }
   .pepper-panel { max-width: none; height: min(600px, calc(100dvh - var(--pp-home-h) - 44px)); }
   .ph-caption { top: 10px; left: 14px; }
-  .ph-stage { height: 54px; bottom: 7px; }
+  .ph-stage { height: 72px; bottom: 7px; }
+  .ph-fleet { top: 34px; right: 12px; }
   .ph-carry { left: 38px; bottom: 17px; }
   .pc-row input, .pc-composer input { font-size: 16px; } /* no iOS zoom on focus */
 }
