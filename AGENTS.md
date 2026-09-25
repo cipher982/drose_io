@@ -261,7 +261,12 @@ and the chat panel that grows out of it. The whole habitat is the button. Under
   from Longhouse, filtered to PUBLIC cipher982 repos (GitHub API list). Only a
   session with a cipher982 GitHub remote counts: a folder or project name can be
   a private repo with a public repo's name, so those fail closed. Private repos
-  and all Zeta work never leave the module. Counts, repo names, providers
+  and all Zeta work never leave the module. Everything not provably public is
+  one count, "other projects" (never "private": many are public-repo sessions
+  that report no remote); Zeta is not even counted. It also carries the last
+  day's commits on public repos from GitHub (first lines and links, what anyone
+  browsing the profile sees). Rule: everything in the snapshot can reach the
+  chat and be repeated verbatim, so it must be fine to publish. Counts, repo names, providers
   and timings only, never titles or text. Polls at most once a minute and only
   while someone is looking. The chat gets it too (`fleetForChat`), so "what is
   David working on?" is answered from it. Needs `PEPPER_LONGHOUSE_TOKEN` (device token

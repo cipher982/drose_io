@@ -696,16 +696,20 @@
     const lights = fleetEl.querySelector('.ph-leds');
     lights.textContent = '';
     const working = f && f.sessions ? f.sessions.filter(function (s) { return s.state === 'working'; }) : [];
-    for (let i = 0; i < Math.min(working.length, 6); i++) {
-      const led = el('i');
+    // Bright for public repos, dim for everything else (a count, no names).
+    const priv = f && f.otherWorking ? f.otherWorking : 0;
+    const total = Math.min(working.length + priv, 6);
+    for (let i = 0; i < total; i++) {
+      const led = el('i', i < working.length ? null : 'priv');
       led.style.animationDelay = (i * 0.37) % 1.6 + 's';
       lights.appendChild(led);
     }
-    fleetEl.classList.toggle('on', working.length > 0);
+    fleetEl.classList.toggle('on', total > 0);
     const repos = working.map(function (s) { return s.repo; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-    fleetEl.title = working.length
-      ? "david's agents: " + working.length + ' working (' + repos.join(', ') + ')'
-      : "david's agents are quiet right now";
+    const parts = [];
+    if (working.length) parts.push(working.length + ' on ' + repos.join(', '));
+    if (priv) parts.push(priv + ' on other projects');
+    fleetEl.title = parts.length ? "david's agents working: " + parts.join(', ') : "david's agents are quiet right now";
   }
 
   function fetchFleet() {

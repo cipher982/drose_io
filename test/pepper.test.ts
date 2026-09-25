@@ -522,17 +522,45 @@ describe('fleet window (public repos only)', () => {
 
   test('chat sees the fleet per public repo, with links and no guesses', async () => {
     const { fleetForChat, EMPTY_FLEET } = await import('../server/pepper/fleet');
-    const text = fleetForChat({ updatedAt: 'x', working: 2, today: 3, recent: [{ repo: 'drose_io', finishedAgo: 600 }], sessions: [
+    const text = fleetForChat({ updatedAt: 'x', working: 2, today: 3, recent: [{ repo: 'drose_io', finishedAgo: 600 }], otherWorking: 3, otherToday: 7,
+      commits: [{ repo: 'longhouse', message: 'fix supervisor staleness', ago: 1200, url: 'https://github.com/cipher982/longhouse/commit/abc' }], sessions: [
       { id: 'a', repo: 'longhouse', provider: 'claude', activeFor: 45, state: 'working', lastActivityAgo: 5 },
       { id: 'b', repo: 'longhouse', provider: 'codex', activeFor: 130, state: 'working', lastActivityAgo: 9 },
     ] });
     expect(text).toContain('- longhouse (https://github.com/cipher982/longhouse): 2 claude, codex agents working, the longest for 2 h');
     expect(text).toContain('finished earlier today: drose_io');
+    expect(text).toContain("other projects you can't see into (private ones, or sessions not linked to a public repo; a count only): 3 agents working now, 7 sessions today");
+    expect(text).toContain('longhouse: "fix supervisor staleness" (20 min ago) https://github.com/cipher982/longhouse/commit/abc');
     expect(fleetForChat(EMPTY_FLEET)).toContain('no view of it right now');
     modelReplies.push({ say: 'two agents are on longhouse', options: [], relay: null, contact_email: null, world: null });
     await post('/chat', { visitorId: 'fleet-asker-000001', text: 'what is david working on right now?', page: '/' });
     expect(modelBodies[0].messages[1].content).toContain("DAVID'S AGENTS RIGHT NOW");
-    expect(modelBodies[0].messages[0].content).toContain('Never guess what the agents are doing');
+    expect(modelBodies[0].messages[0].content).toContain('never guess what the other projects are');
+  });
+
+  test('other work is a count with no names; Zeta is not even counted', async () => {
+    const { snapshotFrom } = await import('../server/pepper/fleet');
+    const snap = snapshotFrom([
+      row({ git_repo: 'git@github.com:cipher982/g55.git' }),                         // private, working
+      row({ git_repo: null, cwd: '/Users/davidrose/git/me' }),                        // no remote, working
+      row({ git_repo: null, cwd: '/Users/davidrose/git/zeta/trials', project: 'trials' }), // employer: dropped
+      row({ git_repo: 'https://gitlab.zeta.tech/x/y.git' }),                          // employer: dropped
+      row({ git_repo: '/Users/d/secret', last_activity_at: '2026-09-25T10:00:00Z' }), // private, earlier today
+    ], pub, now);
+    expect(snap.otherWorking).toBe(2);
+    expect(snap.otherToday).toBe(3);
+    expect(snap.working).toBe(0);
+    const json = JSON.stringify(snap);
+    for (const leak of ['g55', 'secret', 'zeta', 'trials', '/Users', 'gitlab']) expect(json).not.toContain(leak);
+  });
+
+  test('commits come from GitHub as first lines with links', async () => {
+    const { commitsFrom } = await import('../server/pepper/fleet');
+    const list = [
+      { html_url: 'https://github.com/cipher982/longhouse/commit/1', commit: { message: 'Fix staleness\n\nlong body', author: { date: '2026-09-25T14:30:00Z' } } },
+      { html_url: 'https://github.com/cipher982/longhouse/commit/2', commit: { message: '', author: { date: '2026-09-25T14:00:00Z' } } },
+    ];
+    expect(commitsFrom('longhouse', list, now)).toEqual([{ repo: 'longhouse', message: 'Fix staleness', ago: 1800, url: 'https://github.com/cipher982/longhouse/commit/1' }]);
   });
 
   test('describeFleet reads naturally and is empty without data', async () => {

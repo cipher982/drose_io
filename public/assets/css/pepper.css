@@ -212,6 +212,7 @@
   box-shadow: 0 0 5px rgba(74, 222, 128, 0.8);
   animation: pp-led 1.6s steps(2) infinite;
 }
+.ph-leds i.priv { background: #64748b; box-shadow: none; }
 .ph-fleet:not(.on) .ph-leds::before {
   content: '';
   width: 14px;
