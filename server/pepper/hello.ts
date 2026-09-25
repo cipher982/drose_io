@@ -4,14 +4,14 @@
  * POST /api/pepper/hello records the visit (visit count, referrer host, pages)
  * in data/visitors/<id>.json and returns {thought}. That memory also feeds the
  * "came from" line in David's relay briefing. Every thought is logged to
- * data/pepper-logs/<date>.jsonl for review.
+ * data/pepper-logs/<date>.jsonl for review (page, angles, thought: no visitor id or signals).
  */
 import type { Context } from 'hono';
 import { mkdir, readFile, writeFile, rename, appendFile } from 'fs/promises';
 import { join } from 'path';
 import { getDay, sitePulse, describePulse, countVisitor } from './day';
 import { safePage } from './conversation';
-import { marksBy } from './world';
+import { marksBy, changesSince } from './world';
 
 // What Pepper said to anyone lately, so everyone does not get the same line.
 let recentThoughts: string[] = [];
@@ -90,7 +90,7 @@ HOW TO WRITE IT
 Output JSON only: {"thought": "..."}`;
 
 const ANGLES = [
-  'their setup (device, browser, screen)',
+  'their setup (phone or computer, browser)',
   'the feel of their local time of day',
   'where they came from',
   'the newest blog post',
@@ -104,24 +104,35 @@ const ANGLES = [
   'what they read last time (if they are back)',
   'wondering what they are building or looking for',
   'what they did for your dog house (if they helped)',
+  'what changed on your dog house since they were last here',
   'the day of the week or season',
 ];
 
-function pickAngles(n: number, returning: boolean, helped: boolean): string[] {
-  const pool = ANGLES.filter(a => (returning || !a.includes('last time')) && (helped || !a.includes('if they helped')));
+function pickAngles(n: number, returning: boolean, helped: boolean, changed: boolean): string[] {
+  const pool = ANGLES.filter(a => (returning || !a.includes('last time')) && (helped || !a.includes('if they helped')) && (changed || !a.includes('since they were last here')));
   const out: string[] = [];
   while (out.length < n && pool.length) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   return out;
 }
 
 interface Traits {
-  timezone?: string;
-  language?: string;
-  screen?: { width?: number; pixelRatio?: number } | null;
-  device?: { type?: string } | null;
-  browser?: { name?: string | null } | null;
-  connection?: { effectiveType?: string } | null;
-  battery?: { level?: number; charging?: boolean } | null;
+  timezone: string | null;
+  language: string | null;
+  mobile: boolean;
+  browser: string | null;
+}
+
+const ZONES = new Set(Intl.supportedValuesOf('timeZone'));
+const BROWSERS = ['Firefox', 'Edge', 'Safari', 'Chrome'];
+
+/** Only these four, each checked against a closed set, ever reach the prompt. */
+export function cleanTraits(t: any): Traits {
+  return {
+    timezone: ZONES.has(t?.timezone) ? t.timezone : null,
+    language: typeof t?.language === 'string' && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(t.language) ? t.language : null,
+    mobile: t?.device?.type === 'mobile',
+    browser: BROWSERS.includes(t?.browser?.name) ? t.browser.name : null,
+  };
 }
 
 function timeOfDay(hour: number): string {
@@ -151,19 +162,17 @@ export interface HelloContext {
   mood: string;
   recentThoughts: string[];  // what Pepper said to anyone lately
   marks: string[];           // what they left on the dog house (world.ts marksBy)
+  changed: string[];         // what happened on the dog house since their last visit
   angles: string[];
 }
 
 export function helloPrompt(x: HelloContext): string {
   const t = x.traits;
   const seen: string[] = [];
-  if (t?.browser?.name) seen.push(`${t.browser.name}${t.browser.name === 'Firefox' ? ' (rare these days)' : ''}`);
-  if (t?.device?.type === 'mobile') seen.push('on a phone');
-  if (t?.screen?.width && t.screen.width >= 2560) seen.push('big monitor');
+  if (t?.browser) seen.push(`${t.browser}${t.browser === 'Firefox' ? ' (rare these days)' : ''}`);
+  if (t?.mobile) seen.push('on a phone');
   if (t?.timezone) seen.push(`timezone ${t.timezone}`);
   if (t?.language && !t.language.startsWith('en')) seen.push(`language ${t.language}`);
-  if (t?.connection?.effectiveType && /2g|3g/.test(t.connection.effectiveType)) seen.push('slow connection');
-  if (typeof t?.battery?.level === 'number' && t.battery.level <= 30 && !t.battery.charging) seen.push(`battery ${t.battery.level}%`);
 
   const m = x.memory;
   const lines = ['VISITOR'];
@@ -177,6 +186,7 @@ export function helloPrompt(x: HelloContext): string {
   const earlier = m.pagesVisited.filter(p => p.startsWith('/blog/') && p !== x.page).slice(-2);
   if (m.visits > 1 && earlier.length) lines.push(`- read before: ${earlier.join(', ')}`);
   if (x.marks.length) lines.push(`- helped with your dog house: ${x.marks.join('; ')}`);
+  if (x.changed.length) lines.push(`- on your dog house since they were last here: ${x.changed.join('; ')}`);
 
   lines.push('', 'YOUR DAY', x.pulse);
   if (x.mood) lines.push(`your mood right now: ${x.mood}`);
@@ -261,18 +271,21 @@ export async function handleHello(c: Context) {
 
   const today = getDay();
   const marks = marksBy(vid);
+  const changed = previousVisit ? changesSince(Date.parse(previousVisit)) : [];
+  const angles = pickAngles(2, memory.visits > 1, marks.length > 0, changed.length > 0);
   const prompt = helloPrompt({
     memory,
     previousVisit,
     page,
     hour,
     weekday,
-    traits: body?.traits || null,
+    traits: cleanTraits(body?.traits),
     pulse: describePulse(sitePulse()),
     mood: today.mood,
     recentThoughts: recentThoughts.slice(-8),
     marks,
-    angles: pickAngles(2, memory.visits > 1, marks.length > 0),
+    changed,
+    angles,
   });
   const started = Date.now();
   try {
@@ -300,7 +313,7 @@ export async function handleHello(c: Context) {
 
     const date = new Date().toISOString().slice(0, 10);
     mkdir(LOGS_DIR, { recursive: true })
-      .then(() => appendFile(join(LOGS_DIR, `${date}.jsonl`), JSON.stringify({ ts: new Date().toISOString(), vid, prompt, thought, latencyMs: Date.now() - started }) + '\n'))
+      .then(() => appendFile(join(LOGS_DIR, `${date}.jsonl`), JSON.stringify({ ts: new Date().toISOString(), page, angles, thought, latencyMs: Date.now() - started }) + '\n'))
       .catch(e => console.error('pepper hello: log write failed', e));
     return c.json({ thought });
   } catch (error) {

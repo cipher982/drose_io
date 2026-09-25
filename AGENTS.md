@@ -205,7 +205,8 @@ Channels:
 
 - **Email** is AWS SES both ways on `agents.drose.io` (its own MX record;
   drose.io's MX stays with Google). Inbound: SES receipt rule → SNS →
-  `POST /api/pepper/email/<PEPPER_WEBHOOK_SECRET>`.
+  `POST /api/pepper/email/<PEPPER_WEBHOOK_SECRET>`. The webhook also checks
+  the TopicArn and AWS's signature on every message (`verifySns`).
 - **Telegram**: the bot's webhook is `POST /api/pepper/telegram`, registered at
   boot from `PUBLIC_BASE_URL`. David's private group "Pepper's Desk" has one
   topic per visitor; replying in a topic answers that visitor.
@@ -232,18 +233,24 @@ watches the cursor, runs off with a relayed note and back with David's letter),
 and the chat panel that grows out of it. The whole habitat is the button. Under
 `prefers-reduced-motion` he sits still. What he says is written by the model from live signals, never canned:
 - `POST /api/pepper/hello` (`server/pepper/hello.ts`): the arrival thought. It
-  gets the visitor's setup, local time, referrer, what they read before, what
+  gets four checked traits (timezone, language, phone or not, browser; nothing
+  finer, see `cleanTraits`), local time, referrer, what they read before, their
+  marks on the dog house and what changed on it since they were last here, what
   Pepper already said to them and to everyone lately, the site pulse, his mood,
   and two random angles. It also remembers the visit in `data/visitors/`;
-  thoughts are logged to `data/pepper-logs/`.
+  thoughts (page, angles, thought) are logged to `data/pepper-logs/`.
 - `GET /api/pepper/day` (`server/pepper/day.ts`): his mood and status lines per
   activity, one model call every 20 minutes shared by all visitors. A status
   only ever describes what the sprite is doing in that activity.
 - `GET /api/pepper/fleet` (`server/pepper/fleet.ts`): David's agents right now
-  from Longhouse, filtered to PUBLIC cipher982 repos (GitHub API list); private
-  repos and all Zeta work never leave the module. Counts, repo names, providers
+  from Longhouse, filtered to PUBLIC cipher982 repos (GitHub API list). Only a
+  session with a cipher982 GitHub remote counts: a folder or project name can be
+  a private repo with a public repo's name, so those fail closed. Private repos
+  and all Zeta work never leave the module. Counts, repo names, providers
   and timings only, never titles or text. Polls at most once a minute and only
-  while someone is looking. Needs `PEPPER_LONGHOUSE_TOKEN`.
+  while someone is looking. Needs `PEPPER_LONGHOUSE_TOKEN` (device token
+  `drose-web-pepper`; device tokens are account-wide, so revoke it from
+  Longhouse's Devices page if it ever leaks).
 - Fixed strings are limited to system states (delivery, contact card, errors).
 
 **Pepper's dog house.** `server/pepper/world.ts` is his long-running project: a
@@ -253,13 +260,16 @@ or the "help him" palette in the panel). It is an append-only log in
 catalog of items, colors and roof styles is accepted, so no visitor text is ever
 shown to anyone else. A builder tick in the server works a step every 20-60
 minutes, and when nobody has brought anything for a day he forages what he needs.
-`public/assets/js/pepper.js` draws it as pixel art next to him. Each gift traces to
-the part it became (`marksBy`), so a returning visitor sees their own mark in
-the panel, and Pepper's chat and hello remember it along with how long it's been
-since they talked. The prompt keeps that memory light: at most once, never a
-recital of what he knows. David controls it
-from the General topic of Pepper's Desk: `/world`, `/undo <id>`, `/pause`,
-`/resume`, `/give <item> [color]`.
+`public/assets/js/pepper.js` draws it as pixel art next to him, with one line on
+the home ("dog house · needs 2 planks") that opens the palette. Every build step
+names the gift it used (`source`), so undoing a gift also undoes the step built
+with it, and a gift traces to the part it became (`marksBy`). A returning visitor
+sees their own mark and what changed since they last looked; Pepper's chat and
+hello remember it too, lightly (at most once, never a recital). Gifts are capped
+per visitor, per IP (8/day, `web.ts`) and globally (60/day). The city label
+comes only from a real IANA timezone. David controls it from the General topic
+of Pepper's Desk: `/world`, `/undo <id>`, `/pause`, `/resume`,
+`/give <item> [color]`.
 
 **Analytics.** `/analytics` is a custom dashboard reading the Umami HTTP API
 (`server/api/analytics.ts`, admin-gated), with an optional raw collector at

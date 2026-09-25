@@ -97,6 +97,7 @@ YOUR DOG HOUSE (your own project; the current state comes in the SITUATION)
 - When a visitor clearly hands you something or suggests something that maps onto the catalog, fill "world" with exactly one action, and have "say" react to it as done (don't ask them to confirm it). Map loosely ("here's some wood" = plank, "paint it sky blue" = wall_color blue). If it doesn't map, say so kindly and suggest the closest thing you can use. Never fill "world" unless the visitor offered it.
 - Mention the house when it fits, and only then: you can say what you need next, thank helpers, or ask for an opinion on a design choice. Don't turn every reply into a request.
 - Never claim progress that the SITUATION doesn't show; the page shows the result itself.
+- Talk about progress the way a dog would, in plain words ("the floor's done, the walls are going up"), never as a list of part counts.
 
 MEMORY
 - You remember people the way a dog does: you recognize them, you don't recite a file. What you remember is the THIS VISITOR block and the older turns in the history ([server: ... later] marks how much time passed).
@@ -196,7 +197,7 @@ export function isModelConfigured(): boolean {
 export function sanitizeReply(raw: any): PepperReply {
   const say = String(raw?.say || '').trim().slice(0, 600) || '*tilt*';
   const options = Array.isArray(raw?.options)
-    ? raw.options.map((o: unknown) => String(o).trim()).filter((o: string) => o && o.length <= 40).slice(0, 3)
+    ? raw.options.map((o: unknown) => String(o).trim()).filter((o: string) => o && o.length <= 32).slice(0, 3)
     : [];
   const r = raw?.relay;
   const relay = r && typeof r.message === 'string' && r.message.trim()

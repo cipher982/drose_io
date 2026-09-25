@@ -52,7 +52,7 @@ const DECOR_MAX = 3; // of each kind on display
 export type WorldEvent =
   | { id: string; ts: number; kind: 'give'; by: string; from: string; item: Item; color?: Color }
   | { id: string; ts: number; kind: 'idea'; by: string; from: string; target: IdeaTarget; value: string }
-  | { id: string; ts: number; kind: 'build'; part: Part; used: Item; material?: string }
+  | { id: string; ts: number; kind: 'build'; part: Part; used: Item; source?: string }  // source: the gift it used
   | { id: string; ts: number; kind: 'forage'; item: Item; color?: Color }
   | { id: string; ts: number; kind: 'undo'; ref: string; by: 'david' }
   | { id: string; ts: number; kind: 'pause' | 'resume'; by: 'david' };
@@ -102,6 +102,8 @@ export interface World {
   lastEventTs: number;
   placed: Record<string, Part>;          // give/forage id -> the part it went into (not public)
   shown: string[];                       // decor gift ids on display (not public)
+  queue: Partial<Record<Item, string[]>>; // the pile as gift ids, oldest first (not public)
+  paintColor: Color | null;              // the color of the paint he actually used (not public)
 }
 
 function topIdea(ideas: World['ideas'], target: IdeaTarget): string | null {
@@ -134,11 +136,12 @@ export function project(all: WorldEvent[] = events()): World {
     lastEventTs: live.at(-1)?.ts ?? 0,
     placed: {},
     shown: [],
+    queue: {},
+    paintColor: null,
   };
   const helpers = new Set<string>();
-  const paintColors: Color[] = [];
-  // Materials are used oldest first, so each build step traces back to one gift.
-  const queue: Partial<Record<Item, string[]>> = {};
+  const colorOf = new Map<string, Color>();
+  const queue = w.queue;
 
   for (const e of live) {
     if (e.kind === 'pause') w.paused = true;
@@ -151,9 +154,8 @@ export function project(all: WorldEvent[] = events()): World {
         }
         w.wishlist = w.wishlist.filter(x => x !== e.item);
       } else {
-        w.pile[e.item] = (w.pile[e.item] || 0) + 1;
         (queue[e.item] ||= []).push(e.id);
-        if (e.item === 'paint' && e.color) paintColors.push(e.color);
+        if (e.color) colorOf.set(e.id, e.color);
       }
       if (e.kind === 'give') {
         helpers.add(e.by);
@@ -173,21 +175,29 @@ export function project(all: WorldEvent[] = events()): World {
       w.recent.push({ text: `${e.from} suggested ${ideaPhrase(e.target, e.value)}`, ts: e.ts });
     }
     if (e.kind === 'build') {
+      // Every step uses one gift from the pile. If that gift was undone (or the
+      // pile is empty), the step never happened: nobody gets credit for it.
+      const pile = queue[e.used] || [];
+      const at = e.source ? pile.indexOf(e.source) : 0;
+      if (at < 0 || !pile.length) continue;
+      const [source] = pile.splice(at, 1);
+      w.placed[source] = e.part;
       const part = w.parts[e.part];
       part.done = Math.min(part.of, part.done + 1);
-      w.pile[e.used] = Math.max(0, (w.pile[e.used] || 0) - 1);
-      const source = queue[e.used]?.shift();
-      if (source) w.placed[source] = e.part;
       if (e.part === 'walls' && !w.wallMaterial) w.wallMaterial = e.used === 'brick' ? 'brick' : 'wood';
       if (e.part === 'roof' && part.done === 1) w.roofStyle = (topIdea(w.ideas, 'roof_style') as RoofStyle) || (e.used === 'plank' ? 'flat' : 'gable');
       if (e.part === 'roof' && part.done === part.of) w.roofColor = (topIdea(w.ideas, 'roof_color') as Color) || null;
       if (e.part === 'door') w.doorColor = (topIdea(w.ideas, 'door_color') as Color) || null;
-      if (e.part === 'paint') w.wallColor = (topIdea(w.ideas, 'wall_color') as Color) || paintColors.at(-1) || 'white';
+      if (e.part === 'paint') {
+        w.paintColor = colorOf.get(source) || 'white';
+        w.wallColor = (topIdea(w.ideas, 'wall_color') as Color) || w.paintColor;
+      }
       w.lastBuild = { id: e.id, part: e.part, ts: e.ts };
       w.recent.push({ text: `pepper ${BUILD_VERB[e.part]}`, ts: e.ts });
     }
   }
   w.helpers = helpers.size;
+  for (const [item, ids] of Object.entries(queue)) if (ids.length) w.pile[item as Item] = ids.length;
   w.complete = PARTS.every(p => w.parts[p].done >= w.parts[p].of);
   if (w.complete) w.completedAt = live.filter(e => e.kind === 'build').at(-1)?.ts ?? null;
   w.recent = w.recent.slice(-12);
@@ -255,7 +265,7 @@ export type GiveResult = { ok: true; event: WorldEvent; built: WorldEvent | null
 
 const DAY = 86_400_000;
 const PER_VISITOR_PER_DAY = 5;
-const GLOBAL_PER_DAY = 200;
+const GLOBAL_PER_DAY = 60;  // a fuse: a busy day here is ten visitors
 
 function recentBy(by: string): number {
   const since = Date.now() - DAY;
@@ -302,7 +312,7 @@ export function buildOnce(): WorldEvent | null {
   if (w.paused) return null;
   const step = nextStep(w);
   if (!step) return null;
-  return record({ kind: 'build', part: step.part, used: step.item });
+  return record({ kind: 'build', part: step.part, used: step.item, source: w.queue[step.item]![0] });
 }
 
 export function undo(ref: string): boolean {
@@ -360,6 +370,11 @@ export function describeWorld(w: World = project()): string {
   return lines.join('\n');
 }
 
+/** What happened on the house after a moment (a visitor's last visit), newest last. */
+export function changesSince(ts: number, w: World = project()): string[] {
+  return w.recent.filter(r => r.ts > ts).map(r => r.text).slice(-3);
+}
+
 const PLACED: Record<Part, string> = {
   floor: 'is part of the floor',
   walls: 'is part of the walls',
@@ -382,6 +397,8 @@ export function marksBy(by: string, all: WorldEvent[] = events()): string[] {
       const thing = `your ${e.color ? e.color + ' ' : ''}${e.item === 'lights' ? 'string lights' : e.item}`;
       if ((DECOR as readonly string[]).includes(e.item)) {
         if (w.shown.includes(e.id)) out.push(`${thing} ${e.item === 'lights' ? 'are' : 'is'} on the house`);
+      } else if (w.placed[e.id] === 'paint' && e.color && w.wallColor !== e.color) {
+        out.push(`${thing} went on the walls, under the ${w.wallColor} visitors voted for`);
       } else if (w.placed[e.id]) {
         out.push(`${thing} ${PLACED[w.placed[e.id]]}`);
       } else {
@@ -408,8 +425,11 @@ export function marksBy(by: string, all: WorldEvent[] = events()): string[] {
 }
 
 /** Coarse, visitor-safe "from" label: a city from their IANA timezone, never more. */
+const ZONES = new Set(Intl.supportedValuesOf('timeZone'));
+
 export function fromLabel(timezone: unknown): string {
-  if (typeof timezone !== 'string' || !/^[A-Za-z]+\/[A-Za-z_]+$/.test(timezone)) return 'a visitor';
+  // Only real zones: the city part is shown to other visitors.
+  if (typeof timezone !== 'string' || !ZONES.has(timezone) || !/^[A-Za-z]+\/[A-Za-z_]+$/.test(timezone)) return 'a visitor';
   const city = timezone.split('/')[1].replace(/_/g, ' ').toLowerCase();
   return city.length > 20 ? 'a visitor' : `someone in ${city}`;
 }

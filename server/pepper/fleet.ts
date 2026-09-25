@@ -54,22 +54,16 @@ export interface SessionRow {
 }
 
 /**
- * The cipher982 repo name a session belongs to, or null when it cannot be
- * attributed to one. Zeta work is refused outright, whatever its name.
+ * The cipher982 repo a session belongs to, or null when that cannot be proven.
+ * Only a GitHub remote counts: a local folder or project name can be a private
+ * repo that shares a public repo's name (~/git/zerg is longhouse), so those
+ * fail closed. Zeta work is refused outright, whatever its name.
  */
 export function repoOf(row: SessionRow): string | null {
   const raw = (row.git_repo || '').trim();
-  const project = (row.project || '').trim();
-  if (/(^|[/\\])zeta([/\\]|$)/i.test(raw) || /^zeta$/i.test(project)) return null;
-
+  if (/(^|[/\\])zeta([/\\]|$)/i.test(raw) || /^zeta$/i.test((row.project || '').trim())) return null;
   const gh = raw.match(/github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i);
-  if (gh) return gh[1].toLowerCase() === OWNER ? gh[2].toLowerCase() : null;
-  if (raw && !raw.includes('://') && !raw.startsWith('git@')) {
-    const base = raw.replace(/[/\\]+$/, '').split(/[/\\]/).pop();
-    return base ? base.toLowerCase() : null;
-  }
-  if (!raw && project) return project.toLowerCase();
-  return null;
+  return gh && gh[1].toLowerCase() === OWNER ? gh[2].toLowerCase() : null;
 }
 
 function shortId(id: string): string {

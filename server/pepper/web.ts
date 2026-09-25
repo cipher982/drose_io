@@ -55,6 +55,21 @@ function modelBudgetLeft(): boolean {
 const clientIp = (c: Context) =>
   c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
+// Gifts to the dog house, per IP per day. The per-visitor cap in world.ts is
+// easy to dodge with a fresh visitor id; this one is not.
+const GIFTS_PER_IP_PER_DAY = 8;
+let gifts = { day: '', byIp: new Map<string, number>() };
+function giftAllowed(c: Context): boolean {
+  if (Bun.env.TEST_MODE === 'true') return true;
+  const today = new Date().toISOString().slice(0, 10);
+  if (gifts.day !== today) gifts = { day: today, byIp: new Map() };
+  const ip = clientIp(c);
+  const n = gifts.byIp.get(ip) || 0;
+  if (n >= GIFTS_PER_IP_PER_DAY) return false;
+  gifts.byIp.set(ip, n + 1);
+  return true;
+}
+
 const relayed = (id: string) => read(id).some(e => e.kind === 'relay' && e.status !== 'limited');
 
 const DAYS = (ms: number) => Math.floor(ms / 86_400_000);
@@ -133,11 +148,11 @@ app.post('/chat', async (c) => {
   let worldResult: { text: string; built: boolean } | null = null;
   if (reply.world) {
     const from = fromLabel(body?.timezone);
-    const r = reply.world.action === 'give'
+    const r = !giftAllowed(c) ? { ok: false as const, reason: 'limited' as const } : reply.world.action === 'give'
       ? give(id, from, reply.world.item, reply.world.color)
       : suggest(id, from, reply.world.target, reply.world.value);
     if (r.ok) {
-      const built = 'built' in r && !!r.built;
+      const built = 'built' in r && !!r.built && (r.built as any).source === r.event.id; // he used *their* gift
       const what = reply.world.action === 'give'
         ? `visitor gave ${reply.world.color ? reply.world.color + ' ' : ''}${reply.world.item}${built ? ' and pepper used it right away' : ''}`
         : `visitor suggested ${reply.world.target.replace('_', ' ')}: ${reply.world.value}`;
@@ -231,11 +246,13 @@ app.post('/world/give', async (c) => {
   const id = String(body?.visitorId || '');
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   if (limited(`ip:${clientIp(c)}`, 60)) return c.json({ error: 'rate limited' }, 429);
+  if (!giftAllowed(c)) return c.json({ ok: false, reason: 'limited', state: publicWorld(id) });
   const r = give(id, fromLabel(body?.timezone), body?.item, body?.color);
   if (!r.ok) return c.json({ ok: false, reason: r.reason, state: publicWorld(id) }, r.reason === 'invalid' ? 400 : 200);
-  const text = `visitor gave ${(r.event as any).color ? (r.event as any).color + ' ' : ''}${(r.event as any).item}${r.built ? ' and pepper used it right away' : ''}`;
+  const usedIt = (r.built as any)?.source === r.event.id; // he used *their* gift, not something already in the pile
+  const text = `visitor gave ${(r.event as any).color ? (r.event as any).color + ' ' : ''}${(r.event as any).item}${usedIt ? ' and pepper used it right away' : ''}`;
   append(id, { kind: 'world', text, ts: Date.now() });
-  return c.json({ ok: true, built: !!r.built, state: publicWorld(id) });
+  return c.json({ ok: true, built: usedIt, state: publicWorld(id) });
 });
 
 app.get('/fleet', async (c) => {

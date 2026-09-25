@@ -7,6 +7,7 @@
  *      /api/pepper/email/<PEPPER_WEBHOOK_SECRET>. The SNS message carries the
  *      raw MIME. drose.io's own MX stays with Google; nothing here touches it.
  */
+import { createVerify } from 'crypto';
 import type { Context } from 'hono';
 import PostalMime from 'postal-mime';
 import { visitorByToken } from './conversation';
@@ -142,10 +143,47 @@ export async function parseEmail(raw: string, recipients: string[] = []): Promis
   return { token, text: stripQuoted(body).slice(0, 4000) };
 }
 
+// ---- SNS message signatures ----------------------------------------------------
+
+const SNS_HOST = /^sns\.[a-z0-9-]+\.amazonaws\.com$/;
+const certs = new Map<string, string>();
+
+async function fetchCert(url: string): Promise<string> {
+  const u = new URL(url);
+  if (u.protocol !== 'https:' || !SNS_HOST.test(u.hostname) || !u.pathname.endsWith('.pem')) throw new Error('bad SigningCertURL');
+  if (!certs.has(url)) {
+    const res = await fetch(u, { redirect: 'error', signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`cert ${res.status}`);
+    certs.set(url, await res.text());
+  }
+  return certs.get(url)!;
+}
+
+/** The exact string AWS signs, per the SNS docs: sorted key/value lines for the fields of this message type. */
+export function snsStringToSign(m: Record<string, string>): string {
+  const keys = m.Type === 'Notification'
+    ? ['Message', 'MessageId', 'Subject', 'Timestamp', 'TopicArn', 'Type']
+    : ['Message', 'MessageId', 'SubscribeURL', 'Timestamp', 'Token', 'TopicArn', 'Type'];
+  return keys.filter(k => m[k] !== undefined).map(k => `${k}\n${m[k]}\n`).join('');
+}
+
+/** True only when AWS signed this message. */
+export async function verifySns(m: any, getCert: (url: string) => Promise<string> = fetchCert): Promise<boolean> {
+  try {
+    const algo = m.SignatureVersion === '2' ? 'RSA-SHA256' : m.SignatureVersion === '1' ? 'RSA-SHA1' : null;
+    if (!algo || typeof m.Signature !== 'string') return false;
+    const cert = await getCert(String(m.SigningCertURL));
+    return createVerify(algo).update(snsStringToSign(m)).verify(cert, m.Signature, 'base64');
+  } catch (e) {
+    console.error('pepper inbound email: signature check failed:', e);
+    return false;
+  }
+}
+
 /**
  * POST /api/pepper/email/:secret — SNS delivers SES-received mail here.
- * The secret in the path is the authentication; the TopicArn check guards the
- * one-time subscription confirmation.
+ * Three locks: the secret in the path, the TopicArn, and AWS's own signature
+ * on the message.
  */
 export async function handleEmailWebhook(c: Context) {
   const secret = Bun.env.PEPPER_WEBHOOK_SECRET;
@@ -155,10 +193,11 @@ export async function handleEmailWebhook(c: Context) {
   if (!sns?.Type) return c.json({ error: 'not an SNS message' }, 400);
   const topic = Bun.env.PEPPER_SNS_TOPIC_ARN;
   if (!topic || sns.TopicArn !== topic) return c.json({ error: 'unexpected topic' }, 403);
+  if (!(await verifySns(sns))) return c.json({ error: 'bad signature' }, 403);
 
   if (sns.Type === 'SubscriptionConfirmation') {
     const url = new URL(sns.SubscribeURL);
-    if (url.protocol !== 'https:' || !/^sns\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname)) return c.json({ error: 'bad SubscribeURL' }, 400);
+    if (url.protocol !== 'https:' || !SNS_HOST.test(url.hostname)) return c.json({ error: 'bad SubscribeURL' }, 400);
     await fetch(url, { redirect: 'error' });
     console.log('📬 Pepper email: SNS subscription confirmed');
     return c.json({ ok: true });

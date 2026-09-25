@@ -311,7 +311,7 @@
     const dt = Math.min(0.05, (now - (lastTick || now)) / 1000);
     lastTick = now;
 
-    if (worldState && now - (tick.houseAt || 0) > 120) { tick.houseAt = now; drawHouse(now); }
+    if (houseAnimates && now - (tick.houseAt || 0) > 120) { tick.houseAt = now; drawHouse(now); }
 
     const a = ANIM[pet.mode];
     if (a.n > 1 && now - pet.frameAt >= a.ms) {
@@ -406,6 +406,11 @@
     caption.appendChild(statusEl);
     home.appendChild(caption);
 
+    // The dog house at a glance, on the home itself; tapping it opens "help him".
+    needEl = el('span', 'ph-need');
+    needEl.hidden = true;
+    home.appendChild(needEl);
+
     const cta = el('span', 'ph-cta');
     cta.appendChild(el('span', null, 'talk'));
     cta.insertAdjacentHTML('beforeend', ARROW);
@@ -445,7 +450,10 @@
     stage.appendChild(petEl);
     home.appendChild(stage);
 
-    home.addEventListener('click', function () { chat.open ? close() : open(); });
+    home.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.ph-need')) { open(); showPalette(); return; }
+      chat.open ? close() : open();
+    });
     home.addEventListener('mouseenter', function () {
       poke();
       if (!chat.open && !pet.busy && pet.mode !== 'walk' && pet.mode !== 'run') setMode('happy');
@@ -665,7 +673,11 @@
     const id = state.lastBuild && state.lastBuild.id;
     if (!first && id && id !== seenBuild) workOnHouse();
     seenBuild = id || null;
-    if (reduced) drawHouse(0);
+    // Only string lights and lanterns flicker; otherwise draw once per change.
+    houseAnimates = !reduced && (state.decor || []).some(function (d) { return d.item === 'lights' || d.item === 'lantern'; });
+    drawHouse(reduced ? 0 : performance.now());
+    noticeChanges(state);
+    renderNeed();
     renderProject();
   }
 
@@ -705,7 +717,47 @@
 
   // ---- the project strip in the chat panel ----
 
-  let projectEl = null, paletteEl = null, pickedItem = null;
+  let projectEl = null, paletteEl = null, pickedItem = null, needEl = null, houseAnimates = false;
+  let sinceYou = [];
+
+  function needText(w) {
+    if (w.paused) return 'dog house · on a break';
+    if (w.needs && w.needs.length) {
+      const n = w.needs[0];
+      return 'dog house · needs ' + n.count + ' ' + ITEM_LABEL[n.item] + (n.count > 1 && n.item !== 'paint' ? 's' : '');
+    }
+    return w.complete ? 'dog house · done, bring decorations' : 'dog house · working on it';
+  }
+
+  function renderNeed() {
+    if (!needEl || !worldState) return;
+    needEl.textContent = needText(worldState);
+    needEl.title = 'help pepper build it';
+    needEl.hidden = false;
+  }
+
+  // What happened on the house since this browser last looked, once, on return.
+  function noticeChanges(state) {
+    const latest = (state.recent || []).reduce(function (m, r) { return Math.max(m, r.ts); }, 0);
+    if (!latest) return;
+    let seen = 0;
+    try { seen = Number(localStorage.getItem('__pepper_house_seen')) || 0; } catch { /* storage blocked */ }
+    if (!noticeChanges.done) {
+      noticeChanges.done = true;
+      if (seen) sinceYou = state.recent.filter(function (r) { return r.ts > seen; }).slice(-2).map(function (r) { return r.text; });
+    }
+    if (latest > seen) {
+      try { localStorage.setItem('__pepper_house_seen', String(latest)); } catch { /* storage blocked */ }
+    }
+  }
+
+  function showPalette() {
+    if (!paletteEl) return;
+    paletteEl.hidden = false;
+    projectEl.querySelector('.pc-proj-help').setAttribute('aria-expanded', 'true');
+    pickedItem = null;
+    renderProject();
+  }
   const ITEM_LABEL = { plank: 'plank', brick: 'brick', shingle: 'shingle', paint: 'paint', flag: 'flag', lantern: 'lantern', flower: 'flower', ball: 'ball', bone: 'bone', blanket: 'blanket', bowl: 'bowl', lights: 'string lights', bell: 'bell', cactus: 'cactus', mushroom: 'mushroom', sign: 'sign' };
 
   function buildProject() {
@@ -725,10 +777,8 @@
     });
     top.appendChild(help);
     projectEl.appendChild(top);
-    const bar = el('div', 'pc-proj-bar');
-    bar.appendChild(el('i'));
-    projectEl.appendChild(bar);
     projectEl.appendChild(el('div', 'pc-proj-needs'));
+    projectEl.appendChild(el('div', 'pc-proj-since'));
     projectEl.appendChild(el('div', 'pc-proj-yours'));
     paletteEl = el('div', 'pc-palette');
     paletteEl.hidden = true;
@@ -744,7 +794,9 @@
     Object.keys(w.parts).forEach(function (k) { done += w.parts[k].done; of += w.parts[k].of; });
     projectEl.querySelector('.pc-proj-title').textContent = w.complete ? 'decorating his dog house' : 'building a dog house';
     projectEl.querySelector('.pc-proj-count').textContent = w.complete ? w.helpers + ' helpers' : done + '/' + of;
-    projectEl.querySelector('.pc-proj-bar i').style.width = Math.round(100 * done / Math.max(1, of)) + '%';
+    const sinceEl = projectEl.querySelector('.pc-proj-since');
+    sinceEl.textContent = sinceYou.length ? 'since you were here: ' + sinceYou.join(', ') : '';
+    sinceEl.hidden = !sinceEl.textContent;
     const needsEl = projectEl.querySelector('.pc-proj-needs');
     needsEl.textContent = w.paused ? 'on a break for now'
       : w.needs && w.needs.length
@@ -812,7 +864,10 @@
       data = await res.json();
     } catch { /* offline */ }
     if (data && data.ok) {
-      addPepper(THANKS[item] || '*wag* for my house? i love it. thank you!');
+      const decor = (worldCatalog.decor || []).indexOf(item) >= 0;
+      addPepper(data.built && THANKS[item] ? THANKS[item]
+        : decor ? '*wag* for my house? i love it. thank you!'
+          : '*adds it to the pile* thank you!');
       applyWorld(data.state);
     } else if (data && data.reason === 'limited') {
       addPepper("you've already helped a lot today. come back tomorrow? *wag*");
@@ -859,22 +914,16 @@
     return null;
   }
 
-  async function visitorTraits() {
-    if (typeof VisitorContext === 'undefined' || !VisitorContext.collect) return null;
-    const ctx = await Promise.race([
-      VisitorContext.collect().catch(function () { return null; }),
-      new Promise(function (r) { setTimeout(function () { r(null); }, 500); }),
-    ]);
-    if (!ctx) return null;
+  // Just enough for Pepper to notice someone: where in the world (by timezone),
+  // their language, phone or not, and their browser. Nothing finer-grained.
+  function visitorTraits() {
+    let timezone = null;
+    try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* fine */ }
     return {
-      timezone: ctx.locale && ctx.locale.timezone,
-      language: ctx.browser && ctx.browser.language,
-      languages: ctx.browser && ctx.browser.languages,
-      screen: ctx.device ? { width: ctx.device.screenWidth, height: ctx.device.screenHeight, pixelRatio: ctx.device.pixelRatio } : null,
+      timezone: timezone,
+      language: navigator.language || null,
       device: { type: window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 820 ? 'mobile' : 'desktop' },
-      browser: ctx.browser ? { name: browserName(ctx.browser.userAgent) } : null,
-      connection: ctx.network ? { effectiveType: ctx.network.effectiveType, downlink: ctx.network.downlink, rtt: ctx.network.rtt } : null,
-      battery: ctx.battery,
+      browser: { name: browserName(navigator.userAgent) },
     };
   }
 
@@ -890,7 +939,7 @@
           referrer: document.referrer || null,
           hour: new Date().getHours(),
           weekday: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-          traits: await visitorTraits(),
+          traits: visitorTraits(),
         }),
       });
       const data = res.ok ? await res.json() : null;
