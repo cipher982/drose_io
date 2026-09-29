@@ -156,29 +156,3 @@ export function allVisitorIds(): string[] {
     ? readdirSync(CONVERSATIONS).filter(f => f.endsWith('.jsonl')).map(f => f.slice(0, -6))
     : [];
 }
-
-/**
- * Shape is load-bearing: Sauron's stale-unread watchdog reads unreadTotal and
- * oldestUnreadAgeSec. openThreadCount is every conversation that ever reached
- * David, answered or not.
- */
-export function inboxHealth() {
-  const ids = allVisitorIds();
-  let unreadTotal = 0;
-  let threads = 0;
-  let oldest: { id: string; since: number } | null = null;
-  for (const id of ids) {
-    if (!read(id).some(e => e.kind === 'relay')) continue; // never reached David
-    threads++;
-    const waiting = unansweredRelays(id);
-    unreadTotal += waiting.length;
-    if (waiting.length && (!oldest || waiting[0] < oldest.since)) oldest = { id, since: waiting[0] };
-  }
-  return {
-    ok: true as const,
-    unreadTotal,
-    openThreadCount: threads,
-    oldestUnreadAgeSec: oldest ? Math.max(0, Math.floor((Date.now() - oldest.since) / 1000)) : null,
-    oldestUnreadVisitorId: oldest?.id ?? null,
-  };
-}

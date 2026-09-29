@@ -7,8 +7,7 @@
  *                      visitor's own Telegram, whichever they have.
  *
  * If the desk is not configured or Telegram is down, nothing is lost: the
- * relay is in the conversation file and Sauron's stale-unread watchdog
- * (GET /api/admin/inbox/health) pages David about it.
+ * relay is in the conversation file, marked 'failed'. Nothing watches for that.
  */
 import { append, read, ensureVisitor, getVisitor, updateVisitor, relayCount, messages, type RelayStatus } from './conversation';
 import { isEmailConfigured, sendEmail, noteReceipt, davidReplyEmail } from './email';
@@ -74,8 +73,8 @@ export async function relayToDavid(opts: { id: string; message: string; summary:
   lines.push('', `“${message}”`, '', 'Reply in this topic and Pepper delivers it.');
   const briefing = lines.join('\n');
 
-  // 'sent' means David's phone got it. Without the desk it is still saved and
-  // Sauron's stale-unread watchdog will surface it, but it was not delivered.
+  // 'sent' means David's phone got it. Without the desk it is still saved,
+  // but it was not delivered.
   let status: RelayStatus = 'failed';
   if (isTelegramConfigured()) {
     try {

@@ -17,8 +17,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { streamSSE } from 'hono/streaming';
-import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
-import { append, read, messages, getVisitor, ensureVisitor, visitorByToken, isValidVisitorId, isValidEmail, inboxHealth, safePage } from './conversation';
+import { append, read, messages, getVisitor, ensureVisitor, visitorByToken, isValidVisitorId, isValidEmail, safePage } from './conversation';
 import { askPepper, isModelConfigured } from './pepper';
 import { relayToDavid, recordContact, connectLive } from './deliver';
 import { handleEmailWebhook } from './email';
@@ -301,10 +300,4 @@ export function continuePage(c: Context) {
 <script>try{localStorage.setItem('__vid',${JSON.stringify(id)})}catch(e){}document.cookie='__vid=${id};path=/;max-age=315360000;samesite=lax';location.replace('/?pepper=open')</script>
 <a href="/?pepper=open">Continue to drose.io</a>`;
   return c.html(html, 200, { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
-}
-
-/** GET /api/admin/inbox/health — Sauron's stale-unread watchdog. */
-export function inboxHealthRoute(c: Context) {
-  if (!isValidAdminPassword(extractAuthPassword(c))) return c.json({ error: 'Unauthorized' }, 401);
-  return c.json(inboxHealth());
 }

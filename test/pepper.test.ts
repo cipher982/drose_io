@@ -18,11 +18,10 @@ Object.assign(process.env, {
   PEPPER_WEBHOOK_SECRET: 'hook-secret',
   PEPPER_TELEGRAM_WEBHOOK_SECRET: 'tg-secret',
   PEPPER_SNS_TOPIC_ARN: 'arn:aws:sns:us-east-1:111:pepper-inbound-mail',
-  ADMIN_PASSWORD: 'admin-pass',
 });
 delete process.env.PEPPER_SES_ACCESS_KEY_ID;
 
-const { default: web, inboxHealthRoute } = await import('../server/pepper/web');
+const { default: web } = await import('../server/pepper/web');
 const { sanitizeReply } = await import('../server/pepper/pepper');
 const { stripQuoted, parseEmail, handleNotification, verifySns } = await import('../server/pepper/email');
 const { handleUpdate } = await import('../server/pepper/telegram');
@@ -66,10 +65,8 @@ beforeEach(() => { modelReplies = []; tgCalls = []; modelBodies = []; });
 const post = (path: string, body: any, headers: Record<string, string> = {}) =>
   web.request(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
 
-async function health() {
-  const { Hono } = await import('hono');
-  const app = new Hono().get('/h', inboxHealthRoute);
-  return (await app.request('/h', { headers: { Authorization: 'Bearer admin-pass' } })).json();
+function health() {
+  return { unreadTotal: convo.allVisitorIds().flatMap(id => convo.unansweredRelays(id)).length };
 }
 
 describe('model output is clamped to what the UI renders', () => {
@@ -111,9 +108,8 @@ describe('web chat -> relay -> David replies from Telegram', () => {
     expect(tgCalls[1].body.text).toContain('Consulting on eval tooling');
     expect(tgCalls[1].body.text).toContain('Is David open to consulting on eval tooling?');
 
-    const h = await health();
-    expect(h).toMatchObject({ ok: true, unreadTotal: 1, openThreadCount: 1, oldestUnreadVisitorId: id });
-    expect(typeof h.oldestUnreadAgeSec).toBe('number');
+    expect(health().unreadTotal).toBe(1);
+    expect(convo.unansweredRelays(id)).toHaveLength(1);
   });
 
   test('contact endpoint validates and stores the email', async () => {
@@ -219,13 +215,6 @@ describe('hardening', () => {
     const body = JSON.stringify({ visitorId: 'big-body-visitor-01', text: 'x'.repeat(40_000) });
     const res = await web.request('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': String(body.length) }, body });
     expect(res.status).toBe(413);
-  });
-
-  test('admin auth takes only a bearer header', async () => {
-    const { Hono } = await import('hono');
-    const app = new Hono().get('/h', inboxHealthRoute);
-    expect((await app.request('/h?token=admin-pass')).status).toBe(401);
-    expect((await app.request('/h', { headers: { Authorization: 'Bearer admin-pass' } })).status).toBe(200);
   });
 
   test('a conversation is never cacheable', async () => {

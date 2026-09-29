@@ -224,8 +224,11 @@ Channels:
 - **Telegram**: the bot's webhook is `POST /api/pepper/telegram`, registered at
   boot from `PUBLIC_BASE_URL`. David's private group "Pepper's Desk" has one
   topic per visitor; replying in a topic answers that visitor.
-- **Sauron** watches `GET /api/admin/inbox/health` (stale unread relays) and
-  `/api/pepper/history` (store readable). Keep both shapes.
+- **Sauron** watches `/api/pepper/history` (store readable); keep its shape.
+  Nothing watches for a relay Telegram never received (`status: 'failed'` in the
+  conversation file): the stale-unread watchdog and `/api/admin/inbox/health`
+  were removed 2026-09-28, since they paged on every note David had seen but not
+  answered.
 
 Env (Infisical `ops-infra/prod`): `OPENAI_API_KEY`, `PEPPER_SES_ACCESS_KEY_ID`,
 `PEPPER_SES_SECRET_ACCESS_KEY`, `PEPPER_WEBHOOK_SECRET`, `PEPPER_SNS_TOPIC_ARN`,

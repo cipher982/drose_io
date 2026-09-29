@@ -3,7 +3,7 @@ import { serveStatic } from 'hono/bun';
 import { cors } from 'hono/cors';
 import { blogIndex, blogPost, blogRss, blogAsset, blogSitemap } from './blog/routes';
 import { hnDigestIndex, hnDigestPost, hnDigestRss, hnDigestSitemap } from './digests/hn';
-import pepper, { continuePage, inboxHealthRoute } from './pepper/web';
+import pepper, { continuePage } from './pepper/web';
 import { liveStats } from './pepper/deliver';
 import { registerWebhook } from './pepper/telegram';
 import { startBuilder } from './pepper/world';
@@ -56,7 +56,6 @@ app.use('/*', async (c, next) => {
 // Pepper: the visitor chat and David's inbox. See server/pepper/web.ts.
 app.route('/api/pepper', pepper);
 app.get('/m/:token', continuePage);
-app.get('/api/admin/inbox/health', inboxHealthRoute); // Sauron's stale-unread watchdog
 startBuilder(); // Pepper works on his dog house through the day
 if (Bun.env.PEPPER_TELEGRAM_BOT_TOKEN && Bun.env.PUBLIC_BASE_URL?.startsWith('https://')) {
   registerWebhook(`${Bun.env.PUBLIC_BASE_URL.replace(/\/$/, '')}/api/pepper/telegram`)

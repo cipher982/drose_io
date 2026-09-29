@@ -91,8 +91,7 @@ Public:
 
 Webhooks: `POST /api/pepper/telegram`, `POST /api/pepper/email/:secret` (SNS).
 
-Admin (Bearer auth): `GET /api/admin/inbox/health`,
-`GET /api/admin/analytics/{summary,insights,deep}`.
+Admin (Bearer auth): `GET /api/admin/analytics/{summary,insights,deep}`.
 
 ## Configuration
 
