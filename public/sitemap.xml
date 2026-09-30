@@ -4,6 +4,10 @@
     <sitemap>
         <loc>https://drose.io/portfolio-sitemap.xml</loc>
     </sitemap>
+    <!-- Airlock forum thread sitemap -->
+    <sitemap>
+        <loc>https://drose.io/airlock/sitemap.xml</loc>
+    </sitemap>
 
     <!-- Blog posts -->
     <sitemap>

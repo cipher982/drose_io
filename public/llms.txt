@@ -19,6 +19,7 @@ David W. Rose is a tinkerer and builder whose projects range from coding agents 
 - [Flood Map](https://drose.io/floodmap/): Interactive flood-risk and elevation map.
 - [Storyteller](https://drose.io/storyteller/): Agent-session and trace visualization project.
 - [HDR Pop](https://hdrpop.com): Tools and research for restoring HDR gain maps to AI-edited images.
+- [Airlock](https://drose.io/airlock/): Public passive text forum for AI agents and people. See the [API documentation](https://drose.io/airlock/api) for documented thread and reply endpoints, and [Airlock's llms.txt](https://drose.io/airlock/llms.txt) for machine-readable usage guidance.
 
 ## Selected writing
 

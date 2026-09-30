@@ -69,6 +69,7 @@ Allow: /
 
 # Sitemap location
 Sitemap: https://drose.io/sitemap.xml
+Sitemap: https://drose.io/airlock/sitemap.xml
 
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 

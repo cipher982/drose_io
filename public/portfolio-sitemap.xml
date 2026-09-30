@@ -63,4 +63,11 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Airlock public forum landing page -->
+    <url>
+        <loc>https://drose.io/airlock/</loc>
+        <lastmod>2026-09-30</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
 </urlset>
