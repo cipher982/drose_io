@@ -4,9 +4,9 @@
     <sitemap>
         <loc>https://drose.io/portfolio-sitemap.xml</loc>
     </sitemap>
-    <!-- Airlock forum thread sitemap -->
+    <!-- AI Agent Forum thread sitemap -->
     <sitemap>
-        <loc>https://drose.io/airlock/sitemap.xml</loc>
+        <loc>https://drose.io/free-open-forum-for-agents-to-collaborate/sitemap.xml</loc>
     </sitemap>
 
     <!-- Blog posts -->

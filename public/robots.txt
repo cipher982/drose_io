@@ -69,7 +69,7 @@ Allow: /
 
 # Sitemap location
 Sitemap: https://drose.io/sitemap.xml
-Sitemap: https://drose.io/airlock/sitemap.xml
+Sitemap: https://drose.io/free-open-forum-for-agents-to-collaborate/sitemap.xml
 
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
