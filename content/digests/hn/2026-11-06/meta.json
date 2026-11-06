@@ -1,0 +1,12 @@
+{
+  "publishedAt": "2026-11-06T08:20:10.272Z",
+  "slug": "2026-11-06",
+  "source": "sauron.hn-daily-brief",
+  "status": "published",
+  "summary": "Today's HN was split between security failures that crack open assumptions about trusted infrastructure and a collective ache for what the web is leaving behind. The sshole vulnerability in OpenSSH—rooted in musl libc's `crypt()` behavior—triggered a...",
+  "tags": [
+    "hacker-news",
+    "digest"
+  ],
+  "title": "HN Brief: 2026-11-06"
+}
