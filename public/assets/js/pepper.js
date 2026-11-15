@@ -102,7 +102,8 @@
     try { localStorage.setItem('__vid', vid); } catch { /* storage blocked */ }
     if (!getCookie('__vid')) {
       document.cookie = '__vid=' + encodeURIComponent(vid) + '; expires=' +
-        new Date(Date.now() + 3650 * 864e5).toUTCString() + '; path=/; SameSite=Lax';
+        new Date(Date.now() + 3650 * 864e5).toUTCString() + '; path=/; SameSite=Lax' +
+        (location.protocol === 'https:' ? '; Secure' : '');
     }
     return vid;
   }

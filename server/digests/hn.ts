@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { buildUmamiScript } from '../umami';
 import { assetUrl } from '../render/assets';
+import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 const SITE_URL = 'https://drose.io';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/assets/images/david-og.jpg`;
@@ -280,7 +281,11 @@ export function hnDigestPost(c: Context) {
   if (!slug) return c.notFound();
   const digest = getDigest(slug);
   if (!digest) return c.notFound();
-  if (digest.meta.status === 'draft' && c.req.query('preview') !== '1') return c.notFound();
+  if (digest.meta.status === 'draft') {
+    if (c.req.query('preview') !== '1' || !isValidAdminPassword(extractAuthPassword(c))) {
+      return c.notFound();
+    }
+  }
   return c.html(renderPost(digest));
 }
 

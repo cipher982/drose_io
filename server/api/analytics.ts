@@ -73,6 +73,12 @@ type InsightsBucket = {
 };
 
 type Period = '24h' | '7d' | '30d';
+const VALID_PERIODS = new Set<Period>(['24h', '7d', '30d']);
+
+function parsePeriod(raw: string | undefined): Period | null {
+  const value = raw || '30d';
+  return VALID_PERIODS.has(value as Period) ? (value as Period) : null;
+}
 
 function periodWindow(p: Period): { startAt: number; endAt: number; unit: 'hour' | 'day' } {
   const endAt = Date.now();
@@ -132,18 +138,24 @@ export function buildIdentityAeo(
 // Cache responses briefly to avoid hammering Umami on dashboard refresh.
 const cache = new Map<string, { at: number; data: any }>();
 const CACHE_MS = 30_000;
+const MAX_CACHE_ENTRIES = 500;
 
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
   const data = await fn();
+  if (!cache.has(key) && cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
   cache.set(key, { at: Date.now(), data });
   return data;
 }
 
 export async function handleAnalyticsSummary(c: Context) {
   if (!isValidAdminPassword(extractAuthPassword(c))) return c.json({ error: 'Unauthorized' }, 401);
-  const period = (c.req.query('period') || '30d') as Period;
+  const period = parsePeriod(c.req.query('period'));
+  if (!period) return c.json({ error: 'Invalid period' }, 400);
   const { startAt, endAt, unit } = periodWindow(period);
 
   try {
@@ -207,14 +219,15 @@ export async function handleAnalyticsSummary(c: Context) {
     });
   } catch (err: any) {
     console.error('[analytics] summary error', err);
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: 'Failed to load analytics summary' }, 500);
   }
 }
 
 // Phase 2: internal Postgres-backed snapshot from umami-raw-collector
 export async function handleAnalyticsDeep(c: Context) {
   if (!isValidAdminPassword(extractAuthPassword(c))) return c.json({ error: 'Unauthorized' }, 401);
-  const period = (c.req.query('period') || '30d') as Period;
+  const period = parsePeriod(c.req.query('period'));
+  if (!period) return c.json({ error: 'Invalid period' }, 400);
   if (!COLLECTOR_URL || !COLLECTOR_TOKEN) {
     return c.json({ error: 'Collector not configured' }, 503);
   }
@@ -233,14 +246,15 @@ export async function handleAnalyticsDeep(c: Context) {
     return c.json(data);
   } catch (err: any) {
     console.error('[analytics] deep error', err);
-    return c.json({ error: err.message }, 502);
+    return c.json({ error: 'Failed to load deep analytics' }, 502);
   }
 }
 
 // Richer signal endpoint: referrers, source buckets, top pages, across whole network
 export async function handleAnalyticsInsights(c: Context) {
   if (!isValidAdminPassword(extractAuthPassword(c))) return c.json({ error: 'Unauthorized' }, 401);
-  const period = (c.req.query('period') || '30d') as Period;
+  const period = parsePeriod(c.req.query('period'));
+  if (!period) return c.json({ error: 'Invalid period' }, 400);
   const { startAt, endAt } = periodWindow(period);
 
   try {
@@ -313,6 +327,6 @@ export async function handleAnalyticsInsights(c: Context) {
     });
   } catch (err: any) {
     console.error('[analytics] insights error', err);
-    return c.json({ error: err.message }, 500);
+    return c.json({ error: 'Failed to load analytics insights' }, 500);
   }
 }

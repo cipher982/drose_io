@@ -4,6 +4,7 @@ import { join, normalize, resolve, extname } from 'path';
 import { BLOG_DIR, getPost, publishedPosts, blogSitemapEntries } from './loader';
 import { renderIndexPage, renderPostPage } from './layout';
 import { renderRss } from './rss';
+import { extractAuthPassword, isValidAdminPassword } from '../auth/admin-auth';
 
 const SITE_URL = 'https://drose.io';
 
@@ -41,8 +42,10 @@ export function blogPost(c: Context) {
   if (!slug) return c.notFound();
   const post = getPost(slug);
   if (!post) return c.notFound();
-  if (post.meta.status === 'draft' && c.req.query('preview') !== '1') {
-    return c.notFound();
+  if (post.meta.status === 'draft') {
+    if (c.req.query('preview') !== '1' || !isValidAdminPassword(extractAuthPassword(c))) {
+      return c.notFound();
+    }
   }
   return c.html(renderPostPage(post));
 }
@@ -60,7 +63,11 @@ export async function blogAsset(c: Context) {
   const slug = c.req.param('slug');
   const assetPath = c.req.param('path');
   if (!slug || !assetPath) return c.notFound();
-  if (!getPost(slug)) return c.notFound();
+  const post = getPost(slug);
+  if (!post) return c.notFound();
+  if (post.meta.status === 'draft' && !isValidAdminPassword(extractAuthPassword(c))) {
+    return c.notFound();
+  }
 
   const assetsRoot = resolve(join(BLOG_DIR, slug, 'assets'));
   const requested = resolve(join(assetsRoot, assetPath));

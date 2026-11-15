@@ -146,6 +146,7 @@ export async function parseEmail(raw: string, recipients: string[] = []): Promis
 // ---- SNS message signatures ----------------------------------------------------
 
 const SNS_HOST = /^sns\.[a-z0-9-]+\.amazonaws\.com$/;
+const MAX_CERT_ENTRIES = 64;
 const certs = new Map<string, string>();
 
 async function fetchCert(url: string): Promise<string> {
@@ -154,7 +155,12 @@ async function fetchCert(url: string): Promise<string> {
   if (!certs.has(url)) {
     const res = await fetch(u, { redirect: 'error', signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error(`cert ${res.status}`);
-    certs.set(url, await res.text());
+    const pem = await res.text();
+    if (certs.size >= MAX_CERT_ENTRIES) {
+      const oldest = certs.keys().next().value;
+      if (oldest !== undefined) certs.delete(oldest);
+    }
+    certs.set(url, pem);
   }
   return certs.get(url)!;
 }

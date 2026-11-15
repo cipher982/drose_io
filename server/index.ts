@@ -8,19 +8,30 @@ import { liveStats } from './pepper/deliver';
 import { registerWebhook } from './pepper/telegram';
 import { startBuilder } from './pepper/world';
 import { handleAnalyticsSummary, handleAnalyticsInsights, handleAnalyticsDeep } from './api/analytics';
+import { adminAuthRateLimit } from './auth/admin-auth';
 import { homePage } from './render/pages';
 import { computeFingerprint, fingerprintFileCount } from './fingerprint';
-import { join } from 'path';
+import { join, normalize, resolve } from 'path';
 
 const app = new Hono();
 
 const REPO_ROOT = join(import.meta.dir, '..');
+const PUBLIC_ROOT = resolve(REPO_ROOT, 'public');
 const FINGERPRINT = computeFingerprint(REPO_ROOT);
 const FINGERPRINT_FILES = fingerprintFileCount(REPO_ROOT);
 const STARTED_AT = new Date().toISOString();
 
 // CORS for API endpoints
-app.use('/api/*', cors());
+const ALLOWED_CORS_ORIGINS = new Set([
+  'https://drose.io',
+  'https://www.drose.io',
+  ...(Bun.env.NODE_ENV !== 'production'
+    ? ['http://localhost:3000', 'http://127.0.0.1:3000']
+    : []),
+]);
+app.use('/api/*', cors({
+  origin: (origin) => (ALLOWED_CORS_ORIGINS.has(origin) ? origin : null),
+}));
 
 // Cheap browser-side hardening. No CSP yet: templates carry inline scripts.
 app.use('/*', async (c, next) => {
@@ -71,6 +82,7 @@ app.get('/', (c) => c.body(homePage(), 200, HTML_HEADERS));
 app.get('/index.html', (c) => c.body(homePage(), 200, HTML_HEADERS));
 
 // Analytics dashboard (admin-gated)
+app.use('/api/admin/*', adminAuthRateLimit);
 app.get('/api/admin/analytics/summary', handleAnalyticsSummary);
 app.get('/api/admin/analytics/insights', handleAnalyticsInsights);
 app.get('/api/admin/analytics/deep', handleAnalyticsDeep);
@@ -109,8 +121,22 @@ app.get('/api/version', (c) => c.json({
 // Without this, serveStatic returns content-length: 0 for HEAD requests
 app.use('*', async (c, next) => {
   if (c.req.method === 'HEAD' && c.req.path.endsWith('.xml')) {
-    const filePath = `./public${c.req.path}`;
-    const file = Bun.file(filePath);
+    let relPath = c.req.path;
+    try {
+      relPath = decodeURIComponent(relPath);
+    } catch {
+      return c.notFound();
+    }
+    const stripped = relPath.replace(/^\/+/, '');
+    if (!stripped || stripped.includes('\0') || stripped.split(/[\\/]/).includes('..')) {
+      return c.notFound();
+    }
+    const normalized = normalize(stripped);
+    const resolved = resolve(PUBLIC_ROOT, normalized);
+    if (!resolved.startsWith(PUBLIC_ROOT + '/')) {
+      return c.notFound();
+    }
+    const file = Bun.file(resolved);
 
     if (await file.exists()) {
       return new Response(null, {

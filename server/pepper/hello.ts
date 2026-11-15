@@ -201,20 +201,41 @@ export function helloPrompt(x: HelloContext): string {
 // ---- limits ------------------------------------------------------------------
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const HOUR = 3_600_000;
+const MAX_TRACKED_KEYS = 10_000;
+const MAX_FLOOD_PER_HOUR = 60;
+
+function setBounded(map: Map<string, number[]>, key: string, val: number[], now: number): void {
+  if (!map.has(key) && map.size >= MAX_TRACKED_KEYS) {
+    for (const [k, timestamps] of map) {
+      if (timestamps.every(t => now - t >= HOUR)) map.delete(k);
+    }
+    while (map.size >= MAX_TRACKED_KEYS) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
+  }
+  if (map.has(key)) map.delete(key);
+  map.set(key, val);
+}
 
 const floods = new Map<string, number[]>();
 function ipFlooding(ip: string): boolean {
   const now = Date.now();
   const recent = (floods.get(ip) || []).filter(t => now - t < HOUR);
+  if (recent.length >= MAX_FLOOD_PER_HOUR) {
+    setBounded(floods, ip, recent, now);
+    return true;
+  }
   recent.push(now);
-  floods.set(ip, recent);
-  return recent.length > 60;
+  setBounded(floods, ip, recent, now);
+  return false;
 }
 
 
 // Page loads only, so these are generous for people and tight for scripts.
 // (A single scraper once burned the whole daily budget in an afternoon.)
-const HOUR = 3_600_000;
 const hits = new Map<string, number[]>();
 let day = { start: Date.now(), count: 0 };
 const PER_VISITOR_PER_HOUR = 6;
@@ -225,12 +246,20 @@ function limited(vid: string, ip: string): boolean {
   const now = Date.now();
   if (now - day.start > 24 * HOUR) day = { start: now, count: 0 };
   if (day.count >= PER_DAY) return true;
-  for (const [key, max] of [[`v:${vid}`, PER_VISITOR_PER_HOUR], [`ip:${ip}`, PER_IP_PER_HOUR]] as const) {
+  const keys = [[`v:${vid}`, PER_VISITOR_PER_HOUR], [`ip:${ip}`, PER_IP_PER_HOUR]] as const;
+  const pruned = new Map<string, number[]>();
+  for (const [key, max] of keys) {
     const recent = (hits.get(key) || []).filter(t => now - t < HOUR);
-    if (recent.length >= max) return true;
-    hits.set(key, recent);
+    if (recent.length >= max) {
+      setBounded(hits, key, recent, now);
+      return true;
+    }
+    pruned.set(key, recent);
   }
-  for (const key of [`v:${vid}`, `ip:${ip}`]) hits.get(key)!.push(now);
+  for (const [key, recent] of pruned) {
+    recent.push(now);
+    setBounded(hits, key, recent, now);
+  }
   day.count++;
   return false;
 }

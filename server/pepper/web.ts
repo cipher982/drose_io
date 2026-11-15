@@ -39,6 +39,8 @@ app.use('*', async (c, next) => {
 // ---- rate limits: per visitor, per IP, and a daily fuse on model calls ------
 
 const WINDOW = 10 * 60_000;
+const MAX_HITS_ENTRIES = 10_000;
+const MAX_GIFT_IP_ENTRIES = 10_000;
 const hits = new Map<string, number[]>();
 const DAILY_MODEL_CALLS = Number(Bun.env.PEPPER_DAILY_LIMIT || 2000);
 let day = { start: Date.now(), calls: 0 };
@@ -47,10 +49,23 @@ function limited(key: string, max: number): boolean {
   if (Bun.env.TEST_MODE === 'true') return false;
   const now = Date.now();
   const recent = (hits.get(key) || []).filter(t => now - t < WINDOW);
-  if (recent.length >= max) return true;
+  if (recent.length >= max) {
+    hits.set(key, recent);
+    return true;
+  }
   recent.push(now);
+  if (!hits.has(key) && hits.size >= MAX_HITS_ENTRIES) {
+    for (const [k, timestamps] of hits) {
+      if (timestamps.every(t => now - t >= WINDOW)) hits.delete(k);
+    }
+    while (hits.size >= MAX_HITS_ENTRIES) {
+      const oldest = hits.keys().next().value;
+      if (oldest === undefined) break;
+      hits.delete(oldest);
+    }
+  }
+  if (hits.has(key)) hits.delete(key);
   hits.set(key, recent);
-  if (hits.size > 10_000) hits.clear(); // crude bound; a flood just resets the window
   return false;
 }
 
@@ -73,6 +88,11 @@ function giftAllowed(c: Context): boolean {
   const ip = clientIp(c);
   const n = gifts.byIp.get(ip) || 0;
   if (n >= GIFTS_PER_IP_PER_DAY) return false;
+  if (!gifts.byIp.has(ip) && gifts.byIp.size >= MAX_GIFT_IP_ENTRIES) {
+    const oldest = gifts.byIp.keys().next().value;
+    if (oldest !== undefined) gifts.byIp.delete(oldest);
+  }
+  if (gifts.byIp.has(ip)) gifts.byIp.delete(ip);
   gifts.byIp.set(ip, n + 1);
   return true;
 }
@@ -127,7 +147,7 @@ app.post('/chat', async (c) => {
 
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   if (!text || text.length > 1000) return c.json({ error: 'text must be 1-1000 characters', say: "that's a lot for a small dog. can you keep it under 1000 characters? *tilt*" }, 400);
-  if (limited(`v:${id}`, 20) || limited(`ip:${clientIp(c)}`, 60)) {
+  if (limited(`ip:${clientIp(c)}`, 60) || limited(`v:${id}`, 20)) {
     return c.json({ error: 'rate limited', say: "whoa, slow down! my paws can't type that fast *pant*" }, 429);
   }
 
@@ -215,7 +235,7 @@ app.post('/contact', async (c) => {
   const email = String(body?.email || '').trim().toLowerCase();
   if (!isValidVisitorId(id)) return c.json({ error: 'invalid visitorId' }, 400);
   if (!isValidEmail(email)) return c.json({ error: "that doesn't look like an email address" }, 400);
-  if (limited(`contact:${id}`, 5) || limited(`contact-ip:${clientIp(c)}`, 10)) return c.json({ error: 'too many tries, wait a few minutes' }, 429);
+  if (limited(`contact-ip:${clientIp(c)}`, 10) || limited(`contact:${id}`, 5)) return c.json({ error: 'too many tries, wait a few minutes' }, 429);
   await recordContact(id, email);
   return c.json({ ok: true, email });
 });
@@ -297,7 +317,7 @@ export function continuePage(c: Context) {
   const id = /^[0-9a-f]{24}$/i.test(token) ? visitorByToken(token) : null;
   if (!id) return c.redirect('/?pepper=open', 302);
   const html = `<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Pepper</title>
-<script>try{localStorage.setItem('__vid',${JSON.stringify(id)})}catch(e){}document.cookie='__vid=${id};path=/;max-age=315360000;samesite=lax';location.replace('/?pepper=open')</script>
+<script>try{localStorage.setItem('__vid',${JSON.stringify(id)})}catch(e){}document.cookie='__vid=${id};path=/;max-age=315360000;samesite=lax'+(location.protocol==='https:'?';secure':'');location.replace('/?pepper=open')</script>
 <a href="/?pepper=open">Continue to drose.io</a>`;
   return c.html(html, 200, { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
 }

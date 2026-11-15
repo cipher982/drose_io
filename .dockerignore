@@ -1,0 +1,15 @@
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+node_modules
+data
+scratch
+test
+.playwright-mcp
+.DS_Store
+*.log
+.server.log
+.server.pid
+CLAUDE.md

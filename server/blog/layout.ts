@@ -199,7 +199,7 @@ export function renderPostPage(post: Post): string {
     canonical,
     ogImage,
     ogType: 'article',
-    extraHead: `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`,
+    extraHead: `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>`,
     body,
   });
 }
