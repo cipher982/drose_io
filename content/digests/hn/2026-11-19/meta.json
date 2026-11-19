@@ -1,0 +1,12 @@
+{
+  "publishedAt": "2026-11-19T08:08:00.980Z",
+  "slug": "2026-11-19",
+  "source": "sauron.hn-daily-brief",
+  "status": "published",
+  "summary": "If today's front page had a throughline, it was the strain between acceleration and stability. The critical Nginx RCE thread immediately pivoted from the technical bug to the dangerous latency between upstream patches and a usable distro rollout. The Deutsche...",
+  "tags": [
+    "hacker-news",
+    "digest"
+  ],
+  "title": "HN Brief: 2026-11-19"
+}
