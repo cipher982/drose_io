@@ -70,7 +70,7 @@ The blog is **not Markdown-backed**.
 `meta.json` `status` is `published` or `draft`.
 
 - `draft` → the post 404s and disappears from `/blog`, RSS, and the sitemap.
-  Readable at `/blog/{slug}?preview=1`.
+  Readable at `/blog/{slug}?preview=1` with `Authorization: Bearer <ADMIN_PASSWORD>`.
 - Unpublishing something is a one-word change to `status`. Prefer it over
   deleting a post or leaving a stub page up: a stub returns 200 and gets
   indexed as thin content at a URL you want to reuse.
@@ -113,7 +113,7 @@ production is serving **this** checkout:
   `bun.lock`. Keep `TRACKED_DIRS` in `server/fingerprint.ts` in sync with what
   the Dockerfile copies, or a stale deploy can pass.
 - `/blog` lists exactly the locally published slugs
-- every published post is 200, every draft is 404, every draft preview is 200
+- every published post is 200, every draft and unauthenticated draft preview is 404 (authenticated preview is 200 when `SMOKE_ADMIN_PASSWORD` is set)
 - every post asset matches local bytes, fetched with a cache-busting param
 
 That last check exists because `assets/demos/data/*.json` 404'd in production

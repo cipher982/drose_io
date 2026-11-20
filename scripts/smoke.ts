@@ -25,6 +25,9 @@ const BLOG_DIR = join(ROOT, 'content/blog');
 const HN_DIR = join(ROOT, 'content/digests/hn');
 const BASE = (process.argv[2] || 'https://drose.io').replace(/\/$/, '');
 const CONCURRENCY = 8;
+const ADMIN_HEADERS = process.env.SMOKE_ADMIN_PASSWORD
+  ? { Authorization: `Bearer ${process.env.SMOKE_ADMIN_PASSWORD}` }
+  : undefined;
 
 let failures = 0;
 let checks = 0;
@@ -95,9 +98,9 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
   await Promise.all(workers);
 }
 
-async function status(path: string): Promise<number> {
+async function status(path: string, headers?: Record<string, string>): Promise<number> {
   try {
-    const res = await fetch(bust(BASE + path), { redirect: 'manual' });
+    const res = await fetch(bust(BASE + path), { redirect: 'manual', headers });
     return res.status;
   } catch {
     return 0;
@@ -190,7 +193,15 @@ async function main(): Promise<void> {
     const s = await status(`/blog/${d.slug}`);
     s === 404 ? pass(`/blog/${d.slug} 404 (draft)`) : fail(`/blog/${d.slug} should 404, got ${s}`);
     const preview = await status(`/blog/${d.slug}?preview=1`);
-    preview === 200 ? pass(`/blog/${d.slug}?preview=1 200`) : fail(`draft preview returned ${preview}`);
+    preview === 404
+      ? pass(`/blog/${d.slug}?preview=1 404 (unauthenticated)`)
+      : fail(`/blog/${d.slug}?preview=1 should 404 without auth, got ${preview}`);
+    if (ADMIN_HEADERS) {
+      const authPreview = await status(`/blog/${d.slug}?preview=1`, ADMIN_HEADERS);
+      authPreview === 200
+        ? pass(`/blog/${d.slug}?preview=1 200 (admin)`)
+        : fail(`/blog/${d.slug}?preview=1 with admin auth returned ${authPreview}`);
+    }
   }
   if (drafts.length === 0) pass('no drafts to check');
 
@@ -247,7 +258,15 @@ async function main(): Promise<void> {
     const s = await status(`/digests/hn/${draft.slug}`);
     s === 404 ? pass(`/digests/hn/${draft.slug} 404 (draft)`) : fail(`/digests/hn/${draft.slug} should 404, got ${s}`);
     const preview = await status(`/digests/hn/${draft.slug}?preview=1`);
-    preview === 200 ? pass(`/digests/hn/${draft.slug}?preview=1 200`) : fail(`HN draft preview returned ${preview}`);
+    preview === 404
+      ? pass(`/digests/hn/${draft.slug}?preview=1 404 (unauthenticated)`)
+      : fail(`/digests/hn/${draft.slug}?preview=1 should 404 without auth, got ${preview}`);
+    if (ADMIN_HEADERS) {
+      const authPreview = await status(`/digests/hn/${draft.slug}?preview=1`, ADMIN_HEADERS);
+      authPreview === 200
+        ? pass(`/digests/hn/${draft.slug}?preview=1 200 (admin)`)
+        : fail(`/digests/hn/${draft.slug}?preview=1 with admin auth returned ${authPreview}`);
+    }
   }
   if (hnDrafts.length === 0) pass('no HN drafts to check');
 
