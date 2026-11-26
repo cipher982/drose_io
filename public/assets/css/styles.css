@@ -285,7 +285,8 @@
     box-shadow: var(--drose-shadow-card-hover);
 }
 
-.project img {
+.project img,
+.project video {
     display: block;
     width: 100%;
     height: auto;

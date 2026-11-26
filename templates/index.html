@@ -349,7 +349,12 @@ window.sendUmamiVisitorContext = function () {
         <h2 class="section-title" id="projects-heading">Also live</h2>
         <div class="project-grid">
             <a class="project" href="https://github.com/cipher982/ray-ban-meta-custom-agents" data-umami-event="project_click" data-umami-event-project="rayban">
-                <img src="assets/images/projects/rayban-meta.svg" alt="Diagram of a BLE relay between Ray-Ban Meta glasses and a custom voice agent" width="640" height="360" loading="lazy">
+                <video class="loop-video" muted loop playsinline preload="none" width="960" height="540"
+                    poster="assets/video/rayban/talkover-poster.webp" data-still="assets/video/rayban/talkover-poster.webp"
+                    aria-label="Timeline of a conversation with the glasses: you ask, the answer starts 0.7 s later, you talk over it, it stops and gives a new answer 0.84 s after you finish">
+                    <source src="assets/video/rayban/talkover.mp4" type="video/mp4">
+                    <source src="assets/video/rayban/talkover.webm" type="video/webm">
+                </video>
                 <span class="project-text">
                     <span class="kicker">Wearables · BLE</span>
                     <span class="project-name">Ray-Ban Meta, custom agent</span>
