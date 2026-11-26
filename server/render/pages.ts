@@ -57,7 +57,7 @@ function renderLatestPosts(): string {
     .join('');
   return `<!-- LATEST_POSTS_START -->
     <section class="latest-posts" aria-labelledby="latest-posts-heading">
-        <h2 id="latest-posts-heading">Latest Writing</h2>
+        <h2 class="section-title" id="latest-posts-heading">Latest writing</h2>
         <ul class="latest-posts-list">${items}
         </ul>
         <p class="latest-posts-more"><a href="/blog">All posts →</a></p>
