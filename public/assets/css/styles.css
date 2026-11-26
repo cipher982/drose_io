@@ -171,6 +171,21 @@
     transition: border-color var(--duration-fast) var(--timing-standard), box-shadow var(--duration-fast) var(--timing-standard);
 }
 
+.feature-media video {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #0e0a08;
+}
+
+.lh-media {
+    border-color: #33281e;
+}
+
+.lh-media .lh-sq {
+    display: none;
+}
+
 .feature-media-stack {
     display: flex;
     flex-direction: column;
@@ -531,6 +546,14 @@ footer a:hover {
     .project-grid,
     .more-columns {
         grid-template-columns: 1fr;
+    }
+
+    .lh-media .lh-wide {
+        display: none;
+    }
+
+    .lh-media .lh-sq {
+        display: block;
     }
 
     .earlier .more-list {
