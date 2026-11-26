@@ -47,7 +47,7 @@ export function versionAssetsIn(html: string): string {
     // Handles /assets/..., assets/... and ./assets/... . Only an existing ?v=
     // is consumed and replaced; any other query string is left alone rather
     // than mangled into a second '?'.
-    /(["'(])(\.?\/?assets\/[a-zA-Z0-9_\-./]+\.(?:css|js))(\?v=[^"'\s)&]*)?/g,
+    /(["'(])(\.?\/?assets\/[a-zA-Z0-9_\-./]+\.(?:css|js|mp4|webm|webp))(\?v=[^"'\s)&]*)?/g,
     (_m, lead: string, path: string) => {
       const absolute = '/' + path.replace(/^\.?\//, '');
       const hash = hashOf(absolute);
