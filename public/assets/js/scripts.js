@@ -19,19 +19,25 @@ document.addEventListener("click", (e) => {
         videos.forEach((v) => { if (v.dataset.still) v.poster = v.dataset.still; });
         return;
     }
-    if (!("IntersectionObserver" in window)) return;
     const shown = (v) => v.offsetParent !== null; // hidden by the breakpoint rule
+    // Fetch the visible layout's clip right away (about 100-150 KB) so it is
+    // ready to play the moment it scrolls in. The hidden layout never loads.
+    const warm = () => videos.forEach((v) => {
+        if (shown(v) && v.preload !== "auto") { v.preload = "auto"; v.load(); }
+    });
+    warm();
+    window.addEventListener("resize", warm);
+    if (!("IntersectionObserver" in window)) return;
     const io = new IntersectionObserver((entries) => {
         entries.forEach((e) => {
             const v = e.target;
-            if (e.isIntersecting && e.intersectionRatio >= 0.35 && shown(v)) {
-                if (v.preload !== "auto") v.preload = "auto";
+            if (e.isIntersecting && shown(v)) {
                 const p = v.play();
                 if (p && p.catch) p.catch(() => {});
             } else {
                 v.pause();
             }
         });
-    }, { threshold: [0, 0.35, 0.6] });
+    }, { threshold: 0.1 });
     videos.forEach((v) => io.observe(v));
 })();
