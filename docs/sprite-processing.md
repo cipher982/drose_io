@@ -239,6 +239,7 @@ Row 4: Expressions (tongue out, happy, alert)
 | `scripts/process_sprites.py` | Main processing script |
 | `public/assets/images/pepper_spritesheet_v2_raw.png` | Source from AI |
 | `public/assets/images/pepper_spritesheet_v2.png` | Processed output |
+| `public/assets/images/pepper_spritesheet_v2.webp` | Lossless WebP of the same sheet; what `pepper.js` loads |
 | `public/assets/images/pepper_spritesheet_v2.json` | Metadata |
 | `public/assets/images/sprites_processed/` | Debug frames (gitignored) |
 | `public/assets/js/creature.js` | Consumer of spritesheet |

@@ -15,6 +15,7 @@ INPUT = Path(__file__).parent.parent / "public/assets/images/pepper_spritesheet_
 OUTPUT_DIR = Path(__file__).parent.parent / "public/assets/images/sprites_processed"
 FINAL_SHEET = Path(__file__).parent.parent / "public/assets/images/pepper_spritesheet_v2.png"
 FINAL_JSON = Path(__file__).parent.parent / "public/assets/images/pepper_spritesheet_v2.json"
+FINAL_WEBP = FINAL_SHEET.with_suffix(".webp")
 
 # Grid config
 GRID_COLS = 4
@@ -241,6 +242,9 @@ def process_sprites():
     # Save final outputs
     final.save(FINAL_SHEET)
     print(f"\nSaved: {FINAL_SHEET} ({final.size})")
+    # What pepper.js loads: lossless WebP, pixel-identical and under half the bytes.
+    final.save(FINAL_WEBP, lossless=True, method=6, quality=100)
+    print(f"Saved: {FINAL_WEBP}")
 
     with open(FINAL_JSON, "w") as f:
         json.dump(metadata, f, indent=2)
