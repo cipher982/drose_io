@@ -104,6 +104,7 @@ function pageShell(opts: {
 <meta name="twitter:description" content="${esc(opts.description)}">
 <meta name="twitter:image" content="${esc(opts.ogImage)}">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
+<script src="${assetUrl('/assets/js/energy.js')}"></script>
 <link rel="stylesheet" href="${assetUrl('/assets/css/tokens.css')}">
 <link rel="stylesheet" href="${assetUrl('/assets/css/win98-theme.css')}">
 ${buildUmamiScript()}

@@ -8,8 +8,9 @@ document.addEventListener("click", (e) => {
     }
 });
 
-// Looping product videos (.loop-video): play only while visible on screen,
-// pause otherwise. With reduced motion, show a still frame and never play.
+// Looping product videos (.loop-video): play only while on screen and someone
+// is here (energy.js "active"), pause otherwise and resume where they were.
+// With reduced motion, show a still frame and never play.
 (() => {
     const videos = Array.from(document.querySelectorAll("video.loop-video"));
     if (!videos.length) return;
@@ -28,16 +29,21 @@ document.addEventListener("click", (e) => {
     warm();
     window.addEventListener("resize", warm);
     if (!("IntersectionObserver" in window)) return;
+    const onScreen = new Set();
+    let awake = true;
+    const sync = (v) => {
+        if (awake && onScreen.has(v) && shown(v)) {
+            if (v.paused) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+        } else if (!v.paused) {
+            v.pause();
+        }
+    };
     const io = new IntersectionObserver((entries) => {
         entries.forEach((e) => {
-            const v = e.target;
-            if (e.isIntersecting && shown(v)) {
-                const p = v.play();
-                if (p && p.catch) p.catch(() => {});
-            } else {
-                v.pause();
-            }
+            if (e.isIntersecting) onScreen.add(e.target); else onScreen.delete(e.target);
+            sync(e.target);
         });
     }, { threshold: 0.1 });
     videos.forEach((v) => io.observe(v));
+    if (window.Energy) window.Energy.watch((level) => { awake = level === "active"; videos.forEach(sync); });
 })();

@@ -49,6 +49,39 @@ body {
    LAYERED BACKGROUND SYSTEM
    ======================================== */
 
+/* Ambient motion budget.
+   These layers drift a few CSS px per second. Run smoothly, each one asks the
+   compositor for a frame on every display refresh (120/s on a ProMotion
+   screen), and every frame re-blurs each glass panel's backdrop-filter over
+   it: about 10 W of GPU on a MacBook for motion that moves 0.06 px per frame.
+   steps() keeps the same drift but changes it 12 times a second, and every
+   duration below divides into the same 1/12 s step, so all five layers change
+   on the same frame and the compositor draws 12 frames/s instead of 120.
+   (n = seconds * 12)
+   html[data-energy] comes from assets/js/energy.js: once nobody has touched
+   the page for a minute, or it is not focused, the layers pause where they
+   are, so nothing visibly jumps and nothing is drawn. */
+:root {
+    --ambient-steps-3s: steps(36, jump-none);
+    --ambient-steps-8s: steps(96, jump-none);
+    --ambient-steps-20s: steps(240, jump-none);
+    --ambient-steps-80s: steps(960, jump-none);
+    --ambient-steps-120s: steps(1440, jump-none);
+}
+
+html[data-energy="calm"] body::before,
+html[data-energy="calm"] body::after,
+html[data-energy="calm"] .particle-bg::before,
+html[data-energy="calm"] .particle-bg::after,
+html[data-energy="calm"] .main-container::after,
+html[data-energy="still"] body::before,
+html[data-energy="still"] body::after,
+html[data-energy="still"] .particle-bg::before,
+html[data-energy="still"] .particle-bg::after,
+html[data-energy="still"] .main-container::after {
+    animation-play-state: paused;
+}
+
 /* Layer 1: Grid Pattern - Visible across entire page */
 body::before {
     content: "";
@@ -66,12 +99,12 @@ body::before {
     pointer-events: none;
     z-index: 0;
     opacity: 1;
-    animation: grid-pulse 8s ease-in-out infinite;
+    animation: grid-pulse 8s var(--ambient-steps-8s) infinite alternate;
 }
 
 @keyframes grid-pulse {
-    0%, 100% { opacity: 0.7; }
-    50% { opacity: 1; }
+    from { opacity: 0.7; }
+    to { opacity: 1; }
 }
 
 /* Layer 2: Nebula Glow - Brighter, more colorful */
@@ -89,7 +122,7 @@ body::after {
         radial-gradient(ellipse at 80% 80%, rgba(168, 85, 247, 0.2) 0%, transparent 40%);
     pointer-events: none;
     z-index: 0;
-    animation: nebula-drift 20s ease-in-out infinite alternate;
+    animation: nebula-drift 20s var(--ambient-steps-20s) infinite alternate;
 }
 
 @keyframes nebula-drift {
@@ -122,7 +155,7 @@ body::after {
     background-repeat: repeat;
     transform: translate3d(0, 0, 0);
     will-change: transform;
-    animation: particle-drift 80s linear infinite;
+    animation: particle-drift 80s var(--ambient-steps-80s) infinite;
 }
 
 .particle-bg::before {
@@ -141,6 +174,7 @@ body::after {
     background-size: 3px 3px, 600px 600px;
     opacity: 0.7;
     animation-duration: 120s;
+    animation-timing-function: var(--ambient-steps-120s);
     animation-direction: reverse;
 }
 
@@ -170,7 +204,7 @@ body::after {
         radial-gradient(1px 1px at 15% 45%, rgba(168,85,247,0.5) 0%, transparent 100%);
     pointer-events: none;
     z-index: 0;
-    animation: twinkle 3s ease-in-out infinite alternate;
+    animation: twinkle 3s var(--ambient-steps-3s) infinite alternate;
     border-radius: var(--border-radius-2xl);
 }
 

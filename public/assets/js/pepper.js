@@ -20,7 +20,7 @@
   // Constants
   // ============================================================
 
-  const SHEET = '/assets/images/pepper_spritesheet_v2.png?v=5';
+  const SHEET = '/assets/images/pepper_spritesheet_v2.webp?v=6'; // made by scripts/process_sprites.py
   const SHEET_W = 400;
   const SHEET_H = 527;
   const FRAME_W = 100;
@@ -185,13 +185,23 @@
     line: null,           // today's status line for the current mode
   };
 
+  // Write an inline style only when it changes. Every write is a DOM
+  // mutation, and production's session recorder (Umami recorder.js) observes
+  // and uploads each one, so unchanged writes are not free.
+  function css(node, prop, value) {
+    const memo = node._css || (node._css = {});
+    if (memo[prop] === value) return;
+    memo[prop] = value;
+    node.style[prop] = value;
+  }
+
   function spriteFrame(anim, frame) {
     const a = ANIM[anim];
     const s = pet.scale;
-    spriteEl.style.width = FRAME_W * s + 'px';
-    spriteEl.style.height = a.h * s + 'px';
-    spriteEl.style.backgroundSize = SHEET_W * s + 'px ' + SHEET_H * s + 'px';
-    spriteEl.style.backgroundPosition = (-frame * FRAME_W * s) + 'px ' + (-a.y * s) + 'px';
+    css(spriteEl, 'width', FRAME_W * s + 'px');
+    css(spriteEl, 'height', a.h * s + 'px');
+    css(spriteEl, 'backgroundSize', SHEET_W * s + 'px ' + SHEET_H * s + 'px');
+    css(spriteEl, 'backgroundPosition', (-frame * FRAME_W * s) + 'px ' + (-a.y * s) + 'px');
   }
 
   function measure() {
@@ -224,6 +234,7 @@
     root.dataset.mode = mode;
     updateStatus();
     render();
+    schedule();
   }
 
   function updateStatus() {
@@ -233,12 +244,15 @@
 
   function render() {
     spriteFrame(pet.mode, pet.frame);
-    petEl.style.transform = 'translateX(' + pet.x.toFixed(1) + 'px)';
-    spriteEl.style.transform = pet.facing < 0 ? 'scaleX(-1)' : '';
-    petEl.classList.toggle('carrying', pet.carrying);
-    petEl.classList.toggle('left', pet.facing < 0);
-    shadowEl.style.transform = 'translateX(' + (pet.x + FRAME_W * pet.scale * 0.5).toFixed(1) + 'px)';
-    shadowEl.style.opacity = pet.away ? '0' : '';
+    // Whole device pixels: crisper pixel art, and sub-pixel creep is not a change.
+    const dpr = window.devicePixelRatio || 1;
+    const px = function (v) { return Math.round(v * dpr) / dpr + 'px'; };
+    css(petEl, 'transform', 'translateX(' + px(pet.x) + ')');
+    css(spriteEl, 'transform', pet.facing < 0 ? 'scaleX(-1)' : '');
+    if (petEl.classList.contains('carrying') !== pet.carrying) petEl.classList.toggle('carrying', pet.carrying);
+    if (petEl.classList.contains('left') !== (pet.facing < 0)) petEl.classList.toggle('left', pet.facing < 0);
+    css(shadowEl, 'transform', 'translateX(' + px(pet.x + FRAME_W * pet.scale * 0.5) + ')');
+    css(shadowEl, 'opacity', pet.away ? '0' : '');
   }
 
   function walkTo(x, run) {
@@ -262,6 +276,12 @@
       return;
     }
     if (pet.busy === 'letter') { pet.facing = -1; setMode('sit'); return; }
+
+    // Nobody touching the page: he settles where he is instead of wandering.
+    if (energy !== 'active') {
+      if (pet.mode !== 'lie' && pet.mode !== 'sit') setMode(Math.random() < 0.5 ? 'sit' : 'lie');
+      return;
+    }
 
     const hour = new Date().getHours();
     const drowsy = (hour >= 0 && hour < 6) || now - pet.lastPoke > 75000;
@@ -305,14 +325,95 @@
     setMode(Math.random() < 0.6 ? 'sit' : 'idle');
   }
 
-  let lastTick = 0;
-  function tick(now) {
-    requestAnimationFrame(tick);
-    if (document.hidden) { lastTick = now; return; }
-    const dt = Math.min(0.05, (now - (lastTick || now)) / 1000);
+  // The loop. Instead of a callback on every display frame (120/s on a
+  // ProMotion screen, whether or not anything changed), exactly one wakeup is
+  // armed for the next thing that is due: the next sprite frame (0.4-1.1 s
+  // apart when he is still), his next decision, a lantern flicker, or the
+  // next pixel of a walk. Only running runs per frame. With the page idle or hidden
+  // (energy.js) he lies down and nothing is armed at all until someone is back.
+  let energy = 'active';
+  let loopTimer = 0, loopRaf = 0, lastTick = 0, houseAt = 0;
+  const WALK_SPEED = 26, RUN_SPEED = 170; // px/s
+  const moving = function () { return pet.mode === 'walk' || pet.mode === 'run'; };
+
+  function schedule() {
+    if (!stage || reduced) return;
+    clearTimeout(loopTimer); loopTimer = 0;
+    if (pet.mode === 'run') {
+      // Running covers a couple of px per frame, so it gets every frame.
+      // rAF stops by itself when hidden; a run in progress always finishes.
+      if (!loopRaf) loopRaf = requestAnimationFrame(function (t) { loopRaf = 0; step(t); });
+      return;
+    }
+    if (loopRaf) { cancelAnimationFrame(loopRaf); loopRaf = 0; }
+    if (energy === 'still' && !moving()) return;
+
+    const now = performance.now();
+    const a = ANIM[pet.mode];
+    // Walking is 26 px/s: wake once per whole pixel of travel (pixel art moves
+    // in whole pixels anyway) instead of every frame for 0.2 px.
+    const walking = pet.mode === 'walk';
+    let due = walking ? now + 1000 / WALK_SPEED : pet.nextThink;
+    if (a.n > 1) due = Math.min(due, pet.frameAt + a.ms);
+    if (houseAnimates && energy === 'active') due = Math.min(due, houseAt + 120);
+
+    // While the ambient layers run, land on their frames (see ambientPhase).
+    const phase = ambientPhase();
+    if (phase >= 0) {
+      const tl = document.timeline.currentTime;
+      const last = tl - phase;
+      const grid = walking ? TICK / 2 : TICK;
+      // A walk takes the very next 1/24 s slot; everything else the first slot at or after it is due.
+      const at = walking ? last + Math.ceil((tl + 1 - last) / grid) * grid
+        : last + Math.ceil((due - now + tl - last) / grid) * grid;
+      loopTimer = setTimeout(function () { loopTimer = 0; onFrameAt(at); }, Math.max(0, at - tl - 12));
+      return;
+    }
+    loopTimer = setTimeout(function () { loopTimer = 0; step(performance.now()); }, Math.max(0, due - now));
+  }
+
+  // The ambient layers (win98-theme.css) change every 1/12 s, so the screen
+  // is redrawn then anyway. A change on any other frame is one more
+  // full-screen redraw, backdrop blurs included. So while they run, Pepper's
+  // updates wait for the frame where the layers step: walking at 24/s lands
+  // on every other one, and sprite frames and decisions on the next one.
+  const TICK = 1000 / 12;
+  let ambient = null;
+  // ms into the ambient layers' current step, or -1 when they are not running.
+  function ambientPhase() {
+    if (!ambient && document.getAnimations) {
+      ambient = document.getAnimations().find(function (x) { return x.animationName === 'particle-drift'; }) || null;
+    }
+    if (!ambient || ambient.playState !== 'running' || ambient.currentTime == null) return -1;
+    return ambient.currentTime % TICK;
+  }
+  // Run step() in the rAF of the first frame at or after `at` (timeline ms):
+  // the same frame the compositor applies the ambient step in.
+  function onFrameAt(at) {
+    loopRaf = requestAnimationFrame(function (t) {
+      loopRaf = 0;
+      if (t < at - 1) onFrameAt(at);
+      else step(t);
+    });
+  }
+
+  function onEnergy(level) {
+    const was = energy;
+    energy = level;
+    if (level === 'still' && !moving() && !pet.away && !pet.busy && !chat.open) setMode('lie');
+    if (level === 'active' && was !== 'active') {
+      pet.nextThink = Math.min(pet.nextThink, performance.now() + 1500);
+      if (Date.now() - lastPoll > POLL_MS) poll();
+    }
+    if (houseAnimates && level !== 'active') drawHouse(0);
+    schedule();
+  }
+
+  function step(now) {
+    const dt = Math.min(0.1, (now - (lastTick || now)) / 1000);
     lastTick = now;
 
-    if (houseAnimates && now - (tick.houseAt || 0) > 120) { tick.houseAt = now; drawHouse(now); }
+    if (houseAnimates && energy === 'active' && now - houseAt >= 120) { houseAt = now; drawHouse(now); }
 
     const a = ANIM[pet.mode];
     if (a.n > 1 && now - pet.frameAt >= a.ms) {
@@ -322,7 +423,7 @@
     }
 
     if (pet.mode === 'walk' || pet.mode === 'run') {
-      const speed = pet.mode === 'run' ? 170 : 26;
+      const speed = pet.mode === 'run' ? RUN_SPEED : WALK_SPEED;
       const d = pet.targetX - pet.x;
       const step = Math.sign(d) * Math.min(Math.abs(d), speed * dt);
       pet.x += step;
@@ -331,6 +432,7 @@
     } else if (now >= pet.nextThink) {
       think(now);
     }
+    schedule();
   }
 
   // Leave the stage to the right carrying the visitor's note, then come back.
@@ -375,9 +477,12 @@
   }
 
   // Watch the cursor: turn toward it when it comes close, wake up when it's near.
-  let pointerRaf = 0;
+  // He glances at the cursor about 10 times a second; a frame callback per
+  // mousemove (up to 120/s) bought nothing but wakeups and layout reads.
+  let pointerRaf = 0, pointerAt = 0;
   function onPointerMove(e) {
-    if (pointerRaf) return;
+    if (pointerRaf || e.timeStamp - pointerAt < 100) return;
+    pointerAt = e.timeStamp;
     pointerRaf = requestAnimationFrame(function () {
       pointerRaf = 0;
       if (chat.open || pet.away || pet.mode === 'walk' || pet.mode === 'run') return;
@@ -677,6 +782,7 @@
     // Only string lights and lanterns flicker; otherwise draw once per change.
     houseAnimates = !reduced && (state.decor || []).some(function (d) { return d.item === 'lights' || d.item === 'lantern'; });
     drawHouse(reduced ? 0 : performance.now());
+    schedule();
     noticeChanges(state);
     renderNeed();
     renderProject();
@@ -702,7 +808,8 @@
     const total = Math.min(working.length + priv, 6);
     for (let i = 0; i < total; i++) {
       const led = el('i', i < working.length ? null : 'priv');
-      led.style.animationDelay = (i * 0.37) % 1.6 + 's';
+      // Staggered, but on the 1/12 s clock the rest of the page animates on.
+      led.style.animationDelay = Math.round(((i * 0.37) % 1.5) * 12) / 12 + 's';
       lights.appendChild(led);
     }
     fleetEl.classList.toggle('on', total > 0);
@@ -713,6 +820,10 @@
     if (priv) parts.push(priv + ' on other projects');
     fleetEl.title = parts.length ? "david's agents working: " + parts.join(', ') : "david's agents are quiet right now";
   }
+
+  const POLL_MS = 60000;
+  let lastPoll = 0;
+  function poll() { lastPoll = Date.now(); fetchWorld(); fetchFleet(); }
 
   function fetchFleet() {
     return fetch('/api/pepper/fleet')
@@ -1391,13 +1502,15 @@
 
     if (!reduced) {
       pet.nextThink = performance.now() + 1500;
-      requestAnimationFrame(tick);
       window.addEventListener('pointermove', onPointerMove, { passive: true });
+      if (window.Energy) window.Energy.watch(onEnergy);
+      else schedule();
     }
 
-    fetchWorld();
-    fetchFleet();
-    setInterval(function () { if (!document.hidden) { fetchWorld(); fetchFleet(); } }, 60000);
+    poll();
+    // World and fleet refresh once a minute while someone is here; an idle
+    // or hidden page skips it and catches up when they come back (onEnergy).
+    setInterval(function () { if (energy !== 'still' && !document.hidden) poll(); }, POLL_MS);
 
     fetch('/api/pepper/day')
       .then(function (r) { return r.ok ? r.json() : null; })

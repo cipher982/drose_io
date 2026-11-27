@@ -140,14 +140,14 @@
   border-radius: 50%;
   background: var(--pp-david);
   box-shadow: 0 0 0 0 rgba(34, 195, 221, 0.6);
-  animation: pp-ping 1.8s ease-out infinite;
+  animation: pp-ping 2s infinite;
   z-index: 3;
 }
 .ph-dot[hidden] { display: none; }
 .pepper-home:hover .ph-dot { opacity: 0; }
 @keyframes pp-ping {
-  0% { box-shadow: 0 0 0 0 rgba(34, 195, 221, 0.55); }
-  80%, 100% { box-shadow: 0 0 0 9px rgba(34, 195, 221, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(34, 195, 221, 0.55); animation-timing-function: steps(18, jump-none); }
+  75%, 100% { box-shadow: 0 0 0 9px rgba(34, 195, 221, 0); }
 }
 
 /* The little world he walks in */
@@ -210,7 +210,9 @@
   border-radius: 1px;
   background: #4ade80;
   box-shadow: 0 0 5px rgba(74, 222, 128, 0.8);
-  animation: pp-led 1.6s steps(2) infinite;
+  /* A two-level blink on the 1/12 s ambient clock: changes at 0.75 s and
+     1.5 s, and pepper.js rounds each LED's delay to a multiple of 1/12 s. */
+  animation: pp-led 1.5s steps(1, jump-end) infinite;
 }
 .ph-leds i.priv { background: #64748b; box-shadow: none; }
 .ph-fleet:not(.on) .ph-leds::before {
@@ -219,7 +221,7 @@
   height: 1px;
   background: rgba(165, 180, 252, 0.25);
 }
-@keyframes pp-led { 50% { opacity: 0.35; } }
+@keyframes pp-led { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
 .pepper-home:hover .ph-fleet { border-color: rgba(165, 180, 252, 0.5); }
 .ph-fleet[hidden] { display: none; }
 .ph-floor {
@@ -280,13 +282,16 @@
   position: absolute;
   font-style: normal;
   opacity: 0;
-  animation: pp-z 3s ease-in infinite;
+  animation: pp-z 3s infinite;
 }
 .ph-z i:nth-child(2) { animation-delay: 1s; }
 .ph-z i:nth-child(3) { animation-delay: 2s; }
+/* steps() applies per keyframe segment, so each segment gets its own count
+   to change 12 times a second (0.75 s -> 9, 2.25 s -> 27). One steps() for
+   the whole animation drew 50 frames/s here, and the original ease-in 120. */
 @keyframes pp-z {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.7); }
-  25% { opacity: 0.9; }
+  0% { opacity: 0; transform: translate(0, 0) scale(0.7); animation-timing-function: steps(9, jump-none); }
+  25% { opacity: 0.9; transform: translate(2.5px, -6.5px) scale(0.81); animation-timing-function: steps(27, jump-none); }
   100% { opacity: 0; transform: translate(10px, -26px) scale(1.15); }
 }
 
@@ -613,6 +618,18 @@
   .ph-carry { left: 38px; bottom: 17px; }
   .pc-row input, .pc-composer input { font-size: 16px; } /* no iOS zoom on focus */
 }
+
+/* Looping effects change on the same 1/12 s clock as the ambient layers (see
+   the ambient budget in win98-theme.css), so they share frames instead of
+   adding their own; every frame redraws the whole screen's backdrop blurs.
+   They stop where they are once nobody is touching the page (calm) or it is
+   hidden (still): html[data-energy], assets/js/energy.js. */
+html[data-energy="calm"] .pepper *,
+html[data-energy="calm"] .pepper *::before,
+html[data-energy="calm"] .pepper *::after,
+html[data-energy="still"] .pepper *,
+html[data-energy="still"] .pepper *::before,
+html[data-energy="still"] .pepper *::after { animation-play-state: paused; }
 
 @media print { .pepper { display: none; } }
 
