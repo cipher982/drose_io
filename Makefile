@@ -1,4 +1,4 @@
-.PHONY: help dev test smoke deploy optimize-images
+.PHONY: help dev test smoke deploy optimize-images energy
 
 help:
 	@echo "drose.io"
@@ -8,6 +8,7 @@ help:
 	@echo "  make smoke            verify a deployment matches this checkout"
 	@echo "  make deploy           deploy to clifford, then smoke-test it"
 	@echo "  make optimize-images  recompress blog images (idempotent)"
+	@echo "  make energy           steady-state energy benchmark (needs make dev running)"
 	@echo ""
 	@echo "  BASE=http://localhost:3000 make smoke   check a local instance"
 
@@ -32,3 +33,9 @@ deploy:
 
 optimize-images:
 	@bun run scripts/optimize-blog-images.ts
+
+# Frames drawn, main-thread time and (with ENERGY_SUDO_PASS set) powermetrics
+# watts for the homepage while someone has it open. See scripts/perf/energy.ts.
+ENERGY_BASE ?= http://localhost:3000
+energy:
+	@bun run scripts/perf/energy.ts --base $(ENERGY_BASE) --reps 2

@@ -11,6 +11,7 @@ make dev          # run locally on :3000
 make test         # unit tests, no server needed
 make deploy       # deploy to clifford, then verify it
 make smoke        # verify prod matches this checkout
+make energy       # what an open tab costs: frames/s, main thread, watts
 ```
 
 **Publish a post.** Create `content/blog/<slug>/` with an `index.html` fragment
@@ -140,6 +141,11 @@ Cloudflare. Everything green except one post usually means bad `meta.json`.
 - The custom analytics dashboard is `/analytics`; `analytics.drose.io` is the
   upstream Umami service and must stay public for embedded scripts.
 - `win98-theme.css` is the glass/void theme base despite the name.
+- **Every frame redraws the whole screen's backdrop blurs**, so anything that
+  animates forever is a battery cost for every open tab. Looping motion steps on
+  one shared 1/12 s clock and stops when `html[data-energy]` (set by
+  `public/assets/js/energy.js`) is `calm` or `still`; follow that for anything
+  new that moves, and check it with `make energy`.
 - Templates live outside `public/` on purpose. Moving them back would let the
   static middleware serve an unrendered page with raw markers in it.
 - Umami is injected between `<!-- UMAMI_START -->` / `<!-- UMAMI_END -->` in
