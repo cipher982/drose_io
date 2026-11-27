@@ -29,28 +29,11 @@
 }
 
 .hero-lede {
-    margin: 0 0 var(--spacing-lg);
+    margin: 0 0 var(--spacing-3xl);
     max-width: 620px;
     font-size: 1.15rem;
     line-height: 1.6;
     color: var(--color-text-primary);
-}
-
-.hero-sub {
-    margin: 0 0 var(--spacing-3xl);
-    max-width: 620px;
-    font-size: var(--font-size-lg);
-    line-height: 1.6;
-    color: var(--drose-text-secondary);
-}
-
-.hero-sub a {
-    color: var(--color-neon-cyan);
-    text-decoration: none;
-}
-
-.hero-sub a:hover {
-    text-decoration: underline;
 }
 
 .hero-links {
